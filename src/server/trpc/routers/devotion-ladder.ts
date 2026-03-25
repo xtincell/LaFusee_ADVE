@@ -5,44 +5,60 @@ export const devotionLadderRouter = createTRPCRouter({
   snapshot: protectedProcedure
     .input(z.object({
       strategyId: z.string(),
+      spectateur: z.number().min(0).max(100),
+      interesse: z.number().min(0).max(100),
+      participant: z.number().min(0).max(100),
+      engage: z.number().min(0).max(100),
+      ambassadeur: z.number().min(0).max(100),
+      evangeliste: z.number().min(0).max(100),
+      trigger: z.string().default("manual"),
     }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, snapshot: null };
+    .mutation(async ({ ctx, input }) => {
+      const devotionScore = input.engage * 0.2 + input.ambassadeur * 0.3 + input.evangeliste * 0.5;
+      return ctx.db.devotionSnapshot.create({
+        data: { ...input, devotionScore },
+      });
     }),
 
   list: protectedProcedure
-    .query(async ({ ctx }) => {
-      // TODO: implement
-      return { success: true, ladders: [] };
+    .input(z.object({ strategyId: z.string(), limit: z.number().default(20) }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.devotionSnapshot.findMany({
+        where: { strategyId: input.strategyId },
+        orderBy: { measuredAt: "desc" },
+        take: input.limit,
+      });
     }),
 
   getByStrategy: protectedProcedure
-    .input(z.object({
-      strategyId: z.string(),
-    }))
+    .input(z.object({ strategyId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, ladder: null };
+      return ctx.db.devotionSnapshot.findFirst({
+        where: { strategyId: input.strategyId },
+        orderBy: { measuredAt: "desc" },
+      });
     }),
 
   setObjective: protectedProcedure
     .input(z.object({
       strategyId: z.string(),
-      objective: z.string(),
-      targetLevel: z.number().min(1).max(10),
+      targetDevotionScore: z.number().min(0).max(100),
     }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.strategy.update({
+        where: { id: input.strategyId },
+        data: { advertis_vector: { devotionObjective: input.targetDevotionScore } },
+      });
     }),
 
   compare: protectedProcedure
-    .input(z.object({
-      strategyIds: z.array(z.string()).min(2),
-    }))
+    .input(z.object({ strategyId: z.string(), periods: z.number().default(6) }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, comparison: [] };
+      const snapshots = await ctx.db.devotionSnapshot.findMany({
+        where: { strategyId: input.strategyId },
+        orderBy: { measuredAt: "desc" },
+        take: input.periods,
+      });
+      return snapshots.reverse();
     }),
 });

@@ -5,60 +5,74 @@ export const qualityReviewRouter = createTRPCRouter({
   submit: protectedProcedure
     .input(z.object({
       deliverableId: z.string(),
-      score: z.number().min(0).max(100),
-      comments: z.string().optional(),
-      criteria: z.record(z.number()).optional(),
+      verdict: z.enum(["ACCEPTED", "MINOR_REVISION", "MAJOR_REVISION", "REJECTED", "ESCALATED"]),
+      pillarScores: z.record(z.unknown()),
+      overallScore: z.number().min(0).max(10),
+      feedback: z.string(),
+      reviewType: z.enum(["AUTOMATED", "PEER", "FIXER", "CLIENT"]),
+      reviewDuration: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.qualityReview.create({
+        data: { ...input, reviewerId: ctx.session.user.id },
+      });
     }),
 
   list: protectedProcedure
-    .input(z.object({
-      limit: z.number().min(1).max(100).default(50),
-      offset: z.number().min(0).default(0),
-    }))
+    .input(z.object({ limit: z.number().default(50), cursor: z.string().optional() }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, reviews: [] };
+      const items = await ctx.db.qualityReview.findMany({
+        take: input.limit + 1,
+        cursor: input.cursor ? { id: input.cursor } : undefined,
+        orderBy: { createdAt: "desc" },
+        include: { deliverable: true },
+      });
+      let nextCursor: string | undefined;
+      if (items.length > input.limit) { nextCursor = items.pop()?.id; }
+      return { items, nextCursor };
     }),
 
   getByDeliverable: protectedProcedure
-    .input(z.object({
-      deliverableId: z.string(),
-    }))
+    .input(z.object({ deliverableId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, reviews: [] };
+      return ctx.db.qualityReview.findMany({
+        where: { deliverableId: input.deliverableId },
+        orderBy: { createdAt: "desc" },
+      });
     }),
 
   getByReviewer: protectedProcedure
-    .input(z.object({
-      reviewerId: z.string(),
-    }))
+    .input(z.object({ reviewerId: z.string().optional() }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, reviews: [] };
+      return ctx.db.qualityReview.findMany({
+        where: { reviewerId: input.reviewerId ?? ctx.session.user.id },
+        orderBy: { createdAt: "desc" },
+        include: { deliverable: true },
+      });
     }),
 
   assignReviewer: adminProcedure
-    .input(z.object({
-      deliverableId: z.string(),
-      reviewerId: z.string(),
-    }))
+    .input(z.object({ deliverableId: z.string(), reviewerId: z.string(), reviewType: z.enum(["AUTOMATED", "PEER", "FIXER", "CLIENT"]) }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.qualityReview.create({
+        data: {
+          deliverableId: input.deliverableId,
+          reviewerId: input.reviewerId,
+          reviewType: input.reviewType,
+          verdict: "ACCEPTED",
+          pillarScores: {},
+          overallScore: 0,
+          feedback: "",
+        },
+      });
     }),
 
   escalate: protectedProcedure
-    .input(z.object({
-      reviewId: z.string(),
-      reason: z.string(),
-    }))
+    .input(z.object({ reviewId: z.string(), reason: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.qualityReview.update({
+        where: { id: input.reviewId },
+        data: { verdict: "ESCALATED", feedback: input.reason },
+      });
     }),
 });
