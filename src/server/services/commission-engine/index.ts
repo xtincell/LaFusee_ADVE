@@ -55,6 +55,43 @@ export async function calculate(missionId: string): Promise<CommissionResult> {
   };
 }
 
+/**
+ * Calculate operator fee for a commission (for licensed operators, not UPgraders).
+ * Ready but not activated in V1 — returns 0 for OWNER operators.
+ */
+export async function calculateOperatorFee(
+  commissionId: string
+): Promise<{ operatorFee: number; operatorRate: number }> {
+  const commission = await db.commission.findUniqueOrThrow({
+    where: { id: commissionId },
+    include: {
+      mission: {
+        include: {
+          strategy: {
+            include: { operator: true },
+          },
+        },
+      },
+    },
+  });
+
+  const operator = commission.mission.strategy.operator;
+  if (!operator || operator.licenseType === "OWNER") {
+    return { operatorFee: 0, operatorRate: 0 };
+  }
+
+  const operatorRate = operator.commissionRate; // e.g. 0.10 = 10%
+  const operatorFee = commission.grossAmount * operatorRate;
+
+  // Persist the fee
+  await db.commission.update({
+    where: { id: commissionId },
+    data: { operatorFee },
+  });
+
+  return { operatorFee, operatorRate };
+}
+
 export async function generatePaymentOrder(commissionId: string): Promise<Record<string, unknown>> {
   const commission = await db.commission.findUniqueOrThrow({
     where: { id: commissionId },
