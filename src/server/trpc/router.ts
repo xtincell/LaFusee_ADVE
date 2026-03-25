@@ -22,6 +22,7 @@ import { campaignRouter } from "./routers/campaign";
 import { missionRouter } from "./routers/mission";
 import { signalRouter } from "./routers/signal";
 import { guildeRouter } from "./routers/guilde";
+import { ambassadorRouter } from "./routers/ambassador";
 
 export const appRouter = createTRPCRouter({
   operator: operatorRouter,
@@ -47,6 +48,7 @@ export const appRouter = createTRPCRouter({
   mission: missionRouter,
   signal: signalRouter,
   guilde: guildeRouter,
+  ambassador: ambassadorRouter,
 });
 
 export type AppRouter = typeof appRouter;
