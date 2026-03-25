@@ -1,2 +1,7 @@
 node_modules/
 tsconfig.tsbuildinfo
+.next/
+.env.local
+.env
+*.log
+prisma/migrations/
