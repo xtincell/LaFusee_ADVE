@@ -1,61 +1,53 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
+import { evaluateCreator } from "@/server/services/tier-evaluator";
 
 export const guildTierRouter = createTRPCRouter({
   getProfile: protectedProcedure
-    .input(z.object({
-      userId: z.string().optional(),
-    }))
+    .input(z.object({ talentProfileId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, profile: null };
+      return ctx.db.talentProfile.findUniqueOrThrow({
+        where: { id: input.talentProfileId },
+        include: { portfolioItems: true, memberships: true },
+      });
     }),
 
   checkPromotion: protectedProcedure
-    .input(z.object({
-      userId: z.string().optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, eligible: false, nextTier: null };
+    .input(z.object({ talentProfileId: z.string() }))
+    .query(async ({ input }) => {
+      return evaluateCreator(input.talentProfileId);
     }),
 
   promote: adminProcedure
-    .input(z.object({
-      userId: z.string(),
-      targetTier: z.string(),
-    }))
+    .input(z.object({ talentProfileId: z.string(), newTier: z.enum(["COMPAGNON", "MAITRE", "ASSOCIE"]) }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.talentProfile.update({
+        where: { id: input.talentProfileId },
+        data: { tier: input.newTier },
+      });
     }),
 
   demote: adminProcedure
-    .input(z.object({
-      userId: z.string(),
-      targetTier: z.string(),
-      reason: z.string(),
-    }))
+    .input(z.object({ talentProfileId: z.string(), newTier: z.enum(["APPRENTI", "COMPAGNON", "MAITRE"]) }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.talentProfile.update({
+        where: { id: input.talentProfileId },
+        data: { tier: input.newTier },
+      });
     }),
 
   listByTier: protectedProcedure
-    .input(z.object({
-      tier: z.string(),
-    }))
+    .input(z.object({ tier: z.enum(["APPRENTI", "COMPAGNON", "MAITRE", "ASSOCIE"]) }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, members: [] };
+      return ctx.db.talentProfile.findMany({
+        where: { tier: input.tier },
+        orderBy: { avgScore: "desc" },
+      });
     }),
 
   getProgressPath: protectedProcedure
-    .input(z.object({
-      userId: z.string().optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, path: [] };
+    .input(z.object({ talentProfileId: z.string() }))
+    .query(async ({ input }) => {
+      return evaluateCreator(input.talentProfileId);
     }),
 });

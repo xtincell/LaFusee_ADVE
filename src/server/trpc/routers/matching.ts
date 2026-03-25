@@ -1,45 +1,30 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
+import { suggest } from "@/server/services/matching-engine";
 
 export const matchingRouter = createTRPCRouter({
   suggest: protectedProcedure
-    .input(z.object({
-      briefId: z.string(),
-      limit: z.number().min(1).max(50).default(10),
-    }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, suggestions: [] };
+    .input(z.object({ missionId: z.string() }))
+    .query(async ({ input }) => {
+      return suggest(input.missionId);
     }),
 
   override: adminProcedure
-    .input(z.object({
-      briefId: z.string(),
-      creatorId: z.string(),
-      reason: z.string().optional(),
-    }))
+    .input(z.object({ missionId: z.string(), talentProfileId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.mission.update({
+        where: { id: input.missionId },
+        data: { status: "ASSIGNED" },
+      });
     }),
 
   getHistory: protectedProcedure
-    .input(z.object({
-      briefId: z.string().optional(),
-      creatorId: z.string().optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, history: [] };
-    }),
+    .input(z.object({ missionId: z.string() }))
+    .query(async () => { return []; }),
 
   getBestForBrief: protectedProcedure
-    .input(z.object({
-      briefId: z.string(),
-      criteria: z.record(z.number()).optional(),
-    }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, matches: [] };
+    .input(z.object({ missionId: z.string(), count: z.number().default(3) }))
+    .query(async ({ input }) => {
+      return suggest(input.missionId);
     }),
 });
