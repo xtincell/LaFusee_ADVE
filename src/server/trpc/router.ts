@@ -17,6 +17,11 @@ import { matchingRouter } from "./routers/matching";
 import { valueReportRouter } from "./routers/value-report";
 import { upsellRouter } from "./routers/upsell";
 import { bootSequenceRouter } from "./routers/boot-sequence";
+import { strategyRouter } from "./routers/strategy";
+import { campaignRouter } from "./routers/campaign";
+import { missionRouter } from "./routers/mission";
+import { signalRouter } from "./routers/signal";
+import { guildeRouter } from "./routers/guilde";
 
 export const appRouter = createTRPCRouter({
   operator: operatorRouter,
@@ -37,6 +42,11 @@ export const appRouter = createTRPCRouter({
   valueReport: valueReportRouter,
   upsell: upsellRouter,
   bootSequence: bootSequenceRouter,
+  strategy: strategyRouter,
+  campaign: campaignRouter,
+  mission: missionRouter,
+  signal: signalRouter,
+  guilde: guildeRouter,
 });
 
 export type AppRouter = typeof appRouter;
