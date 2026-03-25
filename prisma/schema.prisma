@@ -1,0 +1,624 @@
+// ============================================================================
+// LaFusee Industry OS - Prisma Schema
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum OperatorStatus {
+  ACTIVE
+  SUSPENDED
+  CHURNED
+}
+
+enum LicenseType {
+  OWNER
+  LICENSED
+  TRIAL
+}
+
+enum GuildTier {
+  APPRENTI
+  COMPAGNON
+  MAITRE
+  ASSOCIE
+}
+
+enum DriverChannel {
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  LINKEDIN
+  WEBSITE
+  PACKAGING
+  EVENT
+  PR
+  PRINT
+  VIDEO
+  RADIO
+  TV
+  OOH
+  CUSTOM
+}
+
+enum DriverType {
+  DIGITAL
+  PHYSICAL
+  EXPERIENTIAL
+  MEDIA
+}
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ProcessType {
+  DAEMON
+  TRIGGERED
+  BATCH
+}
+
+enum ProcessStatus {
+  RUNNING
+  PAUSED
+  STOPPED
+  COMPLETED
+}
+
+enum ReviewVerdict {
+  ACCEPTED
+  MINOR_REVISION
+  MAJOR_REVISION
+  REJECTED
+  ESCALATED
+}
+
+enum ReviewType {
+  AUTOMATED
+  PEER
+  FIXER
+  CLIENT
+}
+
+enum MissionMode {
+  DISPATCH
+  COLLABORATIF
+}
+
+enum MembershipStatus {
+  ACTIVE
+  OVERDUE
+  CANCELLED
+  EXEMPT
+}
+
+enum KnowledgeType {
+  DIAGNOSTIC_RESULT
+  MISSION_OUTCOME
+  BRIEF_PATTERN
+  CREATOR_PATTERN
+  SECTOR_BENCHMARK
+  CAMPAIGN_TEMPLATE
+}
+
+enum TrackingStatus {
+  AWAITING_SIGNALS
+  PARTIAL
+  COMPLETE
+  EXPIRED
+}
+
+enum QuickIntakeStatus {
+  IN_PROGRESS
+  COMPLETED
+  CONVERTED
+  EXPIRED
+}
+
+// ============================================================================
+// NEXTAUTH MODELS
+// ============================================================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// EXISTING MODELS (stubs with key fields for relations)
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("USER")
+  operatorId    String?
+
+  operator       Operator?       @relation(fields: [operatorId], references: [id])
+  accounts       Account[]
+  sessions       Session[]
+  qualityReviews QualityReview[]
+  talentProfile  TalentProfile?
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  Strategy  Strategy[]
+}
+
+model Operator {
+  id             String         @id @default(cuid())
+  name           String
+  slug           String         @unique
+  status         OperatorStatus
+  licenseType    LicenseType
+  licensedAt     DateTime
+  licenseExpiry  DateTime
+  branding       Json?
+  maxBrands      Int            @default(50)
+  commissionRate Float          @default(0.10)
+
+  users      User[]
+  strategies Strategy[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Strategy {
+  id              String  @id @default(cuid())
+  name            String
+  description     String?
+  userId          String
+  operatorId      String?
+  advertis_vector Json?
+  status          String  @default("ACTIVE")
+
+  user              User               @relation(fields: [userId], references: [id])
+  operator          Operator?          @relation(fields: [operatorId], references: [id])
+  drivers           Driver[]
+  devotionSnapshots DevotionSnapshot[]
+  processes         Process[]
+  campaigns         Campaign[]
+  missions          Mission[]
+  signals           Signal[]
+  gloryOutputs      GloryOutput[]
+  brandAssets       BrandAsset[]
+  pillars           Pillar[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Campaign {
+  id                String @id @default(cuid())
+  name              String
+  strategyId        String
+  advertis_vector   Json?
+  devotionObjective Json?
+  status            String @default("DRAFT")
+
+  strategy Strategy  @relation(fields: [strategyId], references: [id])
+  missions Mission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Mission {
+  id              String       @id @default(cuid())
+  title           String
+  campaignId      String?
+  strategyId      String
+  advertis_vector Json?
+  mode            MissionMode?
+  driverId        String?
+  status          String       @default("DRAFT")
+
+  campaign     Campaign?            @relation(fields: [campaignId], references: [id])
+  strategy     Strategy             @relation(fields: [strategyId], references: [id])
+  driver       Driver?              @relation(fields: [driverId], references: [id])
+  deliverables MissionDeliverable[]
+  commissions  Commission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MissionDeliverable {
+  id        String  @id @default(cuid())
+  missionId String
+  title     String
+  fileUrl   String?
+  status    String  @default("PENDING")
+
+  mission             Mission              @relation(fields: [missionId], references: [id])
+  qualityReviews      QualityReview[]
+  deliverableTracking DeliverableTracking?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TalentProfile {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  displayName         String
+  bio                 String?
+  skills              Json?
+  tier                GuildTier @default(APPRENTI)
+  advertis_vector     Json?
+  firstPassRate       Float     @default(0)
+  collabMissions      Int       @default(0)
+  peerReviews         Int       @default(0)
+  driverSpecialties   Json?
+  guildOrganizationId String?
+  totalMissions       Int       @default(0)
+  avgScore            Float     @default(0)
+
+  user              User               @relation(fields: [userId], references: [id])
+  guildOrganization GuildOrganization? @relation(fields: [guildOrganizationId], references: [id])
+  portfolioItems    PortfolioItem[]
+  memberships       Membership[]
+  commissions       Commission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Signal {
+  id              String @id @default(cuid())
+  strategyId      String
+  type            String
+  data            Json?
+  advertis_vector Json?
+
+  strategy Strategy @relation(fields: [strategyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GloryOutput {
+  id              String @id @default(cuid())
+  strategyId      String
+  toolSlug        String
+  output          Json?
+  advertis_vector Json?
+
+  strategy Strategy @relation(fields: [strategyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BrandAsset {
+  id         String  @id @default(cuid())
+  strategyId String
+  name       String
+  fileUrl    String?
+  pillarTags Json?
+
+  strategy Strategy @relation(fields: [strategyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Pillar {
+  id         String @id @default(cuid())
+  strategyId String
+  key        String
+  content    Json?
+  confidence Float?
+
+  strategy Strategy @relation(fields: [strategyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([strategyId, key])
+}
+
+model Invoice {
+  id       String @id @default(cuid())
+  amount   Float
+  currency String @default("XAF")
+  status   String @default("PENDING")
+
+  commissions Commission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// NEW MODELS
+// ============================================================================
+
+model Driver {
+  id             String        @id @default(cuid())
+  strategyId     String
+  channel        DriverChannel
+  channelType    DriverType
+  name           String
+  status         DriverStatus  @default(ACTIVE)
+  formatSpecs    Json
+  constraints    Json
+  briefTemplate  Json
+  qcCriteria     Json
+  pillarPriority Json
+  deletedAt      DateTime?
+
+  strategy   Strategy          @relation(fields: [strategyId], references: [id])
+  missions   Mission[]
+  processes  Process[]
+  gloryTools DriverGloryTool[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([strategyId])
+}
+
+model DriverGloryTool {
+  id        String @id @default(cuid())
+  driverId  String
+  gloryTool String
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@index([driverId])
+}
+
+model GuildOrganization {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  logoUrl         String?
+  website         String?
+  tier            GuildTier @default(APPRENTI)
+  advertis_vector Json?
+  totalMissions   Int       @default(0)
+  firstPassRate   Float     @default(0)
+  avgQcScore      Float     @default(0)
+  specializations Json?
+  deletedAt       DateTime?
+
+  members TalentProfile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QualityReview {
+  id             String        @id @default(cuid())
+  deliverableId  String
+  reviewerId     String
+  verdict        ReviewVerdict
+  pillarScores   Json
+  overallScore   Float
+  feedback       String
+  reviewType     ReviewType
+  reviewDuration Int?
+
+  deliverable MissionDeliverable @relation(fields: [deliverableId], references: [id])
+  reviewer    User               @relation(fields: [reviewerId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([deliverableId])
+  @@index([reviewerId])
+}
+
+model PortfolioItem {
+  id              String  @id @default(cuid())
+  talentProfileId String
+  deliverableId   String?
+  title           String
+  description     String?
+  pillarTags      Json?
+  fileUrl         String?
+  thumbnailUrl    String?
+
+  talentProfile TalentProfile @relation(fields: [talentProfileId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([talentProfileId])
+}
+
+model Process {
+  id            String        @id @default(cuid())
+  strategyId    String?
+  type          ProcessType
+  name          String
+  description   String?
+  status        ProcessStatus
+  frequency     String?
+  triggerSignal String?
+  priority      Int           @default(5)
+  driverId      String?
+  assigneeId    String?
+  playbook      Json?
+  lastRunAt     DateTime?
+  nextRunAt     DateTime?
+  runCount      Int           @default(0)
+
+  strategy Strategy? @relation(fields: [strategyId], references: [id])
+  driver   Driver?   @relation(fields: [driverId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([strategyId])
+  @@index([status])
+}
+
+model Commission {
+  id               String     @id @default(cuid())
+  missionId        String
+  talentId         String
+  grossAmount      Float
+  commissionRate   Float
+  commissionAmount Float
+  netAmount        Float
+  currency         String     @default("XAF")
+  status           String     @default("PENDING")
+  paidAt           DateTime?
+  tierAtTime       GuildTier?
+  operatorFee      Float?
+  invoiceId        String?
+
+  mission Mission       @relation(fields: [missionId], references: [id])
+  talent  TalentProfile @relation(fields: [talentId], references: [userId])
+  invoice Invoice?      @relation(fields: [invoiceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([missionId])
+}
+
+model Membership {
+  id                 String           @id @default(cuid())
+  talentProfileId    String
+  tier               GuildTier
+  amount             Float
+  currency           String           @default("XAF")
+  status             MembershipStatus
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+
+  talentProfile TalentProfile @relation(fields: [talentProfileId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([talentProfileId])
+}
+
+model DevotionSnapshot {
+  id            String   @id @default(cuid())
+  strategyId    String
+  spectateur    Float    @default(0)
+  interesse     Float    @default(0)
+  participant   Float    @default(0)
+  engage        Float    @default(0)
+  ambassadeur   Float    @default(0)
+  evangeliste   Float    @default(0)
+  devotionScore Float
+  trigger       String   @default("manual")
+  measuredAt    DateTime @default(now())
+
+  strategy Strategy @relation(fields: [strategyId], references: [id])
+
+  @@index([strategyId])
+  @@index([measuredAt])
+}
+
+model KnowledgeEntry {
+  id           String        @id @default(cuid())
+  entryType    KnowledgeType
+  sector       String?
+  market       String?
+  channel      String?
+  pillarFocus  String?
+  data         Json
+  successScore Float?
+  sampleSize   Int           @default(1)
+  sourceHash   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([entryType])
+  @@index([sector])
+  @@index([market])
+}
+
+model DeliverableTracking {
+  id              String         @id @default(cuid())
+  deliverableId   String         @unique
+  expectedSignals Json
+  receivedSignals Json           @default("[]")
+  pillarImpact    Json?
+  status          TrackingStatus
+  expiresAt       DateTime
+
+  deliverable MissionDeliverable @relation(fields: [deliverableId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuickIntake {
+  id              String            @id @default(cuid())
+  contactName     String
+  contactEmail    String
+  contactPhone    String?
+  companyName     String
+  sector          String?
+  country         String?
+  responses       Json
+  advertis_vector Json?
+  classification  String?
+  diagnostic      Json?
+  shareToken      String            @unique @default(cuid())
+  status          QuickIntakeStatus @default(IN_PROGRESS)
+  convertedToId   String?
+  source          String?
+  completedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shareToken])
+  @@index([contactEmail])
+  @@index([status])
+}
