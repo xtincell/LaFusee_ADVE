@@ -12,9 +12,4 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    role?: string;
-    id?: string;
-  }
-}
+// JWT augmentation handled via next-auth callbacks

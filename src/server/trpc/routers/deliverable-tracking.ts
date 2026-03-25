@@ -29,7 +29,7 @@ export const deliverableTrackingRouter = createTRPCRouter({
         where: { id: input.trackingId },
       });
       const receivedSignals = Array.isArray(tracking.receivedSignals) ? tracking.receivedSignals : [];
-      receivedSignals.push(input.signal as Prisma.InputJsonValue);
+      receivedSignals.push(input.signal as unknown as Prisma.JsonValue);
       return ctx.db.deliverableTracking.update({
         where: { id: input.trackingId },
         data: { receivedSignals: receivedSignals as Prisma.InputJsonValue, status: "PARTIAL" },

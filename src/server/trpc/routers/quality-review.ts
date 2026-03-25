@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 
 export const qualityReviewRouter = createTRPCRouter({
@@ -14,7 +15,16 @@ export const qualityReviewRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       return ctx.db.qualityReview.create({
-        data: { ...input, reviewerId: ctx.session.user.id },
+        data: {
+          deliverableId: input.deliverableId,
+          reviewerId: ctx.session.user.id,
+          verdict: input.verdict,
+          pillarScores: input.pillarScores as Prisma.InputJsonValue,
+          overallScore: input.overallScore,
+          feedback: input.feedback,
+          reviewType: input.reviewType,
+          reviewDuration: input.reviewDuration,
+        },
       });
     }),
 

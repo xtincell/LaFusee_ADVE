@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 import { startProcess, pauseProcess, stopProcess, getContention } from "@/server/services/process-scheduler";
 
@@ -7,12 +8,21 @@ export const processRouter = createTRPCRouter({
     .input(z.object({
       name: z.string().min(1),
       description: z.string().optional(),
-      type: z.string(),
+      type: z.enum(["DAEMON", "TRIGGERED", "BATCH"]),
       strategyId: z.string(),
-      config: z.record(z.unknown()).optional(),
+      frequency: z.string().optional(),
+      triggerSignal: z.string().optional(),
+      playbook: z.record(z.unknown()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.process.create({ data: input });
+      const { playbook, ...rest } = input;
+      return ctx.db.process.create({
+        data: {
+          ...rest,
+          status: "STOPPED",
+          playbook: playbook as Prisma.InputJsonValue,
+        },
+      });
     }),
 
   update: adminProcedure
@@ -20,28 +30,31 @@ export const processRouter = createTRPCRouter({
       id: z.string(),
       name: z.string().optional(),
       description: z.string().optional(),
-      config: z.record(z.unknown()).optional(),
+      frequency: z.string().optional(),
+      playbook: z.record(z.unknown()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
-      return ctx.db.process.update({ where: { id }, data });
+      const { id, playbook, ...data } = input;
+      return ctx.db.process.update({
+        where: { id },
+        data: { ...data, ...(playbook ? { playbook: playbook as Prisma.InputJsonValue } : {}) },
+      });
     }),
 
   delete: adminProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.process.update({ where: { id: input.id }, data: { deletedAt: new Date() } });
+      return ctx.db.process.update({ where: { id: input.id }, data: { status: "STOPPED" } });
     }),
 
   list: protectedProcedure
     .input(z.object({
       strategyId: z.string().optional(),
-      status: z.enum(["RUNNING", "PAUSED", "STOPPED", "DRAFT"]).optional(),
+      status: z.enum(["RUNNING", "PAUSED", "STOPPED", "COMPLETED"]).optional(),
     }))
     .query(async ({ ctx, input }) => {
       return ctx.db.process.findMany({
         where: {
-          deletedAt: null,
           ...(input.strategyId ? { strategyId: input.strategyId } : {}),
           ...(input.status ? { status: input.status } : {}),
         },
@@ -75,7 +88,7 @@ export const processRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       return ctx.db.process.findUniqueOrThrow({
         where: { id: input.processId },
-        select: { id: true, name: true, status: true, lastRunAt: true, config: true },
+        select: { id: true, name: true, status: true, lastRunAt: true, nextRunAt: true, frequency: true },
       });
     }),
 

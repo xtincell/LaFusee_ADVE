@@ -80,13 +80,13 @@ export const knowledgeGraphRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const missions = await ctx.db.mission.findMany({
         where: { status: "COMPLETED" },
-        select: { id: true, type: true, status: true, advertis_vector: true },
+        select: { id: true, title: true, status: true, advertis_vector: true },
         take: 50,
-        orderBy: { completedAt: "desc" },
+        orderBy: { createdAt: "desc" },
       });
       return missions.map((m) => ({
         missionId: m.id,
-        type: m.type,
+        title: m.title,
         vector: m.advertis_vector,
       }));
     }),
