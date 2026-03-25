@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import crypto from "crypto";
 
 /**
@@ -29,7 +29,7 @@ export async function runAggregation(): Promise<{
  */
 async function aggregateSectorBenchmarks(): Promise<number> {
   const strategies = await db.strategy.findMany({
-    where: { status: "ACTIVE", advertis_vector: { not: null } },
+    where: { status: "ACTIVE", advertis_vector: { not: Prisma.JsonNull } },
     select: { id: true, advertis_vector: true, operatorId: true },
   });
 
