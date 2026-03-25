@@ -40,7 +40,7 @@ describe("Quick Intake Question Bank", () => {
     const all = getAllQuestions();
     for (const pillar of pillars) {
       expect(all[pillar]).toBeDefined();
-      expect(all[pillar].length).toBeGreaterThanOrEqual(3);
+      expect(all[pillar]!.length).toBeGreaterThanOrEqual(3);
     }
   });
 });

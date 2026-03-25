@@ -31,7 +31,7 @@ describe("Matching Engine Filters", () => {
   it("filters by minimum tier", () => {
     const result = applyBinaryFilters(candidates, { minTier: "MAITRE" });
     expect(result).toHaveLength(1);
-    expect(result[0].tier).toBe("MAITRE");
+    expect(result[0]!.tier).toBe("MAITRE");
   });
 
   it("filters by required skills", () => {
@@ -42,13 +42,13 @@ describe("Matching Engine Filters", () => {
   it("filters by max rate", () => {
     const result = applyBinaryFilters(candidates, { maxRate: 30000 });
     expect(result).toHaveLength(1);
-    expect(result[0].tier).toBe("APPRENTI");
+    expect(result[0]!.tier).toBe("APPRENTI");
   });
 
   it("filters by channel", () => {
     const result = applyBinaryFilters(candidates, { channels: ["INSTAGRAM"] });
     expect(result).toHaveLength(1);
-    expect(result[0].channels).toContain("INSTAGRAM");
+    expect(result[0]!.channels).toContain("INSTAGRAM");
   });
 
   it("combines multiple criteria", () => {
@@ -58,7 +58,7 @@ describe("Matching Engine Filters", () => {
       maxRate: 60000,
     });
     expect(result).toHaveLength(1);
-    expect(result[0].tier).toBe("COMPAGNON");
+    expect(result[0]!.tier).toBe("COMPAGNON");
   });
 
   it("returns empty array when nothing matches", () => {
