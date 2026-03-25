@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 
 export const guildeRouter = createTRPCRouter({
@@ -67,5 +68,43 @@ export const guildeRouter = createTRPCRouter({
         }),
       ]);
       return { total, byTier };
+    }),
+
+  addPortfolioItem: protectedProcedure
+    .input(z.object({
+      title: z.string(),
+      description: z.string().optional(),
+      deliverableId: z.string().optional(),
+      pillarTags: z.record(z.number()).optional(),
+      fileUrl: z.string().optional(),
+      thumbnailUrl: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await ctx.db.talentProfile.findUniqueOrThrow({
+        where: { userId: ctx.session.user.id },
+      });
+      const { pillarTags, ...rest } = input;
+      return ctx.db.portfolioItem.create({
+        data: {
+          ...rest,
+          talentProfileId: profile.id,
+          pillarTags: pillarTags as Prisma.InputJsonValue,
+        },
+      });
+    }),
+
+  removePortfolioItem: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.portfolioItem.delete({ where: { id: input.id } });
+    }),
+
+  getPortfolio: protectedProcedure
+    .input(z.object({ talentProfileId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.portfolioItem.findMany({
+        where: { talentProfileId: input.talentProfileId },
+        orderBy: { createdAt: "desc" },
+      });
     }),
 });

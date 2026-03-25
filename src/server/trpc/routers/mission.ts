@@ -97,4 +97,52 @@ export const missionRouter = createTRPCRouter({
         data: { status: "CANCELLED" },
       });
     }),
+
+  // SLA: Set deadline
+  setDeadline: protectedProcedure
+    .input(z.object({ id: z.string(), deadline: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const mission = await ctx.db.mission.findUniqueOrThrow({ where: { id: input.id } });
+      const existing = (mission.advertis_vector as Record<string, unknown>) ?? {};
+      return ctx.db.mission.update({
+        where: { id: input.id },
+        data: {
+          advertis_vector: {
+            ...existing,
+            deadline: input.deadline,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }),
+
+  // SLA: Check deadlines
+  checkSla: adminProcedure
+    .query(async ({ ctx }) => {
+      const now = new Date();
+      const missions = await ctx.db.mission.findMany({
+        where: { status: { in: ["DRAFT", "IN_PROGRESS"] } },
+        include: { driver: true, strategy: { select: { name: true } } },
+      });
+
+      const alerts = [];
+      for (const m of missions) {
+        const meta = m.advertis_vector as Record<string, unknown> | null;
+        const dl = meta?.deadline as string | undefined;
+        if (!dl) continue;
+        const deadline = new Date(dl);
+        const hours = (deadline.getTime() - now.getTime()) / 3600000;
+        if (hours < 48) {
+          alerts.push({
+            missionId: m.id,
+            title: m.title,
+            strategyName: m.strategy.name,
+            driverChannel: m.driver?.channel,
+            deadline: dl,
+            hoursRemaining: Math.round(hours * 10) / 10,
+            severity: hours < 0 ? "breached" : hours < 24 ? "urgent" : "warning",
+          });
+        }
+      }
+      return alerts.sort((a, b) => a.hoursRemaining - b.hoursRemaining);
+    }),
 });

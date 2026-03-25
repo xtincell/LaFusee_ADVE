@@ -89,6 +89,92 @@ export async function translateBrief(
   };
 }
 
+/**
+ * Generate a complete qualified brief from Driver + strategy context + mission.
+ * Injects N2 composites from relevant pillars (per F.2).
+ */
+export async function generateBrief(
+  driverId: string,
+  missionContext: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const driver = await db.driver.findUniqueOrThrow({
+    where: { id: driverId },
+    include: {
+      strategy: { include: { pillars: true } },
+      gloryTools: true,
+    },
+  });
+
+  const pillarPriority = driver.pillarPriority as Record<string, number>;
+  const topPillars = Object.entries(pillarPriority)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(([key]) => key as PillarKey);
+
+  // Gather pillar content for top priorities
+  const pillarContent: Record<string, unknown> = {};
+  for (const key of topPillars) {
+    const pillar = driver.strategy.pillars.find((p) => p.key === key);
+    if (pillar) {
+      pillarContent[key] = {
+        name: PILLAR_NAMES[key],
+        content: pillar.content,
+        confidence: pillar.confidence,
+      };
+    }
+  }
+
+  // Get glory tools for this driver
+  const gloryToolSlugs = driver.gloryTools.map((gt) => gt.gloryTool);
+  const suggestedTool = getSuggestedFirstTool(driver.channel);
+
+  return {
+    // Brief metadata
+    briefId: `brief-${driver.id}-${Date.now()}`,
+    generatedAt: new Date().toISOString(),
+
+    // Driver context
+    driver: {
+      id: driver.id,
+      channel: driver.channel,
+      channelType: driver.channelType,
+      name: driver.name,
+    },
+
+    // Strategy context
+    strategy: {
+      id: driver.strategy.id,
+      name: driver.strategy.name,
+      vector: driver.strategy.advertis_vector,
+    },
+
+    // Brief content
+    objective: missionContext.objective ?? "",
+    targetAudience: missionContext.targetAudience ?? "",
+    keyMessage: missionContext.keyMessage ?? "",
+    deliverables: missionContext.deliverables ?? [],
+    deadline: missionContext.deadline ?? "",
+    budget: missionContext.budget ?? "",
+
+    // ADVE context (N2 composites from priority pillars)
+    priorityPillars: topPillars,
+    pillarContent,
+    pillarPriority,
+
+    // Production specs from Driver
+    formatSpecs: driver.formatSpecs,
+    constraints: driver.constraints,
+    qcCriteria: driver.qcCriteria,
+
+    // GLORY tools
+    gloryTools: gloryToolSlugs,
+    suggestedFirstTool: suggestedTool,
+
+    // References
+    references: missionContext.references ?? [],
+  };
+}
+
 function getChannelPillarPriority(channel: string, vector: Record<string, number>): Record<string, number> {
   const channelWeights: Record<string, Record<string, number>> = {
     INSTAGRAM: { d: 1.3, v: 1.2, e: 1.3, a: 1.0, r: 0.7, t: 0.8, i: 0.9, s: 0.8 },
