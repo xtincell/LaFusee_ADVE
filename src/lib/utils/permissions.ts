@@ -16,3 +16,108 @@ export function canAccessPortal(role: UserRole, portal: Portal): boolean {
 export function getAvailablePortals(role: UserRole): Portal[] {
   return (Object.keys(PORTAL_ACCESS) as Portal[]).filter((portal) => canAccessPortal(role, portal));
 }
+
+// Strategy-level permissions
+export type StrategyPermission =
+  | "strategy.view"
+  | "strategy.edit"
+  | "strategy.score"
+  | "strategy.drivers.manage"
+  | "strategy.missions.view"
+  | "strategy.missions.create"
+  | "strategy.brand.view"
+  | "strategy.brand.edit"
+  | "strategy.insights.view"
+  | "strategy.guidelines.export"
+  | "strategy.delete";
+
+const ROLE_STRATEGY_PERMISSIONS: Record<UserRole, StrategyPermission[]> = {
+  ADMIN: [
+    "strategy.view", "strategy.edit", "strategy.score",
+    "strategy.drivers.manage", "strategy.missions.view", "strategy.missions.create",
+    "strategy.brand.view", "strategy.brand.edit", "strategy.insights.view",
+    "strategy.guidelines.export", "strategy.delete",
+  ],
+  CLIENT_RETAINER: [
+    "strategy.view", "strategy.brand.view", "strategy.insights.view",
+    "strategy.missions.view", "strategy.guidelines.export",
+  ],
+  CLIENT_STATIC: [
+    "strategy.view", "strategy.brand.view", "strategy.insights.view",
+  ],
+  FREELANCE: [
+    "strategy.missions.view",
+  ],
+  USER: [],
+};
+
+export function hasStrategyPermission(role: UserRole, permission: StrategyPermission): boolean {
+  return ROLE_STRATEGY_PERMISSIONS[role]?.includes(permission) ?? false;
+}
+
+export function getStrategyPermissions(role: UserRole): StrategyPermission[] {
+  return ROLE_STRATEGY_PERMISSIONS[role] ?? [];
+}
+
+// Operator isolation — ensure user can only access their operator's data
+export function canAccessOperator(userOperatorId: string | null, targetOperatorId: string | null): boolean {
+  if (!userOperatorId) return false; // No operator assigned
+  if (!targetOperatorId) return true; // No operator restriction on target
+  return userOperatorId === targetOperatorId;
+}
+
+// Guild tier-based visibility for Creator Portal
+export type GuildTier = "APPRENTI" | "COMPAGNON" | "MAITRE" | "ASSOCIE";
+
+export interface TierVisibility {
+  canViewStrategyContext: boolean;
+  canViewPillarDetails: boolean;
+  canViewCompetitorData: boolean;
+  canAccessPeerReview: boolean;
+  canAccessCollabMissions: boolean;
+  canViewEarningsBreakdown: boolean;
+  canExportPortfolio: boolean;
+}
+
+const TIER_VISIBILITY: Record<GuildTier, TierVisibility> = {
+  APPRENTI: {
+    canViewStrategyContext: false,
+    canViewPillarDetails: false,
+    canViewCompetitorData: false,
+    canAccessPeerReview: false,
+    canAccessCollabMissions: false,
+    canViewEarningsBreakdown: true,
+    canExportPortfolio: false,
+  },
+  COMPAGNON: {
+    canViewStrategyContext: true,
+    canViewPillarDetails: false,
+    canViewCompetitorData: false,
+    canAccessPeerReview: true,
+    canAccessCollabMissions: true,
+    canViewEarningsBreakdown: true,
+    canExportPortfolio: true,
+  },
+  MAITRE: {
+    canViewStrategyContext: true,
+    canViewPillarDetails: true,
+    canViewCompetitorData: true,
+    canAccessPeerReview: true,
+    canAccessCollabMissions: true,
+    canViewEarningsBreakdown: true,
+    canExportPortfolio: true,
+  },
+  ASSOCIE: {
+    canViewStrategyContext: true,
+    canViewPillarDetails: true,
+    canViewCompetitorData: true,
+    canAccessPeerReview: true,
+    canAccessCollabMissions: true,
+    canViewEarningsBreakdown: true,
+    canExportPortfolio: true,
+  },
+};
+
+export function getTierVisibility(tier: GuildTier): TierVisibility {
+  return TIER_VISIBILITY[tier];
+}
