@@ -29,6 +29,21 @@ import { prRouter } from "./routers/pr";
 import { marketStudyRouter } from "./routers/market-study";
 import { brandVaultRouter } from "./routers/brand-vault";
 import { interventionRouter } from "./routers/intervention";
+import { frameworkRouter } from "./routers/framework";
+import { gloryRouter } from "./routers/glory";
+import { analyticsRouter } from "./routers/analytics";
+import { cockpitRouter } from "./routers/cockpit";
+import { clubRouter } from "./routers/club";
+import { eventRouter } from "./routers/event";
+import { boutiqueRouter } from "./routers/boutique";
+import { sourceInsightsRouter } from "./routers/source-insights";
+import { onboardingRouter } from "./routers/onboarding";
+import { messagingRouter } from "./routers/messaging";
+import { crmRouter } from "./routers/crm";
+import { translationRouter } from "./routers/translation";
+import { attributionRouter } from "./routers/attribution";
+import { cohortRouter } from "./routers/cohort";
+import { publicationRouter } from "./routers/publication";
 
 export const appRouter = createTRPCRouter({
   operator: operatorRouter,
@@ -61,6 +76,21 @@ export const appRouter = createTRPCRouter({
   marketStudy: marketStudyRouter,
   brandVault: brandVaultRouter,
   intervention: interventionRouter,
+  framework: frameworkRouter,
+  glory: gloryRouter,
+  analytics: analyticsRouter,
+  cockpit: cockpitRouter,
+  club: clubRouter,
+  event: eventRouter,
+  boutique: boutiqueRouter,
+  sourceInsights: sourceInsightsRouter,
+  onboarding: onboardingRouter,
+  messaging: messagingRouter,
+  crm: crmRouter,
+  translation: translationRouter,
+  attribution: attributionRouter,
+  cohort: cohortRouter,
+  publication: publicationRouter,
 });
 
 export type AppRouter = typeof appRouter;
