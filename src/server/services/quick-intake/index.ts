@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { scoreObject } from "@/server/services/advertis-scorer";
 import { classifyBrand } from "@/lib/types/advertis-vector";
 import { getAdaptiveQuestions } from "./question-bank";
@@ -28,7 +29,7 @@ export async function start(input: QuickIntakeStartInput) {
       sector: input.sector,
       country: input.country,
       source: input.source,
-      responses: {},
+      responses: {} as Prisma.InputJsonValue,
       status: "IN_PROGRESS",
     },
   });
@@ -65,7 +66,7 @@ export async function advance(input: QuickIntakeAdvanceInput) {
 
   await db.quickIntake.update({
     where: { id: intake.id },
-    data: { responses: mergedResponses },
+    data: { responses: mergedResponses as Prisma.InputJsonValue },
   });
 
   if (!nextPillar) {
@@ -123,7 +124,7 @@ export async function complete(token: string) {
         data: {
           strategyId: strategy.id,
           key: pillar,
-          content: pillarResponses,
+          content: pillarResponses as Prisma.InputJsonValue,
           confidence: 0.4, // Low confidence for quick intake
         },
       });
@@ -174,7 +175,7 @@ function generateDiagnostic(
     { key: "s", name: "Stratégie", score: vector.s },
   ];
 
-  const sorted = [...pillars].sort((a, b) => b.score - a.score);
+  const sorted = [...pillars].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const strengths = sorted.slice(0, 3).map((p) => p.name);
   const weaknesses = sorted.slice(-3).map((p) => p.name);
 

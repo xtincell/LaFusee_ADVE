@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 
 export const operatorRouter = createTRPCRouter({
@@ -23,7 +24,12 @@ export const operatorRouter = createTRPCRouter({
       branding: z.record(z.unknown()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
+      const { id, ...rest } = input;
+      const data: Record<string, unknown> = {};
+      if (rest.name !== undefined) data.name = rest.name;
+      if (rest.maxBrands !== undefined) data.maxBrands = rest.maxBrands;
+      if (rest.commissionRate !== undefined) data.commissionRate = rest.commissionRate;
+      if (rest.branding !== undefined) data.branding = rest.branding as Prisma.InputJsonValue;
       return ctx.db.operator.update({ where: { id }, data });
     }),
 

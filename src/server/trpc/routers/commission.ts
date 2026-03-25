@@ -35,7 +35,7 @@ export const commissionRouter = createTRPCRouter({
     .input(z.object({ userId: z.string().optional() }))
     .query(async ({ ctx, input }) => {
       return ctx.db.commission.findMany({
-        where: { userId: input.userId ?? ctx.session.user.id },
+        where: { talentId: input.userId ?? ctx.session.user.id },
         orderBy: { createdAt: "desc" },
       });
     }),

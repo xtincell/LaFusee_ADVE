@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import crypto from "crypto";
 
 export type CaptureEventType =
@@ -40,7 +41,7 @@ export async function captureEvent(
         market: context.market,
         channel: context.channel,
         pillarFocus: context.pillarFocus,
-        data: context.data,
+        data: context.data as Prisma.InputJsonValue,
         successScore: context.successScore,
         sourceHash,
       },

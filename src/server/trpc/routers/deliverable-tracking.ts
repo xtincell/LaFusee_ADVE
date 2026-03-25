@@ -1,20 +1,20 @@
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 
 export const deliverableTrackingRouter = createTRPCRouter({
   create: protectedProcedure
     .input(z.object({
       deliverableId: z.string(),
-      trackingType: z.string(),
-      config: z.record(z.unknown()).optional(),
+      expectedSignals: z.record(z.unknown()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       return ctx.db.deliverableTracking.create({
         data: {
           deliverableId: input.deliverableId,
-          trackingType: input.trackingType,
-          config: input.config ?? {},
-          status: "ACTIVE",
+          expectedSignals: (input.expectedSignals ?? {}) as Prisma.InputJsonValue,
+          status: "AWAITING_SIGNALS",
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
     }),
@@ -22,18 +22,17 @@ export const deliverableTrackingRouter = createTRPCRouter({
   addSignal: protectedProcedure
     .input(z.object({
       trackingId: z.string(),
-      signalType: z.string(),
-      value: z.unknown(),
-      timestamp: z.string().optional(),
+      signal: z.record(z.unknown()),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.trackingSignal.create({
-        data: {
-          deliverableTrackingId: input.trackingId,
-          signalType: input.signalType,
-          value: input.value as any,
-          timestamp: input.timestamp ? new Date(input.timestamp) : new Date(),
-        },
+      const tracking = await ctx.db.deliverableTracking.findUniqueOrThrow({
+        where: { id: input.trackingId },
+      });
+      const receivedSignals = Array.isArray(tracking.receivedSignals) ? tracking.receivedSignals : [];
+      receivedSignals.push(input.signal as Prisma.InputJsonValue);
+      return ctx.db.deliverableTracking.update({
+        where: { id: input.trackingId },
+        data: { receivedSignals: receivedSignals as Prisma.InputJsonValue, status: "PARTIAL" },
       });
     }),
 
@@ -42,7 +41,6 @@ export const deliverableTrackingRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       return ctx.db.deliverableTracking.findMany({
         where: { deliverableId: input.deliverableId },
-        include: { signals: { orderBy: { timestamp: "desc" }, take: 50 } },
       });
     }),
 
@@ -51,14 +49,15 @@ export const deliverableTrackingRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const trackings = await ctx.db.deliverableTracking.findMany({
         where: { deliverableId: input.deliverableId },
-        include: { signals: true },
       });
-      const totalSignals = trackings.reduce((sum, t) => sum + t.signals.length, 0);
+      const totalSignals = trackings.reduce((sum, t) => {
+        const received = Array.isArray(t.receivedSignals) ? t.receivedSignals : [];
+        return sum + received.length;
+      }, 0);
       return {
         deliverableId: input.deliverableId,
         trackingCount: trackings.length,
         totalSignals,
-        latestSignal: trackings[0]?.signals[0] ?? null,
       };
     }),
 

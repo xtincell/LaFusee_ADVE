@@ -16,6 +16,8 @@ async function main() {
       licenseType: "OWNER",
       maxBrands: 50,
       commissionRate: 0.10,
+      licensedAt: new Date(),
+      licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       branding: {
         primaryColor: "#6C3CE0",
         logo: "/images/upgraders-logo.svg",

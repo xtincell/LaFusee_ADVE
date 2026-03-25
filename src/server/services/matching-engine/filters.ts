@@ -18,7 +18,7 @@ export function applyBinaryFilters(
   criteria: FilterCriteria
 ): typeof candidates {
   return candidates.filter((c) => {
-    if (criteria.minTier && TIER_ORDER[c.tier] < (TIER_ORDER[criteria.minTier] ?? 0)) return false;
+    if (criteria.minTier && (TIER_ORDER[c.tier] ?? 0) < (TIER_ORDER[criteria.minTier] ?? 0)) return false;
     if (criteria.maxRate && c.rate && c.rate > criteria.maxRate) return false;
     if (criteria.availableAfter && c.availableFrom && c.availableFrom > criteria.availableAfter) return false;
     if (criteria.requiredSkills?.length) {

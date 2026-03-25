@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { DriverChannel } from "@prisma/client";
 
 interface UpsellOpportunity {
   strategyId: string;
@@ -32,7 +33,7 @@ export async function detect(strategyId: string): Promise<UpsellOpportunity[]> {
 
   // Check for missing important channels
   const existingChannels = new Set(strategy.drivers.map((d) => d.channel));
-  const essentialChannels = ["INSTAGRAM", "WEBSITE", "LINKEDIN"];
+  const essentialChannels: DriverChannel[] = [DriverChannel.INSTAGRAM, DriverChannel.WEBSITE, DriverChannel.LINKEDIN];
   for (const channel of essentialChannels) {
     if (!existingChannels.has(channel)) {
       opportunities.push({

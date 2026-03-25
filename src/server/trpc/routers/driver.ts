@@ -1,11 +1,13 @@
 import { z } from "zod";
+import { DriverChannel } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "../init";
 
 export const driverRouter = createTRPCRouter({
   create: protectedProcedure
     .input(z.object({
       strategyId: z.string(),
-      channel: z.string(),
+      channel: z.nativeEnum(DriverChannel),
       channelType: z.enum(["DIGITAL", "PHYSICAL", "EXPERIENTIAL", "MEDIA"]),
       name: z.string().min(1),
       formatSpecs: z.record(z.unknown()).default({}),
@@ -15,7 +17,16 @@ export const driverRouter = createTRPCRouter({
       pillarPriority: z.record(z.unknown()).default({}),
     }))
     .mutation(async ({ ctx, input }) => {
-      return ctx.db.driver.create({ data: input });
+      return ctx.db.driver.create({
+        data: {
+          ...input,
+          formatSpecs: input.formatSpecs as Prisma.InputJsonValue,
+          constraints: input.constraints as Prisma.InputJsonValue,
+          briefTemplate: input.briefTemplate as Prisma.InputJsonValue,
+          qcCriteria: input.qcCriteria as Prisma.InputJsonValue,
+          pillarPriority: input.pillarPriority as Prisma.InputJsonValue,
+        },
+      });
     }),
 
   update: protectedProcedure
@@ -30,7 +41,15 @@ export const driverRouter = createTRPCRouter({
       status: z.enum(["ACTIVE", "INACTIVE", "ARCHIVED"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
+      const { id, ...rest } = input;
+      const data: Record<string, unknown> = {};
+      if (rest.name !== undefined) data.name = rest.name;
+      if (rest.status !== undefined) data.status = rest.status;
+      if (rest.formatSpecs !== undefined) data.formatSpecs = rest.formatSpecs as Prisma.InputJsonValue;
+      if (rest.constraints !== undefined) data.constraints = rest.constraints as Prisma.InputJsonValue;
+      if (rest.briefTemplate !== undefined) data.briefTemplate = rest.briefTemplate as Prisma.InputJsonValue;
+      if (rest.qcCriteria !== undefined) data.qcCriteria = rest.qcCriteria as Prisma.InputJsonValue;
+      if (rest.pillarPriority !== undefined) data.pillarPriority = rest.pillarPriority as Prisma.InputJsonValue;
       return ctx.db.driver.update({ where: { id }, data });
     }),
 

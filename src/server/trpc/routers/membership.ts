@@ -1,21 +1,26 @@
 import { z } from "zod";
+import { MembershipStatus, GuildTier } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 
 export const membershipRouter = createTRPCRouter({
   create: adminProcedure
     .input(z.object({
       talentProfileId: z.string(),
-      guildOrganizationId: z.string(),
-      role: z.string().default("MEMBER"),
-      startDate: z.string().optional(),
+      tier: z.nativeEnum(GuildTier).default(GuildTier.APPRENTI),
+      amount: z.number().default(0),
+      currency: z.string().default("XAF"),
     }))
     .mutation(async ({ ctx, input }) => {
+      const now = new Date();
+      const periodEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       return ctx.db.membership.create({
         data: {
           talentProfileId: input.talentProfileId,
-          guildOrganizationId: input.guildOrganizationId,
-          role: input.role,
-          startDate: input.startDate ? new Date(input.startDate) : new Date(),
+          tier: input.tier,
+          amount: input.amount,
+          currency: input.currency,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
           status: "ACTIVE",
         },
       });
@@ -33,7 +38,7 @@ export const membershipRouter = createTRPCRouter({
         where: { id: input.membershipId },
         data: {
           status: "ACTIVE",
-          endDate: new Date(Date.now() + durationMs),
+          currentPeriodEnd: new Date(Date.now() + durationMs),
         },
       });
     }),
@@ -46,18 +51,18 @@ export const membershipRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       return ctx.db.membership.update({
         where: { id: input.membershipId },
-        data: { status: "CANCELLED", endDate: new Date() },
+        data: { status: "CANCELLED", currentPeriodEnd: new Date() },
       });
     }),
 
   list: protectedProcedure
     .input(z.object({
-      status: z.enum(["ACTIVE", "EXPIRED", "CANCELLED"]).optional(),
+      status: z.nativeEnum(MembershipStatus).optional(),
     }))
     .query(async ({ ctx, input }) => {
       return ctx.db.membership.findMany({
         where: input.status ? { status: input.status } : {},
-        include: { talentProfile: true, guildOrganization: true },
+        include: { talentProfile: true },
         orderBy: { createdAt: "desc" },
       });
     }),
@@ -67,7 +72,6 @@ export const membershipRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       return ctx.db.membership.findMany({
         where: { talentProfileId: input.talentProfileId },
-        include: { guildOrganization: true },
       });
     }),
 
@@ -81,7 +85,7 @@ export const membershipRouter = createTRPCRouter({
       return {
         active: !!active,
         membershipId: active?.id ?? null,
-        expiresAt: active?.endDate?.toISOString() ?? null,
+        expiresAt: active?.currentPeriodEnd?.toISOString() ?? null,
       };
     }),
 });
