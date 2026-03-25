@@ -27,6 +27,7 @@ import { socialRouter } from "./routers/social";
 import { mediaBuyingRouter } from "./routers/media-buying";
 import { prRouter } from "./routers/pr";
 import { marketStudyRouter } from "./routers/market-study";
+import { brandVaultRouter } from "./routers/brand-vault";
 
 export const appRouter = createTRPCRouter({
   operator: operatorRouter,
@@ -57,6 +58,7 @@ export const appRouter = createTRPCRouter({
   mediaBuying: mediaBuyingRouter,
   pr: prRouter,
   marketStudy: marketStudyRouter,
+  brandVault: brandVaultRouter,
 });
 
 export type AppRouter = typeof appRouter;
