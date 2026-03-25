@@ -9,8 +9,14 @@ export const deliverableTrackingRouter = createTRPCRouter({
       config: z.record(z.unknown()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, id: "" };
+      return ctx.db.deliverableTracking.create({
+        data: {
+          deliverableId: input.deliverableId,
+          trackingType: input.trackingType,
+          config: input.config ?? {},
+          status: "ACTIVE",
+        },
+      });
     }),
 
   addSignal: protectedProcedure
@@ -21,34 +27,47 @@ export const deliverableTrackingRouter = createTRPCRouter({
       timestamp: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.trackingSignal.create({
+        data: {
+          deliverableTrackingId: input.trackingId,
+          signalType: input.signalType,
+          value: input.value as any,
+          timestamp: input.timestamp ? new Date(input.timestamp) : new Date(),
+        },
+      });
     }),
 
   getByDeliverable: protectedProcedure
-    .input(z.object({
-      deliverableId: z.string(),
-    }))
+    .input(z.object({ deliverableId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, tracking: [] };
+      return ctx.db.deliverableTracking.findMany({
+        where: { deliverableId: input.deliverableId },
+        include: { signals: { orderBy: { timestamp: "desc" }, take: 50 } },
+      });
     }),
 
   getImpact: protectedProcedure
-    .input(z.object({
-      deliverableId: z.string(),
-    }))
+    .input(z.object({ deliverableId: z.string() }))
     .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, impact: null };
+      const trackings = await ctx.db.deliverableTracking.findMany({
+        where: { deliverableId: input.deliverableId },
+        include: { signals: true },
+      });
+      const totalSignals = trackings.reduce((sum, t) => sum + t.signals.length, 0);
+      return {
+        deliverableId: input.deliverableId,
+        trackingCount: trackings.length,
+        totalSignals,
+        latestSignal: trackings[0]?.signals[0] ?? null,
+      };
     }),
 
   expire: adminProcedure
-    .input(z.object({
-      trackingId: z.string(),
-    }))
+    .input(z.object({ trackingId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
+      return ctx.db.deliverableTracking.update({
+        where: { id: input.trackingId },
+        data: { status: "EXPIRED" },
+      });
     }),
 });

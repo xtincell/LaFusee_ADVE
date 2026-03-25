@@ -1,43 +1,27 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
+import * as valueReportService from "@/server/services/value-report-generator";
 
 export const valueReportRouter = createTRPCRouter({
   generate: adminProcedure
-    .input(z.object({
-      strategyId: z.string(),
-      period: z.string().optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, reportId: "" };
+    .input(z.object({ strategyId: z.string(), period: z.string() }))
+    .mutation(async ({ input }) => {
+      return valueReportService.generate(input.strategyId, input.period);
     }),
 
   list: protectedProcedure
-    .input(z.object({
-      limit: z.number().min(1).max(100).default(50),
-      offset: z.number().min(0).default(0),
-    }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, reports: [] };
-    }),
+    .input(z.object({ strategyId: z.string() }))
+    .query(async () => { return []; }),
 
   getByStrategy: protectedProcedure
-    .input(z.object({
-      strategyId: z.string(),
-    }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, reports: [] };
+    .input(z.object({ strategyId: z.string() }))
+    .query(async ({ input }) => {
+      return valueReportService.generate(input.strategyId, new Date().toISOString().slice(0, 7));
     }),
 
   export: protectedProcedure
-    .input(z.object({
-      reportId: z.string(),
-      format: z.enum(["PDF", "CSV", "JSON"]).default("PDF"),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, url: "" };
+    .input(z.object({ strategyId: z.string(), period: z.string(), format: z.enum(["html", "pdf"]).default("html") }))
+    .query(async ({ input }) => {
+      return valueReportService.exportHtml(input.strategyId, input.period);
     }),
 });

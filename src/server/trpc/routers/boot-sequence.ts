@@ -1,42 +1,21 @@
 import { z } from "zod";
 import { createTRPCRouter, adminProcedure } from "../init";
+import * as bootService from "@/server/services/boot-sequence";
 
 export const bootSequenceRouter = createTRPCRouter({
   start: adminProcedure
-    .input(z.object({
-      strategyId: z.string(),
-      config: z.record(z.unknown()).optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, sequenceId: "" };
-    }),
+    .input(z.object({ strategyId: z.string() }))
+    .mutation(async ({ input }) => { return bootService.start(input.strategyId); }),
 
   advance: adminProcedure
-    .input(z.object({
-      sequenceId: z.string(),
-      stepData: z.record(z.unknown()).optional(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, currentStep: 0 };
-    }),
+    .input(z.object({ strategyId: z.string(), step: z.number(), responses: z.record(z.unknown()) }))
+    .mutation(async ({ input }) => { return bootService.advance(input.strategyId, input.step, input.responses); }),
 
   complete: adminProcedure
-    .input(z.object({
-      sequenceId: z.string(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true };
-    }),
+    .input(z.object({ strategyId: z.string() }))
+    .mutation(async ({ input }) => { return bootService.complete(input.strategyId); }),
 
   getState: adminProcedure
-    .input(z.object({
-      sequenceId: z.string(),
-    }))
-    .query(async ({ ctx, input }) => {
-      // TODO: implement
-      return { success: true, state: null };
-    }),
+    .input(z.object({ strategyId: z.string() }))
+    .query(async ({ input }) => { return bootService.start(input.strategyId); }),
 });
