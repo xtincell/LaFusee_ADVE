@@ -44,6 +44,7 @@ import { translationRouter } from "./routers/translation";
 import { attributionRouter } from "./routers/attribution";
 import { cohortRouter } from "./routers/cohort";
 import { publicationRouter } from "./routers/publication";
+import { mestorRouter } from "./routers/mestor";
 
 export const appRouter = createTRPCRouter({
   operator: operatorRouter,
@@ -91,6 +92,7 @@ export const appRouter = createTRPCRouter({
   attribution: attributionRouter,
   cohort: cohortRouter,
   publication: publicationRouter,
+  mestor: mestorRouter,
 });
 
 export type AppRouter = typeof appRouter;
