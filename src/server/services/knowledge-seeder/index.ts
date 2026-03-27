@@ -17,6 +17,8 @@ export async function seedExpertise(): Promise<number> {
   const entries: Prisma.KnowledgeEntryCreateInput[] = [
     // Sector benchmarks by market
     ...generateSectorBenchmarks(),
+    // Sector x business model benchmarks
+    ...generateSectorBusinessModelBenchmarks(),
     // Brief patterns by channel
     ...generateBriefPatterns(),
     // Framework effectiveness rankings
@@ -64,6 +66,58 @@ function generateSectorBenchmarks(): Prisma.KnowledgeEntryCreateInput[] {
     }
   }
   return entries;
+}
+
+/**
+ * Benchmarks differentiated by sector x business model x positioning.
+ * A FMCG brand selling D2C has different dynamics than one selling through distributors.
+ */
+function generateSectorBusinessModelBenchmarks(): Prisma.KnowledgeEntryCreateInput[] {
+  const benchmarks = [
+    // FMCG differentiated by model
+    { sector: "FMCG", businessModel: "DISTRIBUTION", positioning: "MAINSTREAM", avgComposite: 95, weakness: "D", strengths: ["V", "T"] },
+    { sector: "FMCG", businessModel: "PRODUCTION", positioning: "PREMIUM", avgComposite: 110, weakness: "E", strengths: ["A", "D"] },
+    { sector: "FMCG", businessModel: "DISTRIBUTION", positioning: "LOW_COST", avgComposite: 80, weakness: "A", strengths: ["V", "I"] },
+    // TECH differentiated by model
+    { sector: "TECH", businessModel: "ABONNEMENT", positioning: "PREMIUM", avgComposite: 115, weakness: "A", strengths: ["V", "E"] },
+    { sector: "TECH", businessModel: "PLATEFORME", positioning: "MAINSTREAM", avgComposite: 105, weakness: "E", strengths: ["V", "I"] },
+    { sector: "TECH", businessModel: "FREEMIUM_AD", positioning: "VALUE", avgComposite: 100, weakness: "D", strengths: ["V", "T"] },
+    // MODE differentiated by positioning
+    { sector: "MODE", businessModel: "DISTRIBUTION", positioning: "LUXE", avgComposite: 130, weakness: "T", strengths: ["A", "D"] },
+    { sector: "MODE", businessModel: "DISTRIBUTION", positioning: "PREMIUM", avgComposite: 115, weakness: "E", strengths: ["D", "A"] },
+    { sector: "MODE", businessModel: "DISTRIBUTION", positioning: "MAINSTREAM", avgComposite: 95, weakness: "D", strengths: ["V", "I"] },
+    { sector: "MODE", businessModel: "DISTRIBUTION", positioning: "LOW_COST", avgComposite: 80, weakness: "A", strengths: ["V", "T"] },
+    // BANQUE differentiated by model
+    { sector: "BANQUE", businessModel: "FINANCIARISATION", positioning: "PREMIUM", avgComposite: 120, weakness: "E", strengths: ["R", "S"] },
+    { sector: "BANQUE", businessModel: "ABONNEMENT", positioning: "MAINSTREAM", avgComposite: 105, weakness: "A", strengths: ["V", "T"] },
+    { sector: "BANQUE", businessModel: "PLATEFORME", positioning: "VALUE", avgComposite: 100, weakness: "D", strengths: ["V", "E"] },
+    // TELECOM
+    { sector: "TELECOM", businessModel: "INFRASTRUCTURE", positioning: "MAINSTREAM", avgComposite: 125, weakness: "A", strengths: ["T", "I"] },
+    { sector: "TELECOM", businessModel: "ABONNEMENT", positioning: "PREMIUM", avgComposite: 115, weakness: "E", strengths: ["V", "R"] },
+    // SERVICES
+    { sector: "SERVICES", businessModel: "SERVICES", positioning: "PREMIUM", avgComposite: 110, weakness: "T", strengths: ["A", "D"] },
+    { sector: "SERVICES", businessModel: "SERVICES", positioning: "VALUE", avgComposite: 90, weakness: "D", strengths: ["V", "E"] },
+    // IMMOBILIER
+    { sector: "IMMOBILIER", businessModel: "PRODUCTION", positioning: "LUXE", avgComposite: 105, weakness: "E", strengths: ["A", "D"] },
+    { sector: "IMMOBILIER", businessModel: "DISTRIBUTION", positioning: "MAINSTREAM", avgComposite: 85, weakness: "T", strengths: ["V", "I"] },
+  ];
+
+  return benchmarks.map((b) => ({
+    entryType: "SECTOR_BENCHMARK" as const,
+    sector: b.sector,
+    businessModel: b.businessModel,
+    data: {
+      avgComposite: b.avgComposite,
+      topQuartile: Math.round(b.avgComposite * 1.35),
+      weakness: b.weakness,
+      strengths: b.strengths,
+      positioning: b.positioning,
+      sampleSize: Math.floor(Math.random() * 10) + 3,
+    } as Prisma.InputJsonValue,
+    successScore: b.avgComposite / 200,
+    sampleSize: Math.floor(Math.random() * 10) + 3,
+    sourceHash: "seed-expertise",
+  }));
 }
 
 function generateBriefPatterns(): Prisma.KnowledgeEntryCreateInput[] {

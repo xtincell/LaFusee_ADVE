@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import type { PillarKey } from "@/lib/types/advertis-vector";
 import { PILLAR_NAMES } from "@/lib/types/advertis-vector";
+import { type BusinessContext, getChannelModifiersForContext } from "@/lib/types/business-context";
 import { getSuggestedFirstTool } from "./glory-tool-selector";
 
 interface DriverSpecs {
@@ -23,9 +24,10 @@ export async function generateSpecs(strategyId: string, channel: string): Promis
   });
 
   const vector = (strategy.advertis_vector as Record<string, number>) ?? {};
+  const bizContext = (strategy.businessContext as unknown as BusinessContext) ?? null;
 
-  // Determine pillar priorities for this channel
-  const pillarPriority = getChannelPillarPriority(channel, vector);
+  // Determine pillar priorities for this channel, modulated by business context
+  const pillarPriority = getChannelPillarPriority(channel, vector, bizContext);
 
   // Generate format specs based on channel
   const formatSpecs = getChannelFormatSpecs(channel);
@@ -146,6 +148,7 @@ export async function generateBrief(
       id: driver.strategy.id,
       name: driver.strategy.name,
       vector: driver.strategy.advertis_vector,
+      businessContext: driver.strategy.businessContext ?? null,
     },
 
     // Brief content
@@ -175,7 +178,11 @@ export async function generateBrief(
   };
 }
 
-function getChannelPillarPriority(channel: string, vector: Record<string, number>): Record<string, number> {
+function getChannelPillarPriority(
+  channel: string,
+  vector: Record<string, number>,
+  bizContext?: BusinessContext | null
+): Record<string, number> {
   const channelWeights: Record<string, Record<string, number>> = {
     INSTAGRAM: { d: 1.3, v: 1.2, e: 1.3, a: 1.0, r: 0.7, t: 0.8, i: 0.9, s: 0.8 },
     FACEBOOK: { e: 1.3, v: 1.2, a: 1.0, d: 0.9, r: 0.8, t: 0.9, i: 1.0, s: 0.8 },
@@ -189,10 +196,17 @@ function getChannelPillarPriority(channel: string, vector: Record<string, number
   };
 
   const weights = channelWeights[channel] ?? { a: 1, d: 1, v: 1, e: 1, r: 1, t: 1, i: 1, s: 1 };
+
+  // Apply business context channel modifiers if available
+  const bizModifiers = bizContext ? getChannelModifiersForContext(bizContext) : {};
+  const channelMod = bizModifiers[channel] ?? 0;
+
   const priority: Record<string, number> = {};
 
   for (const [key, weight] of Object.entries(weights)) {
-    priority[key] = Math.round(((vector[key] ?? 12.5) * weight) * 100) / 100;
+    // Channel modifier boosts or reduces the overall weight for this channel
+    const adjustedWeight = Math.max(0.3, weight + channelMod * 0.5);
+    priority[key] = Math.round(((vector[key] ?? 12.5) * adjustedWeight) * 100) / 100;
   }
 
   return priority;

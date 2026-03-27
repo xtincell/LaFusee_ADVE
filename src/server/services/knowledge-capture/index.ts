@@ -15,6 +15,7 @@ export interface CaptureContext {
   market?: string;
   channel?: string;
   pillarFocus?: string;
+  businessModel?: string;
   data: Record<string, unknown>;
   successScore?: number;
   sourceId?: string; // Will be hashed for anonymization
@@ -41,6 +42,7 @@ export async function captureEvent(
         market: context.market,
         channel: context.channel,
         pillarFocus: context.pillarFocus,
+        businessModel: context.businessModel,
         data: context.data as Prisma.InputJsonValue,
         successScore: context.successScore,
         sourceHash,

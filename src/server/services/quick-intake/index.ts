@@ -2,7 +2,9 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { scoreObject } from "@/server/services/advertis-scorer";
 import { classifyBrand } from "@/lib/types/advertis-vector";
-import { getAdaptiveQuestions } from "./question-bank";
+import { getAdaptiveQuestions, getBusinessContextQuestions } from "./question-bank";
+import type { BusinessContext, BusinessModelKey, EconomicModelKey, PositioningArchetypeKey, SalesChannel, PremiumScope } from "@/lib/types/business-context";
+import { POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
 
 export interface QuickIntakeStartInput {
   contactName: string;
@@ -11,6 +13,9 @@ export interface QuickIntakeStartInput {
   companyName: string;
   sector?: string;
   country?: string;
+  businessModel?: string;
+  economicModel?: string;
+  positioning?: string;
   source?: string;
 }
 
@@ -28,18 +33,22 @@ export async function start(input: QuickIntakeStartInput) {
       companyName: input.companyName,
       sector: input.sector,
       country: input.country,
+      businessModel: input.businessModel,
+      economicModel: input.economicModel,
+      positioning: input.positioning,
       source: input.source,
       responses: {} as Prisma.InputJsonValue,
       status: "IN_PROGRESS",
     },
   });
 
-  const firstQuestions = getAdaptiveQuestions("a", {});
+  // Start with business context questions, then move to ADVE pillars
+  const firstQuestions = getBusinessContextQuestions();
 
   return {
     token: intake.shareToken,
     questions: firstQuestions,
-    currentPillar: "a",
+    currentPillar: "biz",
     progress: 0,
   };
 }
@@ -56,13 +65,33 @@ export async function advance(input: QuickIntakeAdvanceInput) {
   const existingResponses = (intake.responses as Record<string, unknown>) ?? {};
   const mergedResponses = { ...existingResponses, ...input.responses };
 
-  // Determine next pillar based on progress
-  const pillars = ["a", "d", "v", "e", "r", "t", "i", "s"];
-  const answeredPillars = new Set(
+  // Determine next pillar based on progress (biz first, then ADVE pillars)
+  const allSteps = ["biz", "a", "d", "v", "e", "r", "t", "i", "s"];
+  const answeredSteps = new Set(
     Object.keys(mergedResponses).map((key) => key.split("_")[0])
   );
-  const nextPillar = pillars.find((p) => !answeredPillars.has(p));
-  const progress = answeredPillars.size / pillars.length;
+  const nextPillar = allSteps.find((p) => !answeredSteps.has(p));
+  const progress = answeredSteps.size / allSteps.length;
+
+  // If biz step just completed, persist business context fields on the intake
+  if (answeredSteps.has("biz") && mergedResponses.biz_model) {
+    const bizModel = extractKeyFromOption(mergedResponses.biz_model as string);
+    const bizPositioning = extractKeyFromOption(mergedResponses.biz_positioning as string);
+    const bizRevenue = Array.isArray(mergedResponses.biz_revenue)
+      ? (mergedResponses.biz_revenue as string[]).map(extractKeyFromOption).join(",")
+      : typeof mergedResponses.biz_revenue === "string"
+        ? extractKeyFromOption(mergedResponses.biz_revenue)
+        : undefined;
+
+    await db.quickIntake.update({
+      where: { id: intake.id },
+      data: {
+        businessModel: bizModel,
+        economicModel: bizRevenue,
+        positioning: bizPositioning,
+      },
+    });
+  }
 
   await db.quickIntake.update({
     where: { id: intake.id },
@@ -98,6 +127,9 @@ export async function complete(token: string) {
 
   if (!intake) throw new Error("Intake not found");
 
+  // Build BusinessContext from intake responses
+  const businessContext = buildBusinessContext(intake);
+
   // Create a temporary strategy for scoring
   const strategy = await db.strategy.create({
     data: {
@@ -105,6 +137,7 @@ export async function complete(token: string) {
       description: `Auto-generated from Quick Intake ${intake.id}`,
       userId: "system", // System-generated
       status: "QUICK_INTAKE",
+      businessContext: businessContext as unknown as Prisma.InputJsonValue,
     },
   });
 
@@ -158,6 +191,57 @@ export async function complete(token: string) {
     diagnostic,
     strategyId: strategy.id,
   };
+}
+
+/**
+ * Extracts the key portion from "KEY::Label" format options.
+ */
+function extractKeyFromOption(option: string): string {
+  const parts = option.split("::");
+  return parts[0] ?? option;
+}
+
+/**
+ * Builds a BusinessContext from a QuickIntake record's responses and fields.
+ */
+function buildBusinessContext(
+  intake: { businessModel: string | null; economicModel: string | null; positioning: string | null; responses: unknown }
+): BusinessContext | null {
+  if (!intake.businessModel) return null;
+
+  const responses = (intake.responses ?? {}) as Record<string, unknown>;
+  const salesChannelRaw = extractKeyFromOption((responses.biz_sales_channel as string) ?? "HYBRID");
+  const premiumScopeRaw = extractKeyFromOption((responses.biz_premium_scope as string) ?? "NONE");
+  const freeElementRaw = extractKeyFromOption((responses.biz_free_element as string) ?? "NONE");
+
+  const positioningKey = (intake.positioning ?? "MAINSTREAM") as PositioningArchetypeKey;
+  const archetype = POSITIONING_ARCHETYPES[positioningKey];
+  const isPositionalGood = archetype?.positionalGood === true;
+
+  const economicModels = intake.economicModel
+    ? intake.economicModel.split(",") as EconomicModelKey[]
+    : ["VENTE_DIRECTE" as EconomicModelKey];
+
+  const ctx: BusinessContext = {
+    businessModel: intake.businessModel as BusinessModelKey,
+    economicModels,
+    positioningArchetype: positioningKey,
+    salesChannel: salesChannelRaw as SalesChannel,
+    positionalGoodFlag: isPositionalGood,
+    premiumScope: premiumScopeRaw as PremiumScope,
+  };
+
+  // Build free layer if applicable
+  if (freeElementRaw !== "NONE") {
+    const freeDetail = (responses.biz_free_detail as string) ?? "";
+    ctx.freeLayer = {
+      whatIsFree: freeElementRaw,
+      whatIsPaid: freeDetail || "Non précisé",
+      conversionLever: freeElementRaw === "FREEMIUM" ? "feature_gate" : freeElementRaw === "CONTENT" ? "content_upsell" : "ad_conversion",
+    };
+  }
+
+  return ctx;
 }
 
 function generateDiagnostic(
