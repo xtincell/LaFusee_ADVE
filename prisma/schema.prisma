@@ -217,6 +217,7 @@ model Strategy {
   userId          String
   operatorId      String?
   advertis_vector Json?
+  businessContext  Json?
   status          String  @default("ACTIVE")
 
   user              User               @relation(fields: [userId], references: [id])
@@ -565,14 +566,15 @@ model DevotionSnapshot {
 model KnowledgeEntry {
   id           String        @id @default(cuid())
   entryType    KnowledgeType
-  sector       String?
-  market       String?
-  channel      String?
-  pillarFocus  String?
-  data         Json
-  successScore Float?
-  sampleSize   Int           @default(1)
-  sourceHash   String?
+  sector        String?
+  market        String?
+  channel       String?
+  pillarFocus   String?
+  businessModel String?
+  data          Json
+  successScore  Float?
+  sampleSize    Int           @default(1)
+  sourceHash    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -580,6 +582,7 @@ model KnowledgeEntry {
   @@index([entryType])
   @@index([sector])
   @@index([market])
+  @@index([businessModel])
 }
 
 model DeliverableTracking {
@@ -605,6 +608,9 @@ model QuickIntake {
   companyName     String
   sector          String?
   country         String?
+  businessModel   String?
+  economicModel   String?
+  positioning     String?
   responses       Json
   advertis_vector Json?
   classification  String?

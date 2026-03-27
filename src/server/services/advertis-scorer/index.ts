@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { type AdvertisVector, createEmptyVector, classifyBrand } from "@/lib/types/advertis-vector";
+import { type AdvertisVector, type PillarKey, PILLAR_KEYS, createEmptyVector, classifyBrand } from "@/lib/types/advertis-vector";
+import { type BusinessContext, getPillarWeightsForContext } from "@/lib/types/business-context";
 import { scoreStructural } from "./structural";
 import { getQualityModulator } from "./quality-modulator";
 
@@ -9,22 +10,20 @@ export async function scoreObject(type: ScorableType, id: string): Promise<Adver
   const structuralScores = await scoreStructural(type, id);
   const modulator = await getQualityModulator(type, id);
 
-  const pillars = {
-    a: structuralScores.a * modulator,
-    d: structuralScores.d * modulator,
-    v: structuralScores.v * modulator,
-    e: structuralScores.e * modulator,
-    r: structuralScores.r * modulator,
-    t: structuralScores.t * modulator,
-    i: structuralScores.i * modulator,
-    s: structuralScores.s * modulator,
-  };
+  // Load business context weights if scoring a strategy
+  const bizWeights = await getBusinessContextWeights(type, id);
 
-  const composite = pillars.a + pillars.d + pillars.v + pillars.e + pillars.r + pillars.t + pillars.i + pillars.s;
+  const pillars: Record<string, number> = {};
+  for (const key of PILLAR_KEYS) {
+    pillars[key] = structuralScores[key] * modulator * bizWeights[key];
+  }
+
+  const composite = PILLAR_KEYS.reduce((sum, key) => sum + (pillars[key] ?? 0), 0);
   const confidence = computeConfidence(type, structuralScores);
 
   const vector: AdvertisVector = {
-    ...pillars,
+    a: pillars.a ?? 0, d: pillars.d ?? 0, v: pillars.v ?? 0, e: pillars.e ?? 0,
+    r: pillars.r ?? 0, t: pillars.t ?? 0, i: pillars.i ?? 0, s: pillars.s ?? 0,
     composite: Math.round(composite * 100) / 100,
     confidence: Math.round(confidence * 100) / 100,
   };
@@ -37,6 +36,47 @@ export async function scoreObject(type: ScorableType, id: string): Promise<Adver
 
 export async function batchScore(type: ScorableType, ids: string[]): Promise<AdvertisVector[]> {
   return Promise.all(ids.map((id) => scoreObject(type, id)));
+}
+
+/**
+ * Loads business context from the strategy and returns pillar weight modifiers.
+ * For non-strategy types, attempts to resolve the parent strategy.
+ */
+async function getBusinessContextWeights(
+  type: ScorableType,
+  id: string
+): Promise<Record<PillarKey, number>> {
+  const defaultWeights: Record<PillarKey, number> = { a: 1, d: 1, v: 1, e: 1, r: 1, t: 1, i: 1, s: 1 };
+
+  try {
+    let strategyId: string | null = null;
+
+    if (type === "strategy") {
+      strategyId = id;
+    } else if (type === "campaign") {
+      const campaign = await db.campaign.findUnique({ where: { id }, select: { strategyId: true } });
+      strategyId = campaign?.strategyId ?? null;
+    } else if (type === "mission") {
+      const mission = await db.mission.findUnique({ where: { id }, select: { strategyId: true } });
+      strategyId = mission?.strategyId ?? null;
+    }
+
+    if (!strategyId) return defaultWeights;
+
+    const strategy = await db.strategy.findUnique({
+      where: { id: strategyId },
+      select: { businessContext: true },
+    });
+
+    if (!strategy?.businessContext) return defaultWeights;
+
+    const ctx = strategy.businessContext as unknown as BusinessContext;
+    if (!ctx.businessModel || !ctx.positioningArchetype) return defaultWeights;
+
+    return getPillarWeightsForContext(ctx);
+  } catch {
+    return defaultWeights;
+  }
 }
 
 function computeConfidence(type: ScorableType, scores: Record<string, number>): number {

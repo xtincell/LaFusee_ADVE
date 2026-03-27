@@ -1,3 +1,5 @@
+import { BUSINESS_MODELS, ECONOMIC_MODELS, POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
+
 export interface IntakeQuestion {
   id: string;
   pillar: string;
@@ -8,6 +10,76 @@ export interface IntakeQuestion {
 }
 
 const QUESTION_BANK: Record<string, IntakeQuestion[]> = {
+  // ========================================================================
+  // Business context questions — captured before ADVE pillars
+  // ========================================================================
+  biz: [
+    {
+      id: "biz_model", pillar: "biz",
+      question: "Quel est votre modèle d'affaires principal ?",
+      type: "select",
+      options: Object.entries(BUSINESS_MODELS).map(([key, m]) => `${key}::${m.label}`),
+      required: true,
+    },
+    {
+      id: "biz_revenue", pillar: "biz",
+      question: "Comment générez-vous principalement vos revenus ? (plusieurs choix possibles)",
+      type: "multiselect",
+      options: Object.entries(ECONOMIC_MODELS).map(([key, m]) => `${key}::${m.label}`),
+      required: true,
+    },
+    {
+      id: "biz_positioning", pillar: "biz",
+      question: "Comment positionnez-vous vos prix par rapport au marché ?",
+      type: "select",
+      options: Object.entries(POSITIONING_ARCHETYPES).map(([key, m]) => `${key}::${m.label}`),
+      required: true,
+    },
+    {
+      id: "biz_sales_channel", pillar: "biz",
+      question: "Comment vendez-vous ?",
+      type: "select",
+      options: [
+        "DIRECT::Directement au client final (D2C)",
+        "INTERMEDIATED::Via des distributeurs / revendeurs",
+        "HYBRID::Les deux (vente directe + distributeurs)",
+      ],
+      required: true,
+    },
+    {
+      id: "biz_free_element", pillar: "biz",
+      question: "Y a-t-il une partie gratuite dans votre offre ?",
+      type: "select",
+      options: [
+        "NONE::Non, tout est payant",
+        "FREEMIUM::Oui, une version gratuite limitée",
+        "CONTENT::Oui, du contenu ou des outils gratuits",
+        "AD_SUPPORTED::Oui, un modèle financé par la publicité",
+      ],
+      required: false,
+    },
+    {
+      id: "biz_free_detail", pillar: "biz",
+      question: "Si oui, décrivez ce qui est gratuit vs. ce qui est payant.",
+      type: "text",
+      required: false,
+    },
+    {
+      id: "biz_premium_scope", pillar: "biz",
+      question: "Votre positionnement premium/luxe concerne-t-il toute votre gamme ou seulement certains produits ?",
+      type: "select",
+      options: [
+        "FULL::Toute la marque est positionnée premium/luxe",
+        "PARTIAL::Seulement certains produits ou lignes",
+        "NONE::Nous ne sommes pas positionnés premium/luxe",
+      ],
+      required: false,
+    },
+  ],
+
+  // ========================================================================
+  // ADVE Pillar questions
+  // ========================================================================
   a: [
     { id: "a_vision", pillar: "a", question: "Quelle est la vision de votre marque ? Où voulez-vous être dans 10 ans ?", type: "text", required: true },
     { id: "a_mission", pillar: "a", question: "Quelle est votre mission ? Pourquoi votre marque existe-t-elle ?", type: "text", required: true },
@@ -53,6 +125,10 @@ const QUESTION_BANK: Record<string, IntakeQuestion[]> = {
     { id: "s_ambition", pillar: "s", question: "Où voulez-vous que votre marque soit dans 3 ans ?", type: "text", required: true },
   ],
 };
+
+export function getBusinessContextQuestions(): IntakeQuestion[] {
+  return QUESTION_BANK.biz ?? [];
+}
 
 export function getAdaptiveQuestions(
   pillar: string,

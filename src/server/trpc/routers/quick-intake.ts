@@ -11,6 +11,9 @@ export const quickIntakeRouter = createTRPCRouter({
       companyName: z.string().min(1),
       sector: z.string().optional(),
       country: z.string().optional(),
+      businessModel: z.string().optional(),
+      economicModel: z.string().optional(),
+      positioning: z.string().optional(),
       source: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
@@ -50,6 +53,16 @@ export const quickIntakeRouter = createTRPCRouter({
         throw new Error("Intake must be completed before conversion");
       }
 
+      // Retrieve businessContext from the temporary strategy if it exists
+      let businessContext = undefined;
+      if (intake.convertedToId) {
+        const tempStrategy = await ctx.db.strategy.findUnique({
+          where: { id: intake.convertedToId },
+          select: { businessContext: true },
+        });
+        businessContext = tempStrategy?.businessContext ?? undefined;
+      }
+
       // Create Strategy (Brand Instance) from intake data
       const strategy = await ctx.db.strategy.create({
         data: {
@@ -59,6 +72,7 @@ export const quickIntakeRouter = createTRPCRouter({
           operatorId: (await ctx.db.user.findUniqueOrThrow({ where: { id: input.userId } })).operatorId,
           status: "ACTIVE",
           advertis_vector: intake.advertis_vector ?? undefined,
+          businessContext: businessContext ?? undefined,
         },
       });
 
