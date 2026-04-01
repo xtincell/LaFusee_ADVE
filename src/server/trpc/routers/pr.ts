@@ -1,3 +1,23 @@
+// ============================================================================
+// MODULE M37 — PR / Relations Presse
+// Score: 40/100 | Priority: P2 | Status: NEEDS_FIX
+// Spec: §6.10 + Annexe E §3.1 | Division: La Fusée (BOOST)
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  PressRelease CRUD (draft, review, publish)
+// [x] REQ-2  MediaContact management (journalists, outlets, tiers, relations)
+// [x] REQ-3  PressClipping tracking (reach, sentiment, ad equivalent value)
+// [ ] REQ-4  Driver PR: traduire profil ADVE en angles presse, messages clés, talking points
+// [ ] REQ-5  PressClipping → Signal (feedback loop for D+E pillars)
+// [ ] REQ-6  Portal: client /cockpit/operate, fixer /console/fusee/pr
+// [ ] REQ-7  advertis_vector on PressRelease (scored for ADVE alignment)
+// [ ] REQ-8  Distribution tracking (which outlets received, opened, published)
+//
+// PROCEDURES: createRelease, listReleases, createContact, listContacts,
+//             createClipping, listClippings, getByStrategy
+// ============================================================================
+
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "../init";

@@ -112,10 +112,14 @@ export default function CampaignsPage() {
 
   const allCampaigns = campaignsQuery.data ?? [];
 
-  // Tab filtering
-  const activeCampaigns = allCampaigns.filter((c) => c.status === "ACTIVE");
-  const productionCampaigns = allCampaigns.filter((c) => c.status === "PRODUCTION" || c.status === "IN_PROGRESS");
-  const completedCampaigns = allCampaigns.filter((c) => c.status === "COMPLETED");
+  // Tab filtering based on 12-state machine (state field takes precedence, falls back to status)
+  const getState = (c: { state?: string; status: string }) => c.state ?? c.status;
+  const ACTIVE_STATES = ["BRIEF_DRAFT", "BRIEF_VALIDATED", "PLANNING", "CREATIVE_DEV", "APPROVAL", "READY_TO_LAUNCH", "LIVE"];
+  const PRODUCTION_STATES = ["PRODUCTION", "PRE_PRODUCTION"];
+  const COMPLETED_STATES = ["POST_CAMPAIGN", "ARCHIVED", "CANCELLED"];
+  const activeCampaigns = allCampaigns.filter((c) => ACTIVE_STATES.includes(getState(c)));
+  const productionCampaigns = allCampaigns.filter((c) => PRODUCTION_STATES.includes(getState(c)));
+  const completedCampaigns = allCampaigns.filter((c) => COMPLETED_STATES.includes(getState(c)));
 
   const tabFiltered =
     activeTab === "all"
@@ -249,7 +253,7 @@ export default function CampaignsPage() {
                       <h4 className="text-sm font-semibold text-white">
                         {c.name}
                       </h4>
-                      <StatusBadge status={c.status} />
+                      <CampaignStateBadge state={getState(c)} />
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
                       <span className="flex items-center gap-1">
@@ -363,6 +367,7 @@ interface CampaignDetailModalProps {
     id: string;
     name: string;
     status: string;
+    state?: string;
     createdAt: unknown;
     advertis_vector: unknown;
     missions?: Array<{ id: string; status: string }>;
@@ -372,12 +377,20 @@ interface CampaignDetailModalProps {
   onTransitionComplete: () => void;
 }
 
-// Client-side state machine for valid campaign transitions
+// Client-side state machine matching the real 12-state campaign lifecycle
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  DRAFT: ["LIVE"],
-  LIVE: ["PAUSED", "POST_CAMPAIGN"],
-  PAUSED: ["LIVE"],
+  BRIEF_DRAFT: ["BRIEF_VALIDATED", "CANCELLED"],
+  BRIEF_VALIDATED: ["PLANNING", "BRIEF_DRAFT", "CANCELLED"],
+  PLANNING: ["CREATIVE_DEV", "BRIEF_VALIDATED", "CANCELLED"],
+  CREATIVE_DEV: ["PRODUCTION", "PLANNING", "CANCELLED"],
+  PRODUCTION: ["PRE_PRODUCTION", "CREATIVE_DEV", "CANCELLED"],
+  PRE_PRODUCTION: ["APPROVAL", "PRODUCTION", "CANCELLED"],
+  APPROVAL: ["READY_TO_LAUNCH", "PRE_PRODUCTION", "CANCELLED"],
+  READY_TO_LAUNCH: ["LIVE", "APPROVAL", "CANCELLED"],
+  LIVE: ["POST_CAMPAIGN", "CANCELLED"],
   POST_CAMPAIGN: ["ARCHIVED"],
+  ARCHIVED: [],
+  CANCELLED: [],
 };
 
 function isValidTransition(from: string, to: string): boolean {
@@ -388,9 +401,12 @@ function CampaignDetailModal({ campaign, pillarContentMap, onClose, onTransition
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
 
+  // Use the 12-state machine state (falls back to status for legacy data)
+  const campaignState = (campaign.state ?? campaign.status) as "BRIEF_DRAFT" | "BRIEF_VALIDATED" | "PLANNING" | "CREATIVE_DEV" | "PRODUCTION" | "PRE_PRODUCTION" | "APPROVAL" | "READY_TO_LAUNCH" | "LIVE" | "POST_CAMPAIGN" | "ARCHIVED" | "CANCELLED";
+
   // Fetch available transitions for current state
   const transitionsQuery = trpc.campaignManager.availableTransitions.useQuery(
-    { state: campaign.status as "BRIEF_DRAFT" | "BRIEF_VALIDATED" | "PLANNING" | "CREATIVE_DEV" | "PRODUCTION" | "PRE_PRODUCTION" | "APPROVAL" | "READY_TO_LAUNCH" | "LIVE" | "POST_CAMPAIGN" | "ARCHIVED" | "CANCELLED" },
+    { state: campaignState },
   );
 
   // Fetch budget breakdown
@@ -399,7 +415,7 @@ function CampaignDetailModal({ campaign, pillarContentMap, onClose, onTransition
   );
 
   // Fetch AARRR report if LIVE or POST_CAMPAIGN
-  const showAarrr = campaign.status === "LIVE" || campaign.status === "POST_CAMPAIGN";
+  const showAarrr = campaignState === "LIVE" || campaignState === "POST_CAMPAIGN";
   const aarrrQuery = trpc.campaignManager.getAARRReport.useQuery(
     { campaignId: campaign.id },
     { enabled: showAarrr },
@@ -419,9 +435,9 @@ function CampaignDetailModal({ campaign, pillarContentMap, onClose, onTransition
 
   const handleTransition = (toState: string) => {
     // Client-side validation of the state transition
-    if (!isValidTransition(campaign.status, toState)) {
+    if (!isValidTransition(campaignState, toState)) {
       setTransitionError(
-        `Transition invalide : impossible de passer de ${campaign.status.replace(/_/g, " ")} a ${toState.replace(/_/g, " ")}. Transitions autorisees depuis ${campaign.status.replace(/_/g, " ")} : ${(VALID_TRANSITIONS[campaign.status] ?? []).map((s) => s.replace(/_/g, " ")).join(", ") || "aucune"}.`
+        `Transition invalide : impossible de passer de ${campaignState.replace(/_/g, " ")} a ${toState.replace(/_/g, " ")}. Transitions autorisees depuis ${campaignState.replace(/_/g, " ")} : ${(VALID_TRANSITIONS[campaignState] ?? []).map((s) => s.replace(/_/g, " ")).join(", ") || "aucune"}.`
       );
       return;
     }
@@ -469,7 +485,7 @@ function CampaignDetailModal({ campaign, pillarContentMap, onClose, onTransition
       <div className="space-y-5">
         {/* Current state badge + date */}
         <div className="flex items-center gap-3">
-          <CampaignStateBadge state={campaign.status} />
+          <CampaignStateBadge state={campaignState} />
           <span className="text-sm text-zinc-400">
             Creee le{" "}
             {new Date(campaign.createdAt as string).toLocaleDateString("fr-FR", {

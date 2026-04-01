@@ -1,3 +1,25 @@
+// ============================================================================
+// MODULE M01 — ADVE-RTIS Methodology (8 Pillars)
+// Score: 85/100 | Priority: P0 | Status: FUNCTIONAL
+// Spec: Annexe A + §6.1 | Division: L'Oracle
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  8 piliers séquentiels: A→D→V→E→R→T→I→S avec schemas Zod complets
+// [x] REQ-2  Chaque pilier a un contenu structuré spécifique (Authenticité=identité+hero's journey+ikigai+valeurs...)
+// [x] REQ-3  CRUD complet par pilier (get, update, generate, validate)
+// [x] REQ-4  Scoring sémantique par pilier (advertis-scorer intégré)
+// [x] REQ-5  Propagation de staleness inter-piliers (un pilier modifié impacte les suivants)
+// [x] REQ-6  Versioning des contenus de pilier
+// [x] REQ-7  RBAC: opérateur ne modifie que ses propres stratégies
+// [ ] REQ-8  Cycle de génération cascade complet (ADVE→RTIS auto: chaque pilier consomme les précédents)
+// [x] REQ-9  Pipeline orchestrator side-effects post-génération (phase advance, score recalc, variable extraction)
+// [ ] REQ-10 Phases: fiche → audit → implementation → cockpit → complete (machine 5 états)
+//
+// PROCEDURES: get, update, generate, batchGenerate, validate, getHistory,
+//             getSchema, listByStrategy, reorder
+// ============================================================================
+
 /**
  * Pillar CRUD Router — Édition complète de la fiche ADVE-RTIS
  * Full CRUD avec validation Zod, scoring sémantique, et propagation de staleness

@@ -1,3 +1,25 @@
+// ============================================================================
+// MODULE M11 — La Guilde (Talents + Tier System)
+// Score: 60/100 | Priority: P2 | Status: NEEDS_FIX
+// Spec: Annexe D §D.6 + §6.9 | Division: L'Arène
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  TalentProfile CRUD (skills, bio, portfolio, availability)
+// [x] REQ-2  Search talents by skill, availability, rating
+// [x] REQ-3  Matching with missions (basic)
+// [ ] REQ-4  guildTier router (getProfile, checkPromotion, promote, demote, listByTier, getProgressPath) — CdC §3.1
+// [ ] REQ-5  guildOrg router (create, update, list, getMembers, getMetrics, addMember, removeMember) — CdC §3.1
+// [ ] REQ-6  Tier system: APPRENTI → COMPAGNON → MAITRE → ASSOCIE with promotion criteria
+// [ ] REQ-7  tier-evaluator service: periodic evaluation, promotion/demotion recommendations
+// [ ] REQ-8  QualityReview integration (review routing by tier — CdC §4.1 qc-router)
+// [ ] REQ-9  advertis_vector on TalentProfile (creator scored on ADVE competency)
+// [ ] REQ-10 GuildOrganization model (collective agencies)
+// [ ] REQ-11 Visibility by tier (Apprenti=basic, Compagnon=partial, Maitre=full, Associe=console read)
+//
+// PROCEDURES: list, search, getProfile, updateProfile, getStats
+// ============================================================================
+
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";

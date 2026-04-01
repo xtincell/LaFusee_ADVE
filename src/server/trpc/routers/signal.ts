@@ -1,3 +1,25 @@
+// ============================================================================
+// MODULE M09 — Tarsis / Signal Intelligence
+// Score: 75/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: Annexe D §D.4 + §6.7 | Division: Le Signal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  Signaux 3 couches: METRIC, STRONG, WEAK liés aux piliers
+// [x] REQ-2  create, list, getByStrategy, getByPillar, acknowledge, dismiss
+// [x] REQ-3  Market context: competitors (SOV, positionnement), opportunities, budget tiers
+// [x] REQ-4  Competitor snapshot with cross-brand intelligence
+// [x] REQ-5  processSignal integration (Signal → feedback loop → pillar recalculation)
+// [x] REQ-6  detectStrategyDrift(strategyId, pillarKey) → drift percentage
+// [ ] REQ-7  advertis_vector sur Signal (CdC §3.2: chaque Signal scoré /200)
+// [ ] REQ-8  Connexion au feedback loop automatique (SocialPost.metrics → Signal)
+// [ ] REQ-9  Propagation automatique vers Decision Queue
+// [ ] REQ-10 Metric thresholds configurables (seuils d'alerte par pilier)
+//
+// PROCEDURES: create, list, getByStrategy, acknowledge, dismiss,
+//             processSignal, detectDrift, getMarketContext, getCompetitors
+// ============================================================================
+
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "../init";

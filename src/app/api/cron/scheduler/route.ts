@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     feedbackLoopsRun: 0,
     cultIndexUpdated: 0,
     commissionsProcessed: 0,
+    intakesExpired: 0,
     errors: [] as string[],
   };
 
@@ -109,7 +110,22 @@ export async function GET(request: Request) {
       }
     }
 
-    // 4. Check for stale strategies and generate feedback loop signals
+    // 4. Expire stale Quick Intakes (>7 days old, still IN_PROGRESS)
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const expiredResult = await db.quickIntake.updateMany({
+        where: {
+          status: "IN_PROGRESS",
+          createdAt: { lte: sevenDaysAgo },
+        },
+        data: { status: "EXPIRED" },
+      });
+      results.intakesExpired = expiredResult.count;
+    } catch (error) {
+      results.errors.push(`Intake expiry: ${error instanceof Error ? error.message : "unknown"}`);
+    }
+
+    // 5. Check for stale strategies and generate feedback loop signals
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const staleStrategies = await db.strategy.findMany({
       where: {

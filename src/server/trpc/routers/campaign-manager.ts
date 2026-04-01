@@ -1,3 +1,33 @@
+// ============================================================================
+// MODULE M04 — Campaign Manager 360
+// Score: 92/100 | Priority: P0 | Status: FUNCTIONAL
+// Spec: Annexe C + §6.3 | Division: La Fusée (BOOST)
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  19 sub-routers, 93 procedures covering full campaign lifecycle
+// [x] REQ-2  State machine 12 états: BRIEF_DRAFT→BRIEF_VALIDATED→PLANNING→CREATIVE_DEV→PRODUCTION→PRE_PRODUCTION→APPROVAL→READY_TO_LAUNCH→LIVE→POST_CAMPAIGN→ARCHIVED→CANCELLED
+// [x] REQ-3  130+ action types ATL/BTL/TTL with execution tracking
+// [x] REQ-4  Production pipeline 6 états (DEVIS→TERMINE)
+// [x] REQ-5  Achat média 11 types (CampaignAmplification)
+// [x] REQ-6  Team management 13 rôles + allocation
+// [x] REQ-7  Budget 8 catégories + variance + burn forecast + cost-per-KPI
+// [x] REQ-8  Approvals 9 types avec round counter
+// [x] REQ-9  Assets 12 types avec versioning
+// [x] REQ-10 Briefs 7 types + 4 générateurs AI
+// [x] REQ-11 Reports 7 types + operation recommender
+// [x] REQ-12 AARRR reporting unifié terrain + digital
+// [x] REQ-13 Field Operations terrain (team + ambassadors)
+// [x] REQ-14 Dependencies 4 types (BLOCKS/REQUIRES/FOLLOWS/PARALLEL)
+// [x] REQ-15 Operator isolation (enforceStrategyAccess + enforceCampaignAccess)
+// [ ] REQ-16 Connexion scoring: campaign advertis_vector cible vs réel
+// [ ] REQ-17 devotionObjective sur Campaign (CdC §3.2)
+//
+// SUB-ROUTERS: crud, state, actions, executions, amplifications, team,
+//   milestones, budget, approvals, assets, briefs, reports, links,
+//   dependencies, templates, fieldOps, fieldReports, aarrr, recommender
+// ============================================================================
+
 /**
  * Campaign Manager 360 — 19 sub-routers, 92 procedures
  * Full spec implementation: CRUD, state machine, actions, executions,
@@ -8,8 +38,30 @@
 
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, adminProcedure, operatorProcedure } from "../init";
 import * as cm from "@/server/services/campaign-manager";
+import { canAccessStrategy, canAccessCampaign } from "@/server/services/operator-isolation";
+
+/** Helper to enforce strategy access or throw FORBIDDEN */
+async function enforceStrategyAccess(ctx: { session: { user: { id: string; role: string; operatorId?: string | null } } }, strategyId: string) {
+  const ok = await canAccessStrategy(strategyId, {
+    operatorId: ctx.session.user.operatorId ?? null,
+    userId: ctx.session.user.id,
+    role: ctx.session.user.role,
+  });
+  if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Accès refusé: cette stratégie appartient à un autre opérateur" });
+}
+
+/** Helper to enforce campaign access or throw FORBIDDEN */
+async function enforceCampaignAccess(ctx: { session: { user: { id: string; role: string; operatorId?: string | null } } }, campaignId: string) {
+  const ok = await canAccessCampaign(campaignId, {
+    operatorId: ctx.session.user.operatorId ?? null,
+    userId: ctx.session.user.id,
+    role: ctx.session.user.role,
+  });
+  if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Accès refusé: cette campagne appartient à un autre opérateur" });
+}
 
 // ============================================================================
 // Shared Zod enums
@@ -79,6 +131,7 @@ export const campaignManagerRouter = createTRPCRouter({
       isTemplate: z.boolean().optional(),
     }))
     .query(async ({ ctx, input }) => {
+      await enforceStrategyAccess(ctx, input.strategyId);
       return ctx.db.campaign.findMany({
         where: {
           strategyId: input.strategyId,
@@ -94,6 +147,7 @@ export const campaignManagerRouter = createTRPCRouter({
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
+      await enforceCampaignAccess(ctx, input.id);
       return ctx.db.campaign.findUniqueOrThrow({
         where: { id: input.id },
         include: {
@@ -119,6 +173,7 @@ export const campaignManagerRouter = createTRPCRouter({
   getKanban: protectedProcedure
     .input(z.object({ strategyId: z.string() }))
     .query(async ({ ctx, input }) => {
+      await enforceStrategyAccess(ctx, input.strategyId);
       const campaigns = await ctx.db.campaign.findMany({
         where: { strategyId: input.strategyId },
         include: { missions: { select: { id: true, status: true } }, teamMembers: true },
@@ -137,6 +192,7 @@ export const campaignManagerRouter = createTRPCRouter({
   getCalendar: protectedProcedure
     .input(z.object({ strategyId: z.string(), month: z.number().min(1).max(12), year: z.number() }))
     .query(async ({ ctx, input }) => {
+      await enforceStrategyAccess(ctx, input.strategyId);
       const start = new Date(input.year, input.month - 1, 1);
       const end = new Date(input.year, input.month, 0, 23, 59, 59);
       return ctx.db.campaign.findMany({
@@ -164,13 +220,17 @@ export const campaignManagerRouter = createTRPCRouter({
       endDate: z.date().optional(),
     }))
     .query(async ({ ctx, input }) => {
+      if (input.strategyId) await enforceStrategyAccess(ctx, input.strategyId);
       return cm.searchCampaigns(input);
     }),
 
   /** dashboard — aggregated stats */
   dashboard: protectedProcedure
     .input(z.object({ strategyId: z.string() }))
-    .query(async ({ input }) => cm.getDashboard(input.strategyId)),
+    .query(async ({ ctx, input }) => {
+      await enforceStrategyAccess(ctx, input.strategyId);
+      return cm.getDashboard(input.strategyId);
+    }),
 
   /** create — with auto code */
   create: operatorProcedure
@@ -187,6 +247,7 @@ export const campaignManagerRouter = createTRPCRouter({
       parentCampaignId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      await enforceStrategyAccess(ctx, input.strategyId);
       const code = cm.generateCampaignCode();
       const { advertis_vector, devotionObjective, description, ...rest } = input;
       return ctx.db.campaign.create({
@@ -213,6 +274,7 @@ export const campaignManagerRouter = createTRPCRouter({
       aarrTargets: z.record(z.unknown()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      await enforceCampaignAccess(ctx, input.id);
       const { id, advertis_vector, devotionObjective, aarrTargets, ...data } = input;
       return ctx.db.campaign.update({
         where: { id },
@@ -232,7 +294,8 @@ export const campaignManagerRouter = createTRPCRouter({
       toState: campaignStateEnum,
       approverId: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await enforceCampaignAccess(ctx, input.campaignId);
       return cm.transitionCampaign(input.campaignId, input.toState as never, input.approverId);
     }),
 
@@ -245,6 +308,7 @@ export const campaignManagerRouter = createTRPCRouter({
   delete: adminProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await enforceCampaignAccess(ctx, input.id);
       return ctx.db.campaign.update({
         where: { id: input.id },
         data: { state: "ARCHIVED", status: "ARCHIVED" },
@@ -255,6 +319,7 @@ export const campaignManagerRouter = createTRPCRouter({
   migrate: operatorProcedure
     .input(z.object({ campaignId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await enforceCampaignAccess(ctx, input.campaignId);
       const campaign = await ctx.db.campaign.findUniqueOrThrow({ where: { id: input.campaignId } });
       if (campaign.state !== "BRIEF_DRAFT") {
         return { success: false, error: "Seules les campagnes en BRIEF_DRAFT peuvent etre migrees" };

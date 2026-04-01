@@ -1,7 +1,28 @@
+// ============================================================================
+// MODULE M35 — Quick Intake Portal (Router)
+// Score: 92/100 | Priority: P0 | Status: FUNCTIONAL
+// Spec: §5.2 | Division: L'Oracle
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  start — public mutation, creates intake + returns first questions (biz context)
+// [x] REQ-2  advance — saves responses + returns next adaptive questions (AI-powered)
+// [x] REQ-3  complete — scores 8 pillars, classifies brand, creates CRM Deal
+// [x] REQ-4  getByToken — retrieve intake state (public, no auth)
+// [x] REQ-5  getQuestions — get adaptive questions for current phase (server-driven)
+// [x] REQ-6  convert — admin converts completed intake into full Strategy
+// [x] REQ-7  listAll — admin lists all intakes with pagination + status filter
+// [ ] REQ-8  Notification to fixer (Alexandre) on intake completion
+// [ ] REQ-9  Expiration policy (auto-expire after 7 days if not completed)
+//
+// PROCEDURES: start, advance, complete, getByToken, getQuestions, convert, listAll
+// ============================================================================
+
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init";
 import * as quickIntakeService from "@/server/services/quick-intake";
+import { getAdaptiveQuestions, getBusinessContextQuestions } from "@/server/services/quick-intake/question-bank";
 
 export const quickIntakeRouter = createTRPCRouter({
   start: publicProcedure
@@ -42,6 +63,55 @@ export const quickIntakeRouter = createTRPCRouter({
       return ctx.db.quickIntake.findUnique({
         where: { shareToken: input.token },
       });
+    }),
+
+  /**
+   * Server-driven question fetcher. Returns adaptive questions for the current
+   * phase of the intake (biz context or a specific ADVE pillar).
+   * This enables the AI-guided questionnaire experience per CdC §5.2.
+   */
+  getQuestions: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      pillar: z.string().optional(), // Override: fetch questions for specific pillar
+    }))
+    .query(async ({ ctx, input }) => {
+      const intake = await ctx.db.quickIntake.findUnique({
+        where: { shareToken: input.token },
+      });
+      if (!intake) throw new Error("Intake not found");
+
+      const responses = (intake.responses as Record<string, unknown>) ?? {};
+      const allSteps = ["biz", "a", "d", "v", "e", "r", "t", "i", "s"];
+
+      // Determine which pillar to fetch questions for
+      let targetPillar: string | undefined = input.pillar ?? undefined;
+      if (!targetPillar) {
+        // Auto-detect: find first unanswered step
+        const answeredSteps = new Set(Object.keys(responses));
+        targetPillar = allSteps.find((p) => !answeredSteps.has(p));
+      }
+
+      if (!targetPillar) {
+        return { questions: [], currentPillar: null as string | null, readyToComplete: true, progress: 1 };
+      }
+
+      const questions = targetPillar === "biz"
+        ? getBusinessContextQuestions()
+        : await getAdaptiveQuestions(targetPillar, responses, {
+            sector: intake.sector ?? undefined,
+            positioning: intake.positioning ?? undefined,
+          });
+
+      const answeredCount = Object.keys(responses).length;
+      const progress = answeredCount / allSteps.length;
+
+      return {
+        questions,
+        currentPillar: targetPillar,
+        readyToComplete: false,
+        progress,
+      };
     }),
 
   convert: adminProcedure
@@ -136,6 +206,17 @@ export const quickIntakeRouter = createTRPCRouter({
       });
 
       return strategy;
+    }),
+
+  /**
+   * Social proof: count of completed intakes (public, cached).
+   * Displayed on result page to build trust.
+   */
+  getCompletedCount: publicProcedure
+    .query(async ({ ctx }) => {
+      return ctx.db.quickIntake.count({
+        where: { status: { in: ["COMPLETED", "CONVERTED"] } },
+      });
     }),
 
   listAll: adminProcedure

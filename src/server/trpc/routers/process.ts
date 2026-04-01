@@ -1,3 +1,24 @@
+// ============================================================================
+// MODULE M23 — Process Scheduler
+// Score: 20/100 | Priority: P3 | Status: NOT_STARTED
+// Spec: §4.3 | Division: La Fusée
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  create, update, delete, list — basic CRUD
+// [x] REQ-2  start, pause, stop — lifecycle management
+// [x] REQ-3  getContention — detect resource conflicts
+// [ ] REQ-4  getSchedule — calendar view of scheduled processes
+// [ ] REQ-5  Cron-like recurring process execution (DAEMON type)
+// [ ] REQ-6  Triggered process execution (on events like signal.create)
+// [ ] REQ-7  Batch process execution (nightly aggregations)
+// [ ] REQ-8  Alerts on process stop/failure
+// [ ] REQ-9  Contention management (detect overlapping resource usage)
+//
+// PROCEDURES: create, update, delete, list, start, pause, stop,
+//             getSchedule, getContention
+// ============================================================================
+
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";

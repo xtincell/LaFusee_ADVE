@@ -1,3 +1,24 @@
+// ============================================================================
+// MODULE M41 — Ingestion Pipeline + AI ADVE Filler
+// Score: 60/100 | Priority: P1 | Status: IN_PROGRESS
+// Spec: Plan Phase 2 | Division: L'Oracle
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  Ingest any document (PDF, website, social, brand book)
+// [x] REQ-2  Extract structured data via specialized extractors
+// [x] REQ-3  AI ADVE Filler: map extracted data to 8 ADVE pillars
+// [x] REQ-4  Orchestrator: ingest → extract → analyze → fill → validate → RTIS
+// [ ] REQ-5  BrandDataSource model tracking (source URL, type, extractedAt, status)
+// [ ] REQ-6  Validation step: confidence score per filled field
+// [ ] REQ-7  RTIS cascade: after ADVE fill, auto-trigger R→T→I→S generation
+// [ ] REQ-8  Batch ingestion (multiple sources for same strategy)
+// [ ] REQ-9  Incremental updates (re-ingest changed sources only)
+//
+// EXPORTS: ingest, extract, fillADVE, orchestrate
+// FLOW: Source → Extract → Analyze → Fill ADVE pillars → Validate → Trigger RTIS
+// ============================================================================
+
 /**
  * Ingestion Pipeline — Orchestrator
  * Manages the full lifecycle: ingest → extract → analyze → fill ADVE → validate → RTIS

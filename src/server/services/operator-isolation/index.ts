@@ -1,3 +1,30 @@
+// ============================================================================
+// MODULE M05 — Operator Isolation (Multi-tenant)
+// Score: 70/100 | Priority: P0 | Status: FUNCTIONAL
+// Spec: §1.5 + §2.2.1 | Division: Transversal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  scopeToOperator(query, ctx) — generic WHERE injection for any Prisma query
+// [x] REQ-2  scopeStrategies(ctx) → Prisma.StrategyWhereInput (row-level filter)
+// [x] REQ-3  scopeCampaigns(ctx) → filters via strategy→operator relation
+// [x] REQ-4  scopeMissions(ctx) → filters via strategy→operator relation
+// [x] REQ-5  canAccessStrategy(id, ctx) → boolean permission check
+// [x] REQ-6  canAccessCampaign(id, ctx) → boolean permission check
+// [x] REQ-7  canAccessMission(id, ctx) → boolean permission check
+// [x] REQ-8  getOperatorContext(ctx) → normalized operator context
+// [x] REQ-9  enforceOperatorIsolation middleware (tRPC middleware)
+// [x] REQ-10 Applied to campaign-manager router (all procedures)
+// [x] REQ-11 Applied to strategy router (list, get, update)
+// [ ] REQ-12 Applied to ALL remaining routers (driver, mission, glory, signal, etc.)
+// [ ] REQ-13 Applied to CRM router (deal→strategy→operator chain)
+// [ ] REQ-14 Operator dashboard with cross-strategy metrics in /console/ecosystem
+//
+// EXPORTS: scopeToOperator, scopeStrategies, scopeCampaigns, scopeMissions,
+//          canAccessStrategy, canAccessCampaign, canAccessMission,
+//          getOperatorContext, enforceOperatorIsolation, OperatorContext
+// ============================================================================
+
 /**
  * Operator Isolation — Row-level security for multi-operator support
  * Ensures each operator can only access their own data

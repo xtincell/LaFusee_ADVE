@@ -1,13 +1,33 @@
+// ============================================================================
+// MODULE M35 — Quick Intake Portal: Landing Page
+// Score: 92/100 | Priority: P0 | Status: FUNCTIONAL
+// Spec: §5.2 | Division: L'Oracle
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  Landing: "Mesurez la force de votre marque en 15 minutes" + CTA
+// [x] REQ-2  Collect contact info (name, email, company — required)
+// [x] REQ-3  Collect optional context (sector, country, business model, positioning)
+// [x] REQ-4  Start mutation creates QuickIntake → redirects to /intake/[token]
+// [x] REQ-5  Trust badges (gratuit, confidentiel, 15 min, actionnable)
+// [x] REQ-6  Mobile-first responsive design
+// [x] REQ-7  UTM tracking (source parameter captured from URL query params)
+// [x] REQ-8  Social proof (# of diagnostics completed)
+//
+// ROUTE: /intake
+// ============================================================================
+
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { BUSINESS_MODELS, POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
-import { Rocket, Shield, Clock, BarChart3 } from "lucide-react";
+import { Rocket, Shield, Clock, BarChart3, Users } from "lucide-react";
 
 export default function IntakeLanding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [form, setForm] = useState({
     contactName: "",
     contactEmail: "",
@@ -18,6 +38,25 @@ export default function IntakeLanding() {
     positioning: "",
   });
   const [error, setError] = useState("");
+
+  // UTM tracking: capture source from URL query params (?utm_source=linkedin&utm_campaign=q1)
+  const [utmSource, setUtmSource] = useState<string | undefined>();
+  useEffect(() => {
+    const source = searchParams.get("utm_source")
+      ?? searchParams.get("source")
+      ?? searchParams.get("ref")
+      ?? undefined;
+    const campaign = searchParams.get("utm_campaign") ?? undefined;
+    // Combine UTM params into a trackable source string
+    if (source) {
+      setUtmSource(campaign ? `${source}::${campaign}` : source);
+    }
+  }, [searchParams]);
+
+  // Social proof
+  const { data: completedCount } = trpc.quickIntake.getCompletedCount.useQuery(undefined, {
+    staleTime: 60_000,
+  });
 
   const startMutation = trpc.quickIntake.start.useMutation({
     onSuccess: (data) => router.push(`/intake/${data.token}`),
@@ -35,6 +74,7 @@ export default function IntakeLanding() {
       country: form.country || undefined,
       businessModel: form.businessModel || undefined,
       positioning: form.positioning || undefined,
+      source: utmSource,
     });
   };
 
@@ -80,6 +120,12 @@ export default function IntakeLanding() {
             <BarChart3 className="h-3.5 w-3.5 text-primary" />
             Actionnable
           </span>
+          {completedCount && completedCount > 5 && (
+            <span className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-accent" />
+              {completedCount}+ diagnostics
+            </span>
+          )}
         </div>
 
         {/* Form */}

@@ -1,3 +1,25 @@
+// ============================================================================
+// MODULE M14 — Driver Engine
+// Score: 65/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: §2.2.2 + §4.1 | Division: La Fusée
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  create, update, delete, list, getByStrategy, activate, deactivate
+// [x] REQ-2  generateSpecs(strategyId, channel) → specs via AI + Knowledge Graph
+// [x] REQ-3  translateBrief(driverId, missionContext) → brief qualifié
+// [x] REQ-4  DriverChannel enum (INSTAGRAM, FACEBOOK, TIKTOK, LINKEDIN, YOUTUBE, TWITTER, WEBSITE, PACKAGING, EVENT, PR, EMAIL, PRINT, OOH, RADIO, TV, OTHER)
+// [ ] REQ-5  auditCoherence(driverId) → cross-driver consistency check (CdC §3.1)
+// [ ] REQ-6  Lien Driver ↔ SocialConnection (un Driver Instagram connaît le compte OAuth)
+// [ ] REQ-7  Lien Driver ↔ GLORY tools (un Driver déclenche les tools pertinents)
+// [ ] REQ-8  Lien Driver ↔ MediaPlatformConnection (pour Driver PAID types)
+// [ ] REQ-9  Driver PR: traduire profil ADVE en angles presse + talking points
+// [ ] REQ-10 Multi-market Drivers avec adaptation linguistique (FW-15)
+//
+// PROCEDURES: create, update, delete, list, getByStrategy, activate,
+//             deactivate, generateSpecs, translateBrief
+// ============================================================================
+
 import { z } from "zod";
 import { DriverChannel } from "@prisma/client";
 import type { Prisma } from "@prisma/client";

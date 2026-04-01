@@ -1,3 +1,26 @@
+// ============================================================================
+// MODULE M03 — Glory Tools (39 outils, 4 layers)
+// Score: 75/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: Annexe B + §6.2 | Division: La Fusée (GLORY)
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  39 outils en 4 layers: CR(10), DC(8), HYBRID(11), BRAND(10)
+// [x] REQ-2  Point d'entrée unique generateGloryOutput(toolSlug, strategyId, params)
+// [x] REQ-3  AI execution via Claude (system prompt expert + pillar context)
+// [x] REQ-4  Persistable outputs (21/39) saved in DB with refNumber
+// [x] REQ-5  BRAND pipeline séquentiel 10 outils avec dépendances (semiotique→visuel→moodboard→...)
+// [x] REQ-6  executeBrandPipeline() with auto-apply to D.directionArtistique
+// [x] REQ-7  Slug-to-field mapping corrected (7 fixes applied)
+// [ ] REQ-8  Lien aux Drivers (un Driver déclenche les GLORY tools pertinents)
+// [ ] REQ-9  Contexte ADVE hérité (le profil ADVE du client injecté dans chaque tool)
+// [ ] REQ-10 Usage stats tracking (quel tool utilisé combien de fois, par quel client)
+// [ ] REQ-11 Feedback: GloryOutput → QualityReview → Publication → BrandAsset cycle
+//
+// EXPORTS: generateGloryOutput, executeBrandPipeline, getToolBySlug
+// LAYERS: CR=concepteur-rédacteur, DC=direction-création, HYBRID=opérationnel, BRAND=identité-visuelle
+// ============================================================================
+
 /**
  * GLORY Tools — Execution Engine
  * Runs tools with AI (Claude), tracks outputs, manages the BRAND pipeline
@@ -183,14 +206,14 @@ export async function executeBrandPipeline(
       const fieldMap: Record<string, string> = {
         "semiotic-brand-analyzer": "semioticAnalysis",
         "visual-landscape-mapper": "visualLandscape",
-        "moodboard-generator": "moodboard",
-        "chromatic-strategist": "chromaticStrategy",
-        "typography-system-designer": "typographySystem",
-        "logotype-recommender": "logoTypeRecommendation",
-        "logo-validator": "logoValidation",
-        "design-token-generator": "designTokens",
+        "visual-moodboard-generator": "moodboard",
+        "chromatic-strategy-builder": "chromaticStrategy",
+        "typography-system-architect": "typographySystem",
+        "logo-type-advisor": "logoTypeRecommendation",
+        "logo-validation-protocol": "logoValidation",
+        "design-token-architect": "designTokens",
         "motion-identity-designer": "motionIdentity",
-        "brand-guidelines-compiler": "brandGuidelines",
+        "brand-guidelines-generator": "brandGuidelines",
       };
       const targetField = fieldMap[slug];
       if (targetField) {

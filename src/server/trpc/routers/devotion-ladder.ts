@@ -1,3 +1,23 @@
+// ============================================================================
+// MODULE M42 — DevotionSnapshot + Devotion Ladder
+// Score: 25/100 | Priority: P2 | Status: NOT_STARTED
+// Spec: §2.2.9 | Division: L'Oracle
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  snapshot(strategyId) — capture current devotion state
+// [x] REQ-2  list, getByStrategy — query snapshots
+// [ ] REQ-3  setObjective(strategyId, targetLevel) — set devotion growth target
+// [ ] REQ-4  compare(strategyId, date1, date2) — compare snapshots over time
+// [ ] REQ-5  6 levels: Spectateur → Curieux → Fidèle → Ambassadeur → Évangéliste → Apôtre
+// [ ] REQ-6  DevotionSnapshot model in Prisma (audience distribution per level)
+// [ ] REQ-7  Connexion to Cult Index (devotion distribution feeds cult score)
+// [ ] REQ-8  AmbassadorProgram reconciliation (ambassadors = level 4-5)
+// [ ] REQ-9  Visualization in /cockpit Cult Dashboard (heroic ladder display)
+//
+// PROCEDURES: snapshot, list, getByStrategy, setObjective, compare
+// ============================================================================
+
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../init";
 

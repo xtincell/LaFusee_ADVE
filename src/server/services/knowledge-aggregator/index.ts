@@ -1,3 +1,24 @@
+// ============================================================================
+// MODULE M20 — Knowledge Graph (Capture + Aggregator)
+// Score: 40/100 | Priority: P3 | Status: NEEDS_FIX
+// Spec: §2.2.10 + §4.2 + §8 P5 | Division: Le Signal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  Aggregator: batch compute benchmarks from AuditLog + ScoreSnapshot + missions + QC
+// [x] REQ-2  KnowledgeEntry model with entryType, sector, market, pillarFocus, data, sourceHash
+// [x] REQ-3  knowledge-capture service (passive event writing, runs from P0)
+// [ ] REQ-4  knowledgeGraph router: query, getBenchmarks, getFrameworkRanking, getCreatorPatterns, getBriefPatterns, ingest — CdC §3.1
+// [ ] REQ-5  Framework rankings (which frameworks most effective per symptom)
+// [ ] REQ-6  Creator patterns (performance by tier, skill, Driver type)
+// [ ] REQ-7  Brief patterns (what brief structures produce best QC outcomes)
+// [ ] REQ-8  Sector benchmarks (ADVE scores by sector, market, business model)
+// [ ] REQ-9  Market Study results → KnowledgeEntry (Annexe E §3.4)
+// [ ] REQ-10 MediaPerformance benchmarks → KnowledgeEntry (Annexe E §3.3)
+//
+// EXPORTS: aggregate, computeBenchmarks, getTopFrameworks
+// ============================================================================
+
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
 import crypto from "crypto";

@@ -1,3 +1,22 @@
+// ============================================================================
+// MODULE M36 — Pipeline Orchestrator (First Value Protocol)
+// Score: 70/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: §8 | Division: Transversal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  J+0→J+30 First Value Protocol pipeline
+// [x] REQ-2  Side-effects post-scoring: phase advance, score recalculation, variable extraction
+// [x] REQ-3  Staleness propagation (modified pillar → downstream pillars marked stale)
+// [x] REQ-4  Widget computation triggers
+// [x] REQ-5  BRAND pipeline integration (brand-guidelines-generator slug fixed)
+// [ ] REQ-6  Scheduler auto-trigger (cron-like recurring pipeline runs)
+// [ ] REQ-7  Process model integration (DAEMON, TRIGGERED, BATCH types)
+// [ ] REQ-8  Contention management (detect resource conflicts across pipelines)
+//
+// EXPORTS: executePipeline, runSideEffects, FirstValueProtocol
+// ============================================================================
+
 /**
  * Pipeline Orchestrator — Manages side-effects post-scoring, First Value Protocol,
  * and automated workflows
@@ -307,7 +326,7 @@ export async function executePendingProcesses(): Promise<{ executed: number; res
           case "generate_guidelines": {
             try {
               const { executeTool } = await import("@/server/services/glory-tools");
-              await executeTool("brand-guidelines-compiler", strategyId, {
+              await executeTool("brand-guidelines-generator", strategyId, {
                 brief: "Auto-generate brand guidelines for strategy at J+7",
                 brand_dna: `Strategy ID: ${strategyId}`,
               });

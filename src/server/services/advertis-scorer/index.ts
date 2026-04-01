@@ -1,52 +1,94 @@
+// ============================================================================
+// MODULE M02 — AdvertisVector & Scorer
+// Score: 70/100 | Priority: P0 | Status: FUNCTIONAL
+// Spec: §2.1 + §4.1 | Division: Transversal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  scoreObject(type, id) → AdvertisVector pour tout objet (strategy, campaign, mission, talent, signal, glory, asset)
+// [x] REQ-2  Score structurel par pilier: (atomes/requis*15) + (collections/totales*7) + (cross_refs/requises*3) max 25
+// [x] REQ-3  Quality modulator (AI-assessed content quality coefficient)
+// [x] REQ-4  Business context weights (pillar emphasis varies by sector/positioning)
+// [x] REQ-5  Classification Zombie→Icône (6 niveaux basés sur composite /200)
+// [x] REQ-6  Campaign + Mission scoring (campaign pillar inputs from 13 relations)
+// [x] REQ-7  Confidence score (based on filled pillars ratio)
+// [x] REQ-8  Auto-signal on significant score change (>10% pillar or >15pt composite)
+// [x] REQ-9  Re-entrancy guard preventing infinite scoreObject↔processSignal loops
+// [ ] REQ-10 batchScore optimisé (router procedure existe, performance bulk à optimiser)
+// [x] REQ-11 Audit trail logging on every score recalculation
+// [ ] REQ-12 Score history persistence (ScoreSnapshot model) — automatic periodic snapshots
+//
+// EXPORTS: scoreObject, batchScore, ScorableType
+// ============================================================================
+
 import { db } from "@/lib/db";
 import { type AdvertisVector, type PillarKey, PILLAR_KEYS, createEmptyVector, classifyBrand } from "@/lib/types/advertis-vector";
 import { type BusinessContext, getPillarWeightsForContext } from "@/lib/types/business-context";
 import { scoreStructural } from "./structural";
 import { getQualityModulator } from "./quality-modulator";
-import { processSignal } from "@/server/services/feedback-loop";
 import * as auditTrail from "@/server/services/audit-trail";
 
 export type ScorableType = "strategy" | "campaign" | "mission" | "talentProfile" | "signal" | "gloryOutput" | "brandAsset";
 
+/**
+ * Re-entrancy guard: prevents infinite scoreObject ↔ processSignal loops.
+ * When scoreObject detects a significant change it creates a Signal and calls
+ * processSignal, which in turn calls scoreObject again. The guard ensures the
+ * nested call still produces the vector but does NOT emit another Signal, thus
+ * breaking the cycle.
+ */
+const _scoringInProgress = new Set<string>();
+
 export async function scoreObject(type: ScorableType, id: string): Promise<AdvertisVector> {
-  const structuralScores = await scoreStructural(type, id);
-  const modulator = await getQualityModulator(type, id);
+  const scoringKey = `${type}:${id}`;
+  const isReentrant = _scoringInProgress.has(scoringKey);
+  _scoringInProgress.add(scoringKey);
 
-  // Load business context weights if scoring a strategy
-  const bizWeights = await getBusinessContextWeights(type, id);
+  try {
+    const structuralScores = await scoreStructural(type, id);
+    const modulator = await getQualityModulator(type, id);
 
-  const pillars: Record<string, number> = {};
-  for (const key of PILLAR_KEYS) {
-    pillars[key] = structuralScores[key] * modulator * bizWeights[key];
+    // Load business context weights if scoring a strategy
+    const bizWeights = await getBusinessContextWeights(type, id);
+
+    const pillars: Record<string, number> = {};
+    for (const key of PILLAR_KEYS) {
+      pillars[key] = structuralScores[key] * modulator * bizWeights[key];
+    }
+
+    const composite = PILLAR_KEYS.reduce((sum, key) => sum + (pillars[key] ?? 0), 0);
+    const confidence = computeConfidence(type, structuralScores);
+
+    const vector: AdvertisVector = {
+      a: pillars.a ?? 0, d: pillars.d ?? 0, v: pillars.v ?? 0, e: pillars.e ?? 0,
+      r: pillars.r ?? 0, t: pillars.t ?? 0, i: pillars.i ?? 0, s: pillars.s ?? 0,
+      composite: Math.round(composite * 100) / 100,
+      confidence: Math.round(confidence * 100) / 100,
+    };
+
+    // Persist the vector on the scored object
+    await persistVector(type, id, vector);
+
+    // Audit trail for score change (non-blocking)
+    auditTrail.log({
+      action: "UPDATE",
+      entityType: type.charAt(0).toUpperCase() + type.slice(1),
+      entityId: id,
+      newValue: { composite: vector.composite, confidence: vector.confidence, trigger: "score_recalculation" },
+    }).catch((err) => { console.warn("[audit-trail] log failed:", err instanceof Error ? err.message : err); });
+
+    // -----------------------------------------------------------------------
+    // Auto-signal on significant score change — SKIPPED if re-entrant to
+    // prevent infinite scoreObject → processSignal → scoreObject loops.
+    // -----------------------------------------------------------------------
+    if (!isReentrant) {
+      await detectAndSignalScoreChange(type, id, vector);
+    }
+
+    return vector;
+  } finally {
+    _scoringInProgress.delete(scoringKey);
   }
-
-  const composite = PILLAR_KEYS.reduce((sum, key) => sum + (pillars[key] ?? 0), 0);
-  const confidence = computeConfidence(type, structuralScores);
-
-  const vector: AdvertisVector = {
-    a: pillars.a ?? 0, d: pillars.d ?? 0, v: pillars.v ?? 0, e: pillars.e ?? 0,
-    r: pillars.r ?? 0, t: pillars.t ?? 0, i: pillars.i ?? 0, s: pillars.s ?? 0,
-    composite: Math.round(composite * 100) / 100,
-    confidence: Math.round(confidence * 100) / 100,
-  };
-
-  // Persist the vector on the scored object
-  await persistVector(type, id, vector);
-
-  // Audit trail for score change (non-blocking)
-  auditTrail.log({
-    action: "UPDATE",
-    entityType: type.charAt(0).toUpperCase() + type.slice(1),
-    entityId: id,
-    newValue: { composite: vector.composite, confidence: vector.confidence, trigger: "score_recalculation" },
-  }).catch((err) => { console.warn("[audit-trail] log failed:", err instanceof Error ? err.message : err); });
-
-  // -----------------------------------------------------------------------
-  // Auto-signal on significant score change
-  // -----------------------------------------------------------------------
-  await detectAndSignalScoreChange(type, id, vector);
-
-  return vector;
 }
 
 export async function batchScore(type: ScorableType, ids: string[]): Promise<AdvertisVector[]> {
@@ -184,7 +226,8 @@ async function detectAndSignalScoreChange(
       },
     });
 
-    // Trigger the feedback loop
+    // Trigger the feedback loop (lazy import to avoid circular module dependency)
+    const { processSignal } = await import("@/server/services/feedback-loop");
     await processSignal(signal.id);
   } catch {
     // Best-effort: scoring should never fail because of signal creation

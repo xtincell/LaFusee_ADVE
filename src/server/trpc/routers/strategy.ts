@@ -1,9 +1,11 @@
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 import { scoreAllPillarsSemantic } from "@/server/services/advertis-scorer/semantic";
 import { propagateFromPillar } from "@/server/services/staleness-propagator";
 import * as auditTrail from "@/server/services/audit-trail";
+import { canAccessStrategy, scopeStrategies } from "@/server/services/operator-isolation";
 
 export const strategyRouter = createTRPCRouter({
   create: protectedProcedure
@@ -81,6 +83,14 @@ export const strategyRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id, advertis_vector, recalculateScore, ...data } = input;
 
+      // Enforce operator isolation
+      const hasAccess = await canAccessStrategy(id, {
+        operatorId: (ctx.session.user as unknown as Record<string, unknown>).operatorId as string | null ?? null,
+        userId: ctx.session.user.id,
+        role: ctx.session.user.role ?? "USER",
+      });
+      if (!hasAccess) throw new TRPCError({ code: "FORBIDDEN", message: "Accès refusé" });
+
       const previous = await ctx.db.strategy.findUniqueOrThrow({ where: { id } });
       const updated = await ctx.db.strategy.update({
         where: { id },
@@ -135,6 +145,12 @@ export const strategyRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
+      const hasAccess = await canAccessStrategy(input.id, {
+        operatorId: (ctx.session.user as unknown as Record<string, unknown>).operatorId as string | null ?? null,
+        userId: ctx.session.user.id,
+        role: ctx.session.user.role ?? "USER",
+      });
+      if (!hasAccess) throw new TRPCError({ code: "FORBIDDEN", message: "Accès refusé" });
       return ctx.db.strategy.findUniqueOrThrow({
         where: { id: input.id },
         include: {
@@ -153,9 +169,15 @@ export const strategyRouter = createTRPCRouter({
       status: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
+      // Enforce operator isolation: non-ADMIN users can only see their operator's strategies
+      const userRole = ctx.session.user.role ?? "USER";
+      const userOperatorId = (ctx.session.user as unknown as Record<string, unknown>).operatorId as string | null ?? null;
+      const operatorScope = scopeStrategies({ operatorId: userOperatorId, userId: ctx.session.user.id, role: userRole });
+
       return ctx.db.strategy.findMany({
         where: {
-          ...(input.operatorId ? { operatorId: input.operatorId } : {}),
+          ...operatorScope,
+          ...(input.operatorId && userRole === "ADMIN" ? { operatorId: input.operatorId } : {}),
           ...(input.status ? { status: input.status } : {}),
         },
         include: { pillars: true },

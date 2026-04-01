@@ -1,3 +1,21 @@
+// ============================================================================
+// MODULE M27 — MCP Operations Server
+// Score: 80/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: §3.3 | Division: La Fusée (BOOST)
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  14 tools: createCampaign, updateCampaign, transitionState, listCampaigns,
+//            createAction, createAmplification, addTeamMember, setBudget, createMilestone,
+//            requestApproval, generateBrief, getRecommendations, createMission, createProcess
+// [x] REQ-2  5 resources: campaigns/{strategyId}, budgets/{campaignId}, teams/{campaignId},
+//            briefs/{campaignId}, approvals/{campaignId}
+// [x] REQ-3  State machine integration (12-state campaign lifecycle)
+// [x] REQ-4  Budget breakdown by category with variance tracking
+//
+// TOOLS: 14 | RESOURCES: 5 | SPEC TARGET: 12 tools + 5 resources ✓
+// ============================================================================
+
 import { z } from "zod";
 import { db } from "@/lib/db";
 import * as campaignManager from "@/server/services/campaign-manager";
@@ -346,6 +364,148 @@ export const tools: ToolDefinition[] = [
         progress: milestones.length > 0 ? Math.round((completed.length / milestones.length) * 100) : 0,
         overdueItems: overdue,
         nextMilestones: upcoming.slice(0, 3),
+      };
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Resources (5 as per spec §3.3)
+// ---------------------------------------------------------------------------
+
+export interface ResourceDefinition {
+  uri: string;
+  name: string;
+  description: string;
+  mimeType: string;
+  handler: (params: { strategyId?: string; campaignId?: string }) => Promise<unknown>;
+}
+
+export const resources: ResourceDefinition[] = [
+  {
+    uri: "operations://campaigns/{strategyId}",
+    name: "Active Campaigns",
+    description: "List of all active campaigns for a strategy with state, budget, and mission counts",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const campaigns = await db.campaign.findMany({
+        where: { strategyId, state: { notIn: ["ARCHIVED", "CANCELLED"] } },
+        include: {
+          missions: { select: { id: true, status: true } },
+          budgetLines: { select: { planned: true, actual: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+      return {
+        count: campaigns.length,
+        campaigns: campaigns.map((c) => ({
+          id: c.id,
+          name: c.name,
+          state: c.state,
+          code: c.code,
+          budget: c.budget,
+          missionCount: c.missions.length,
+          totalPlanned: c.budgetLines.reduce((s, b) => s + (b.planned ?? 0), 0),
+          totalActual: c.budgetLines.reduce((s, b) => s + (b.actual ?? 0), 0),
+        })),
+      };
+    },
+  },
+  {
+    uri: "operations://budgets/{campaignId}",
+    name: "Campaign Budget",
+    description: "Detailed budget breakdown for a campaign — planned vs actual by category",
+    mimeType: "application/json",
+    handler: async ({ campaignId }) => {
+      if (!campaignId) return { error: "campaignId required" };
+      const lines = await db.budgetLine.findMany({ where: { campaignId } });
+      const totalPlanned = lines.reduce((s, l) => s + (l.planned ?? 0), 0);
+      const totalActual = lines.reduce((s, l) => s + (l.actual ?? 0), 0);
+      const byCategory: Record<string, { planned: number; actual: number }> = {};
+      for (const l of lines) {
+        if (!byCategory[l.category]) byCategory[l.category] = { planned: 0, actual: 0 };
+        const cat = byCategory[l.category]!;
+        cat.planned += l.planned ?? 0;
+        cat.actual += l.actual ?? 0;
+      }
+      return { campaignId, totalPlanned, totalActual, variance: totalPlanned - totalActual, byCategory };
+    },
+  },
+  {
+    uri: "operations://teams/{campaignId}",
+    name: "Campaign Team",
+    description: "Team composition for a campaign — members, roles, allocation",
+    mimeType: "application/json",
+    handler: async ({ campaignId }) => {
+      if (!campaignId) return { error: "campaignId required" };
+      const members = await db.campaignTeamMember.findMany({
+        where: { campaignId },
+        include: { user: { select: { id: true, name: true, email: true, image: true } } },
+      });
+      return {
+        campaignId,
+        memberCount: members.length,
+        members: members.map((m) => ({
+          userId: m.user.id,
+          name: m.user.name,
+          email: m.user.email,
+          role: m.role,
+        })),
+      };
+    },
+  },
+  {
+    uri: "operations://briefs/{campaignId}",
+    name: "Campaign Briefs",
+    description: "All briefs generated for a campaign — creative, media, production, vendor",
+    mimeType: "application/json",
+    handler: async ({ campaignId }) => {
+      if (!campaignId) return { error: "campaignId required" };
+      const briefs = await db.campaignBrief.findMany({
+        where: { campaignId },
+        orderBy: { createdAt: "desc" },
+      });
+      return {
+        campaignId,
+        count: briefs.length,
+        briefs: briefs.map((b) => ({
+          id: b.id,
+          briefType: b.briefType,
+          title: b.title,
+          generatedBy: b.generatedBy,
+          createdAt: b.createdAt,
+        })),
+      };
+    },
+  },
+  {
+    uri: "operations://approvals/{campaignId}",
+    name: "Campaign Approvals",
+    description: "Pending and completed approvals for a campaign",
+    mimeType: "application/json",
+    handler: async ({ campaignId }) => {
+      if (!campaignId) return { error: "campaignId required" };
+      const approvals = await db.campaignApproval.findMany({
+        where: { campaignId },
+        orderBy: { createdAt: "desc" },
+      });
+      const pending = approvals.filter((a) => a.status === "PENDING");
+      const approved = approvals.filter((a) => a.status === "APPROVED");
+      const rejected = approvals.filter((a) => a.status === "REJECTED");
+      return {
+        campaignId,
+        total: approvals.length,
+        pending: pending.length,
+        approved: approved.length,
+        rejected: rejected.length,
+        items: approvals.map((a) => ({
+          id: a.id,
+          approvalType: a.approvalType,
+          status: a.status,
+          round: a.round,
+          createdAt: a.createdAt,
+        })),
       };
     },
   },

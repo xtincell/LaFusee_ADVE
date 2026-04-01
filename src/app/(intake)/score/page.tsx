@@ -1,59 +1,176 @@
-import { ScoreBadge } from "@/components/shared/score-badge";
+// ============================================================================
+// MODULE M35 — Quick Intake Portal: Score Reference Page
+// Score: 92/100 | Priority: P0 | Status: FUNCTIONAL
+// Spec: §5.2 + §2.1.4 | Division: L'Oracle
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  Public reference page explaining ADVE-RTIS score /200
+// [x] REQ-2  5 classification tiers with ranges and descriptions
+// [x] REQ-3  8 pillar explanations (A, D, V, E, R, T, I, S)
+// [x] REQ-4  CTA to start free diagnostic (/intake)
+//
+// ROUTE: /score
+// ============================================================================
+
+import { Rocket, Shield, Star, Crown, Flame, Skull, Eye, Target, Heart, AlertTriangle, BarChart3, Settings, Compass } from "lucide-react";
+
+const TIERS = [
+  {
+    range: "0-80",
+    label: "Zombie",
+    desc: "Invisible, pas d'identite distincte. Substituable a tout moment.",
+    color: "var(--color-class-zombie)",
+    bgOpacity: "10%",
+    icon: Skull,
+  },
+  {
+    range: "81-120",
+    label: "Ordinaire",
+    desc: "Fonctionnel mais interchangeable. Pas de raison de vous choisir specifiquement.",
+    color: "var(--color-class-ordinaire)",
+    bgOpacity: "10%",
+    icon: Eye,
+  },
+  {
+    range: "121-160",
+    label: "Forte",
+    desc: "Reconnue et respectee. Vos clients vous preferent pour des raisons claires.",
+    color: "var(--color-class-forte)",
+    bgOpacity: "10%",
+    icon: Shield,
+  },
+  {
+    range: "161-180",
+    label: "Culte",
+    desc: "Adoree, inspire la devotion. Vos clients sont vos meilleurs ambassadeurs.",
+    color: "var(--color-class-culte)",
+    bgOpacity: "10%",
+    icon: Flame,
+  },
+  {
+    range: "181-200",
+    label: "Icone",
+    desc: "Legendaire, reference mondiale. Vous transcendez votre marche.",
+    color: "var(--color-class-icone)",
+    bgOpacity: "10%",
+    icon: Crown,
+  },
+];
+
+const PILLARS = [
+  { key: "A", name: "Authenticite", question: "Qui etes-vous vraiment ?", color: "var(--color-pillar-a)", icon: Heart },
+  { key: "D", name: "Distinction", question: "Pourquoi vous et pas un autre ?", color: "var(--color-pillar-d)", icon: Star },
+  { key: "V", name: "Valeur", question: "Que promettez-vous au monde ?", color: "var(--color-pillar-v)", icon: Target },
+  { key: "E", name: "Engagement", question: "Comment creer la devotion ?", color: "var(--color-pillar-e)", icon: Flame },
+  { key: "R", name: "Risk", question: "Quels sont vos angles morts ?", color: "var(--color-pillar-r)", icon: AlertTriangle },
+  { key: "T", name: "Track", question: "Comment mesurez-vous le succes ?", color: "var(--color-pillar-t)", icon: BarChart3 },
+  { key: "I", name: "Implementation", question: "De la strategie a l'action ?", color: "var(--color-pillar-i)", icon: Settings },
+  { key: "S", name: "Strategie", question: "Comment assembler le tout ?", color: "var(--color-pillar-s)", icon: Compass },
+];
 
 export default function PublicScorePage() {
   return (
     <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-4xl p-8">
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold">Score ADVE-RTIS /200</h1>
-          <p className="text-lg text-muted-foreground">
-            Le standard de mesure de la force de marque en Afrique francophone.
+      <div className="mx-auto max-w-4xl px-5 py-12 sm:px-8">
+        {/* Header */}
+        <div className="text-center">
+          <div className="mb-6 flex justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-subtle">
+              <Rocket className="h-7 w-7 text-primary" />
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-foreground sm:text-4xl">
+            Score ADVE-RTIS <span className="text-gradient-star">/200</span>
+          </h1>
+          <p className="mt-3 text-lg leading-relaxed text-foreground-secondary">
+            Le standard de mesure de la force de marque. 8 piliers, un score composite,
+            une classification claire.
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-5">
-          {[
-            { range: "0-80", label: "Zombie", desc: "Invisible, pas d'identité distincte", color: "bg-gray-100" },
-            { range: "81-120", label: "Ordinaire", desc: "Fonctionnel mais interchangeable", color: "bg-yellow-50" },
-            { range: "121-160", label: "Forte", desc: "Reconnue et respectée", color: "bg-blue-50" },
-            { range: "161-180", label: "Culte", desc: "Adorée, inspire la dévotion", color: "bg-purple-50" },
-            { range: "181-200", label: "Icône", desc: "Légendaire, référence mondiale", color: "bg-amber-50" },
-          ].map((tier) => (
-            <div key={tier.label} className={`rounded-lg border p-4 text-center ${tier.color}`}>
-              <p className="text-2xl font-bold">{tier.range}</p>
-              <p className="font-semibold">{tier.label}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{tier.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-12 rounded-lg border bg-card p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Les 8 piliers</h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {[
-              { key: "A", name: "Authenticité", q: "Qui êtes-vous ?" },
-              { key: "D", name: "Distinction", q: "Pourquoi vous ?" },
-              { key: "V", name: "Valeur", q: "Que promettez-vous ?" },
-              { key: "E", name: "Engagement", q: "Comment créer la dévotion ?" },
-              { key: "R", name: "Risk", q: "Vos angles morts ?" },
-              { key: "T", name: "Track", q: "Comment mesurer ?" },
-              { key: "I", name: "Implementation", q: "Stratégie → action ?" },
-              { key: "S", name: "Stratégie", q: "Comment assembler ?" },
-            ].map((p) => (
-              <div key={p.key} className="rounded-lg border p-3">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">{p.key}</span>
-                <p className="mt-1 font-medium">{p.name}</p>
-                <p className="text-xs text-muted-foreground">{p.q}</p>
-              </div>
-            ))}
+        {/* Classification tiers */}
+        <div className="mt-12">
+          <h2 className="mb-6 text-center text-xl font-bold text-foreground">
+            Les 5 niveaux de marque
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
+            {TIERS.map((tier) => {
+              const Icon = tier.icon;
+              return (
+                <div
+                  key={tier.label}
+                  className="rounded-2xl border p-5 text-center transition-all hover:shadow-md"
+                  style={{
+                    borderColor: `color-mix(in oklch, ${tier.color} 30%, transparent)`,
+                    backgroundColor: `color-mix(in oklch, ${tier.color} ${tier.bgOpacity}, transparent)`,
+                  }}
+                >
+                  <Icon className="mx-auto h-6 w-6" style={{ color: tier.color }} />
+                  <p className="mt-2 text-2xl font-bold" style={{ color: tier.color }}>
+                    {tier.range}
+                  </p>
+                  <p className="font-semibold text-foreground">{tier.label}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-foreground-muted">{tier.desc}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="mt-8 text-center">
-          <a href="/intake" className="inline-block rounded-lg bg-primary px-8 py-3 font-semibold text-primary-foreground">
+        {/* 8 Pillars */}
+        <div className="mt-12 rounded-2xl border border-border bg-card p-6 sm:p-8">
+          <h2 className="mb-6 text-center text-xl font-bold text-foreground">Les 8 piliers</h2>
+          <p className="mx-auto mb-8 max-w-lg text-center text-sm text-foreground-muted">
+            Chaque pilier est note sur 25 points. Les 4 premiers (ADVE) definissent l'ADN de votre marque.
+            Les 4 suivants (RTIS) mesurent sa capacite d'execution.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {PILLARS.map((p) => {
+              const Icon = p.icon;
+              return (
+                <div
+                  key={p.key}
+                  className="rounded-xl border p-4 transition-all hover:shadow-sm"
+                  style={{
+                    borderColor: `color-mix(in oklch, ${p.color} 25%, transparent)`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white"
+                      style={{ backgroundColor: p.color }}
+                    >
+                      {p.key}
+                    </span>
+                    <span className="font-semibold text-foreground">{p.name}</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-foreground-muted">{p.question}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Formula note */}
+          <div className="mt-6 rounded-lg bg-background-overlay p-4 text-center">
+            <p className="text-xs text-foreground-muted">
+              <strong>Score composite</strong> = A + D + V + E + R + T + I + S (chaque pilier /25, total /200)
+            </p>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="mt-10 text-center">
+          <a
+            href="/intake"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 text-base font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary-hover sm:py-3"
+          >
+            <Rocket className="h-5 w-5" />
             Mesurer votre marque gratuitement
           </a>
-          <p className="mt-2 text-xs text-muted-foreground">15 minutes · Gratuit · Confidentiel</p>
+          <p className="mt-3 text-xs text-foreground-muted">
+            15 minutes · Gratuit · Confidentiel · Score instantane
+          </p>
         </div>
       </div>
     </main>

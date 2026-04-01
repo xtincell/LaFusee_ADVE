@@ -1,3 +1,23 @@
+// ============================================================================
+// MODULE M12 — Matching Engine
+// Score: 30/100 | Priority: P2 | Status: NEEDS_FIX
+// Spec: §4.1 + §8 P2 | Division: L'Arène
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  Basic matching: filter talents by skills + availability
+// [ ] REQ-2  Multi-factor scoring: compétences, ADVE vector, performance historique, dispo, tarif
+// [ ] REQ-3  suggest(briefId) → top 3 candidates with confidence scores
+// [ ] REQ-4  override(matchId, talentId) → manual override by fixer
+// [ ] REQ-5  getHistory(missionId) → matching decision audit trail
+// [ ] REQ-6  getBestForBrief(briefId) → AI-enhanced recommendation
+// [ ] REQ-7  MarketPricing integration (tarif reference by sector/market/channel)
+// [ ] REQ-8  Performance historique: first pass rate, QC score, on-time delivery
+// [ ] REQ-9  ADVE vector alignment: talent ADVE strengths vs brief ADVE needs
+//
+// EXPORTS: matchTalents, suggestForBrief
+// ============================================================================
+
 import { db } from "@/lib/db";
 
 interface MatchCandidate {

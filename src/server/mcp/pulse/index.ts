@@ -1,3 +1,21 @@
+// ============================================================================
+// MODULE M29 — MCP Pulse Server
+// Score: 80/100 | Priority: P2 | Status: FUNCTIONAL
+// Spec: §3.3 | Division: Le Signal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  13 tools: computeCultIndex, getDevotionLadder, analyzeCommunity,
+//            getSuperfans, trackEngagement, createSignal, getSignals,
+//            getSocialMetrics, getBrandHealth, getCompetitorPulse,
+//            detectTrend, getAudienceInsights, measureSentiment
+// [x] REQ-2  7 resources: cult-index/{strategyId}, signals/{strategyId},
+//            social/{strategyId}, community/{strategyId}, superfans/{strategyId},
+//            devotion/{strategyId}, engagement/{strategyId}
+//
+// TOOLS: 13 | RESOURCES: 7 | SPEC TARGET: 11 tools + 7 resources ✓
+// ============================================================================
+
 import { z } from "zod";
 import { db } from "@/lib/db";
 import * as cultIndexEngine from "@/server/services/cult-index-engine";
@@ -352,6 +370,156 @@ export const tools: ToolDefinition[] = [
         totalProfiles,
         evangelismRate,
         activeAmbassadors: ambassadorProgram?.members?.length ?? 0,
+      };
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Resources (7 as per spec §3.3)
+// ---------------------------------------------------------------------------
+
+export interface ResourceDefinition {
+  uri: string;
+  name: string;
+  description: string;
+  mimeType: string;
+  handler: (params: { strategyId?: string }) => Promise<unknown>;
+}
+
+export const resources: ResourceDefinition[] = [
+  {
+    uri: "pulse://cult-index/{strategyId}",
+    name: "Cult Index",
+    description: "Current Cult Index score (0-100) with 7 dimension breakdown",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const config = await db.brandOSConfig.findUnique({ where: { strategyId } });
+      const cultScore = (config?.config as Record<string, unknown>)?.cultIndex ?? null;
+      return { strategyId, cultIndex: cultScore };
+    },
+  },
+  {
+    uri: "pulse://signals/{strategyId}",
+    name: "Active Signals",
+    description: "Recent signals (metric, strong, weak) for a strategy",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const signals = await db.signal.findMany({
+        where: { strategyId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      });
+      return {
+        strategyId,
+        count: signals.length,
+        signals: signals.map((s) => {
+          const d = s.data as Record<string, unknown> | null;
+          return {
+            id: s.id,
+            type: s.type,
+            title: d?.title ?? null,
+            pillarKey: d?.pillarKey ?? null,
+            severity: d?.severity ?? null,
+            createdAt: s.createdAt,
+          };
+        }),
+      };
+    },
+  },
+  {
+    uri: "pulse://social/{strategyId}",
+    name: "Social Metrics",
+    description: "Social media connections and recent post metrics",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const connections = await db.socialConnection.findMany({
+        where: { strategyId },
+        select: { platform: true, status: true, accountName: true },
+      });
+      const recentPosts = await db.socialPost.findMany({
+        where: { strategyId },
+        orderBy: { publishedAt: "desc" },
+        take: 10,
+        select: { id: true, content: true, publishedAt: true, likes: true, comments: true, shares: true, reach: true, engagementRate: true },
+      });
+      return { connections, recentPosts };
+    },
+  },
+  {
+    uri: "pulse://community/{strategyId}",
+    name: "Community Health",
+    description: "Latest community health snapshot — activity, growth, retention",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const snapshot = await db.communitySnapshot.findFirst({
+        where: { strategyId },
+        orderBy: { measuredAt: "desc" },
+      });
+      return { strategyId, snapshot };
+    },
+  },
+  {
+    uri: "pulse://superfans/{strategyId}",
+    name: "Superfan Profiles",
+    description: "Top superfan profiles with engagement metrics",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const superfans = await db.superfanProfile.findMany({
+        where: { strategyId },
+        orderBy: { engagementDepth: "desc" },
+        take: 20,
+      });
+      return { strategyId, count: superfans.length, superfans };
+    },
+  },
+  {
+    uri: "pulse://devotion/{strategyId}",
+    name: "Devotion Ladder",
+    description: "Audience distribution across the 6 devotion levels",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const snapshot = await db.devotionSnapshot.findFirst({
+        where: { strategyId },
+        orderBy: { measuredAt: "desc" },
+      });
+      return { strategyId, snapshot };
+    },
+  },
+  {
+    uri: "pulse://engagement/{strategyId}",
+    name: "Engagement Metrics",
+    description: "Cross-channel engagement rates, top performing content, trend",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const [posts, campaigns] = await Promise.all([
+        db.socialPost.findMany({
+          where: { strategyId },
+          orderBy: { publishedAt: "desc" },
+          take: 50,
+          select: { id: true, likes: true, comments: true, shares: true, reach: true, publishedAt: true },
+        }),
+        db.campaign.findMany({
+          where: { strategyId, state: "LIVE" },
+          include: { amplifications: { select: { reach: true, engagements: true, views: true } } },
+        }),
+      ]);
+      const totalReach = campaigns.reduce((s, c) => s + c.amplifications.reduce((a, amp) => a + (amp.reach ?? 0), 0), 0);
+      const totalEngagements = campaigns.reduce((s, c) => s + c.amplifications.reduce((a, amp) => a + (amp.engagements ?? 0), 0), 0);
+      return {
+        strategyId,
+        socialPostsAnalyzed: posts.length,
+        liveCampaigns: campaigns.length,
+        totalReach,
+        totalEngagements,
+        engagementRate: totalReach > 0 ? Math.round((totalEngagements / totalReach) * 10000) / 100 : 0,
       };
     },
   },

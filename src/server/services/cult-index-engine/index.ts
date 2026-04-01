@@ -1,3 +1,24 @@
+// ============================================================================
+// MODULE M10 — Brand OS (Cult Index, Devotion, Community)
+// Score: 65/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: Annexe D §D.5 + §6.8 | Division: L'Oracle
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  Cult Index 0-100 from 7 weighted dimensions
+// [x] REQ-2  Tiers: GHOST(0-20), FUNCTIONAL(21-40), LOVED(41-60), EMERGING(61-80), CULT(81-100)
+// [x] REQ-3  SuperfanProfile with engagement depth metrics
+// [x] REQ-4  CommunitySnapshot (health, growth, engagement)
+// [ ] REQ-5  DevotionSnapshot model + router (6 levels: Spectateur→Évangéliste) (Module M42)
+// [ ] REQ-6  Connexion DevotionSnapshot → Cult Index scoring
+// [ ] REQ-7  AmbassadorProgram → DevotionSnapshot reconciliation (ambassadors = level 5-6)
+// [ ] REQ-8  Cult Dashboard in /cockpit (Cult Index + Devotion Ladder + radar)
+// [x] REQ-9  compute(strategyId) → { score, tier, dimensions, breakdown }
+//
+// EXPORTS: computeCultIndex, CultTier
+// DIMENSIONS: community, engagement, differentiation, loyalty, advocacy, culture, experience
+// ============================================================================
+
 /**
  * Cult Index Engine — Computes the 0-100 Cult Index from 7 weighted dimensions
  * Tiers: GHOST (0-20), FUNCTIONAL (21-40), LOVED (41-60), EMERGING (61-80), CULT (81-100)

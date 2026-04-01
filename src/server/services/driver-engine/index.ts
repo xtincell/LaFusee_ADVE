@@ -1,3 +1,15 @@
+// ============================================================================
+// MODULE M14 — Driver Engine (service)
+// Score: 65/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: §2.2.2 + §4.1 | Division: La Fusée
+// ============================================================================
+//
+// See MODULE SPEC in src/server/trpc/routers/driver.ts for full requirements.
+// This file implements the service layer (AI-powered spec generation + brief translation).
+//
+// EXPORTS: generateSpecs, translateBrief, getSuggestedFirstTool
+// ============================================================================
+
 import { db } from "@/lib/db";
 import type { PillarKey } from "@/lib/types/advertis-vector";
 import { PILLAR_NAMES } from "@/lib/types/advertis-vector";

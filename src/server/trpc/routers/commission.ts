@@ -1,3 +1,23 @@
+// ============================================================================
+// MODULE M18 — Commission Engine
+// Score: 40/100 | Priority: P2 | Status: NEEDS_FIX
+// Spec: §2.2.8 + §4.2 | Division: La Fusée (SOCLE)
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  calculate(missionId) → commission amount based on tier + Driver type
+// [x] REQ-2  list, getByMission, getByCreator, markPaid
+// [x] REQ-3  generatePaymentOrder → creates PaymentOrder for Serenite
+// [ ] REQ-4  tierAtTime(creatorId, date) → historical tier for retroactive calc
+// [ ] REQ-5  getOperatorFees(operatorId) → operator commission percentage
+// [ ] REQ-6  Auto-calcul on mission completion (trigger from mission state machine)
+// [ ] REQ-7  Membership integration (tier membership fees affect commission rates)
+// [ ] REQ-8  COMMISSION_RATES configurable by SystemConfig
+//
+// PROCEDURES: calculate, list, getByMission, getByCreator, markPaid,
+//             generatePaymentOrder
+// ============================================================================
+
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 import { calculate as engineCalculate, generatePaymentOrder as engineGeneratePaymentOrder } from "@/server/services/commission-engine";

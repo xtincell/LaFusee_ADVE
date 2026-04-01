@@ -1,3 +1,21 @@
+// ============================================================================
+// MODULE M17 — Boot Sequence (Onboarding 60-90min)
+// Score: 20/100 | Priority: P2 | Status: NOT_STARTED
+// Spec: §4.2 + §8 P4 | Division: L'Oracle
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  start, advance, complete, getState — basic lifecycle
+// [ ] REQ-2  Adaptive decision tree (Mestor-guided, 60-90 min calibration)
+// [ ] REQ-3  Calibrate all 8 ADVE pillars with deep questions
+// [ ] REQ-4  Produce Brand Diagnostic Report on completion
+// [ ] REQ-5  Invoke Mestor for conversational guidance through each step
+// [ ] REQ-6  Progress persistence (resume mid-session)
+// [ ] REQ-7  Convert to full Strategy on completion (upgrade from Quick Intake)
+//
+// PROCEDURES: start, advance, complete, getState
+// ============================================================================
+
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";
 import * as bootService from "@/server/services/boot-sequence";

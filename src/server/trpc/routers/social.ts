@@ -1,3 +1,23 @@
+// ============================================================================
+// MODULE M38 — Social Publishing & Metrics
+// Score: 40/100 | Priority: P1 | Status: NEEDS_FIX
+// Spec: §6.10 + Annexe E §3.2 | Division: La Fusée (BOOST)
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  SocialConnection OAuth (6 platforms: Instagram, Facebook, TikTok, LinkedIn, YouTube, Twitter)
+// [x] REQ-2  SocialPost CRUD with metrics (likes, comments, shares, reach, engagementRate)
+// [x] REQ-3  list, connect, disconnect, getByStrategy
+// [ ] REQ-4  Câblage Driver ↔ SocialConnection (Driver Instagram connaît le compte réel)
+// [ ] REQ-5  SocialPost.metrics → Signal auto (feedback loop integration)
+// [ ] REQ-6  Engagement rate thresholds → automatic pillar E (Engagement) recalibration
+// [ ] REQ-7  Portal placement: client in /cockpit/operate, fixer in /console/fusee/social
+// [ ] REQ-8  Cross-platform analytics (unified dashboard across all connected accounts)
+//
+// PROCEDURES: connect, disconnect, list, getByStrategy, createPost,
+//             listPosts, getMetrics, syncMetrics
+// ============================================================================
+
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "../init";

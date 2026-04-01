@@ -1,3 +1,27 @@
+// ============================================================================
+// MODULE M15 — Feedback Loop (Nervous System)
+// Score: 65/100 | Priority: P0 | Status: FUNCTIONAL
+// Spec: §4.1 | Division: Transversal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  processSignal(signalId) — full feedback chain: Signal→Score→Drift→ARTEMIS→Prescription
+// [x] REQ-2  Drift detection per pillar (configurable threshold, default 15%)
+// [x] REQ-3  ARTEMIS diagnostic on severe drift (Claude AI-powered root cause analysis)
+// [x] REQ-4  Prescription creation (KnowledgeEntry + Process for corrective actions)
+// [x] REQ-5  Dashboard notification to strategy owner on prescription
+// [x] REQ-6  recalibrate(strategyId, pillarKey) — manual recalibration
+// [x] REQ-7  detectStrategyDrift(strategyId, pillarKey) — standalone drift check
+// [x] REQ-8  Auto-trigger via signal.create → detectAndSignalScoreChange in advertis-scorer
+// [ ] REQ-9  Social metrics → Signal auto (SocialPost.metrics → Signal → pillar recalculation)
+// [ ] REQ-10 Media performance → Signal auto (MediaPerformanceSync → Signal)
+// [ ] REQ-11 Press clippings → Signal auto (PressClipping → Signal for D+E pillars)
+// [ ] REQ-12 Configurable thresholds per strategy (via SystemConfig)
+//
+// EXPORTS: processSignal, recalibrate, detectStrategyDrift
+// CHAIN: Signal → scoreObject → detectDrift → runArtemisDiagnostic → createPrescription → notify
+// ============================================================================
+
 import { db } from "@/lib/db";
 import { scoreObject } from "@/server/services/advertis-scorer";
 import { captureEvent } from "@/server/services/knowledge-capture";

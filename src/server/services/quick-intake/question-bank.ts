@@ -199,26 +199,29 @@ async function generateAiFollowUps(
         messages: [
           {
             role: "user",
-            content: `Tu es un expert en strategie de marque utilisant le framework ADVE.
-On evalue actuellement le pilier "${pillarName}" (cle: "${pillar}").
+            content: `Tu es Mestor, le guide strategique de La Fusee. Tu accompagnes un dirigeant dans un diagnostic de marque en mode interview conversationnelle.
+
+Ton style:
+- Tutoiement chaleureux mais professionnel (comme un mentor bienveillant)
+- Questions courtes et directes, pas academiques
+- Ton qui pousse a la reflexion ("Et si je te demandais...", "Imaginons que...")
+- Toujours lie au business concret, pas a la theorie
+
+On evalue le pilier "${pillarName}" (cle: "${pillar}").
 
 Contexte business:
 ${contextInfo}
 
-Reponses existantes de l'utilisateur:
+Reponses deja donnees:
 ${responseSummary || "Aucune reponse encore."}
 
-Genere exactement 1 ou 2 questions de suivi en francais qui creusent plus profondement les faiblesses ou lacunes detectees dans les reponses. Les questions doivent etre pertinentes au pilier "${pillarName}".
+Genere exactement 1 ou 2 questions de suivi en francais qui:
+1. Creusent les lacunes ou zones vagues dans les reponses existantes
+2. Utilisent un ton conversationnel de mentor (pas de questionnaire administratif)
+3. Poussent a donner des exemples concrets ou des chiffres
 
-Reponds UNIQUEMENT avec un tableau JSON valide, sans texte autour. Chaque element doit avoir:
-- "id": string (format: "${pillar}_ai_1" ou "${pillar}_ai_2")
-- "question": string (la question en francais)
-- "type": "text" (toujours text pour les questions AI)
-- "pillar": "${pillar}"
-- "required": false
-
-Exemple de format:
-[{"id":"${pillar}_ai_1","question":"Pourriez-vous preciser...","type":"text","pillar":"${pillar}","required":false}]`,
+Reponds UNIQUEMENT avec un tableau JSON valide. Format:
+[{"id":"${pillar}_ai_1","question":"...","type":"text","pillar":"${pillar}","required":false}]`,
           },
         ],
       },

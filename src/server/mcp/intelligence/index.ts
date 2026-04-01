@@ -1,3 +1,22 @@
+// ============================================================================
+// MODULE M26 — MCP Intelligence Server
+// Score: 80/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: §3.3 | Division: L'Oracle + Le Signal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  17 tools: scoreStrategy, scorePillar, analyzeGaps, generateInsight, detectDrift,
+//            runFramework, getBenchmarks, queryKnowledge, startConversation, getVariables,
+//            suggestFrameworks, comparePillars, getRecommendations, getFreshness,
+//            createSignal, processSignal, captureKnowledge
+// [x] REQ-2  6 resources: scores/{strategyId}, variables/{strategyId}, frameworks/{strategyId},
+//            pillars/{strategyId}, freshness/{strategyId}, knowledge
+// [x] REQ-3  Freshness tracking across all data types (variables, frameworks, pillars)
+// [x] REQ-4  Knowledge graph statistics resource
+//
+// TOOLS: 17 | RESOURCES: 6 | SPEC TARGET: 17 tools + 6 resources ✓
+// ============================================================================
+
 import { z } from "zod";
 import { db } from "@/lib/db";
 import * as mestor from "@/server/services/mestor";
@@ -536,6 +555,163 @@ export const tools: ToolDefinition[] = [
       return {
         strategyA: { brand: stratA.name, latestScore: scoresA },
         strategyB: { brand: stratB.name, latestScore: scoresB },
+      };
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Resources (6 as per spec §3.3)
+// ---------------------------------------------------------------------------
+
+export interface ResourceDefinition {
+  uri: string;
+  name: string;
+  description: string;
+  mimeType: string;
+  handler: (params: { strategyId?: string }) => Promise<unknown>;
+}
+
+export const resources: ResourceDefinition[] = [
+  {
+    uri: "intelligence://scores/{strategyId}",
+    name: "ADVE-RTIS Scores",
+    description: "Current ADVE-RTIS vector scores (/200) and classification for a strategy",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const strategy = await db.strategy.findUnique({
+        where: { id: strategyId },
+        select: { advertis_vector: true, name: true },
+      });
+      const latest = await db.scoreSnapshot.findFirst({
+        where: { strategyId },
+        orderBy: { measuredAt: "desc" },
+      });
+      return { strategy: strategy?.name, vector: strategy?.advertis_vector, latestSnapshot: latest };
+    },
+  },
+  {
+    uri: "intelligence://variables/{strategyId}",
+    name: "Brand Variables",
+    description: "All brand variables for a strategy with staleness status",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const variables = await db.brandVariable.findMany({
+        where: { strategyId },
+        orderBy: { updatedAt: "desc" },
+      });
+      const config = await db.variableStoreConfig.findUnique({ where: { strategyId } });
+      const staleThreshold = config?.stalenessThresholdDays ?? 30;
+      const now = new Date();
+      return {
+        variables: variables.map((v) => ({
+          ...v,
+          isStale: (now.getTime() - v.updatedAt.getTime()) / 86400000 > staleThreshold,
+        })),
+        config: { stalenessThresholdDays: staleThreshold },
+      };
+    },
+  },
+  {
+    uri: "intelligence://frameworks/{strategyId}",
+    name: "ARTEMIS Frameworks",
+    description: "Framework implementations and their freshness for a strategy",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const results = await db.frameworkResult.findMany({
+        where: { strategyId },
+        orderBy: { createdAt: "desc" },
+      });
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
+      // Lookup framework names
+      const fwIds = [...new Set(results.map((r) => r.frameworkId))];
+      const frameworks = fwIds.length > 0 ? await db.framework.findMany({ where: { id: { in: fwIds } } }) : [];
+      const fwMap = new Map(frameworks.map((fw) => [fw.id, fw]));
+      return {
+        count: results.length,
+        frameworks: results.map((fr) => ({
+          id: fr.id,
+          frameworkSlug: fwMap.get(fr.frameworkId)?.slug,
+          frameworkName: fwMap.get(fr.frameworkId)?.name,
+          score: fr.score,
+          createdAt: fr.createdAt,
+          isFresh: fr.createdAt > thirtyDaysAgo,
+        })),
+      };
+    },
+  },
+  {
+    uri: "intelligence://pillars/{strategyId}",
+    name: "Pillar Content",
+    description: "All 8 pillar contents, confidence levels and validation status for a strategy",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const pillars = await db.pillar.findMany({
+        where: { strategyId },
+        orderBy: { key: "asc" },
+      });
+      return {
+        pillars: pillars.map((p) => ({
+          key: p.key,
+          confidence: p.confidence,
+          validationStatus: (p as unknown as Record<string, unknown>).validationStatus ?? "DRAFT",
+          contentKeys: p.content ? Object.keys(p.content as Record<string, unknown>) : [],
+          updatedAt: p.updatedAt,
+        })),
+      };
+    },
+  },
+  {
+    uri: "intelligence://freshness/{strategyId}",
+    name: "Data Freshness",
+    description: "Freshness status of all strategy data (pillars, frameworks, variables, scores)",
+    mimeType: "application/json",
+    handler: async ({ strategyId }) => {
+      if (!strategyId) return { error: "strategyId required" };
+      const config = await db.variableStoreConfig.findUnique({ where: { strategyId } });
+      const staleThresholdMs = (config?.stalenessThresholdDays ?? 30) * 86400000;
+      const [pillars, variables, frameworkResults, latestScore] = await Promise.all([
+        db.pillar.findMany({ where: { strategyId }, select: { key: true, updatedAt: true } }),
+        db.brandVariable.findMany({ where: { strategyId }, select: { key: true, updatedAt: true } }),
+        db.frameworkResult.findMany({ where: { strategyId }, select: { id: true, createdAt: true } }),
+        db.scoreSnapshot.findFirst({ where: { strategyId }, orderBy: { measuredAt: "desc" }, select: { measuredAt: true } }),
+      ]);
+      const now = new Date();
+      const daysSinceScore = latestScore ? (now.getTime() - latestScore.measuredAt.getTime()) / 86400000 : null;
+      const staleVars = variables.filter((v) => (now.getTime() - v.updatedAt.getTime()) > staleThresholdMs);
+      const freshFw = frameworkResults.filter((f) => (now.getTime() - f.createdAt.getTime()) < 30 * 86400000);
+      return {
+        pillars: pillars.map((p) => ({ key: p.key, daysSinceUpdate: Math.floor((now.getTime() - p.updatedAt.getTime()) / 86400000) })),
+        staleVariables: staleVars.length,
+        totalVariables: variables.length,
+        freshFrameworks: freshFw.length,
+        totalFrameworks: frameworkResults.length,
+        daysSinceLastScore: daysSinceScore ? Math.floor(daysSinceScore) : null,
+      };
+    },
+  },
+  {
+    uri: "intelligence://knowledge",
+    name: "Knowledge Graph Stats",
+    description: "Global knowledge graph statistics — entry counts by type, sector coverage, freshness",
+    mimeType: "application/json",
+    handler: async () => {
+      const entries = await db.knowledgeEntry.groupBy({
+        by: ["entryType"],
+        _count: true,
+      });
+      const total = await db.knowledgeEntry.count();
+      const recentCount = await db.knowledgeEntry.count({
+        where: { createdAt: { gte: new Date(Date.now() - 30 * 86400000) } },
+      });
+      return {
+        totalEntries: total,
+        recentEntries30d: recentCount,
+        byType: entries.map((e) => ({ type: e.entryType, count: e._count })),
       };
     },
   },

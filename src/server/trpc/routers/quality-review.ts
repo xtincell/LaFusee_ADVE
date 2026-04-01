@@ -1,3 +1,24 @@
+// ============================================================================
+// MODULE M13 — QC Router (Quality Control)
+// Score: 20/100 | Priority: P2 | Status: NOT_STARTED
+// Spec: §2.2.4 + §4.1 | Division: L'Arène
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  submit(deliverableId) — submit for review
+// [x] REQ-2  list, getByDeliverable — basic queries
+// [ ] REQ-3  assignReviewer — qc-router service determines who reviews (by tier)
+// [ ] REQ-4  escalate — escalate failed review to higher tier
+// [ ] REQ-5  QC routing rules: Apprenti → reviewed by Compagnon+, Compagnon → Maître+
+// [ ] REQ-6  Criticality × tier scoring (higher stakes = higher tier reviewer)
+// [ ] REQ-7  Structured feedback by ADVE pillar (not just text notes)
+// [ ] REQ-8  First pass rate tracking per creator (performance metric)
+// [ ] REQ-9  QC compensation for peer reviewers (Maîtres/Associés)
+// [ ] REQ-10 Creator Portal: /creator/qc/submitted + /creator/qc/peer
+//
+// PROCEDURES: submit, list, getByDeliverable, getByReviewer, assignReviewer, escalate
+// ============================================================================
+
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, adminProcedure } from "../init";

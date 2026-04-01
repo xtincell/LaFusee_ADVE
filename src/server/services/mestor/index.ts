@@ -1,3 +1,23 @@
+// ============================================================================
+// MODULE M07 — Mestor AI Assistant
+// Score: 70/100 | Priority: P1 | Status: FUNCTIONAL
+// Spec: Annexe D §D.2 + §5.6 + §6.5 | Division: Transversal
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  Conversations (threads, 40 messages history, Claude AI)
+// [x] REQ-2  System prompt expert ADVERTIS (brand strategy, cult marketing)
+// [x] REQ-3  Context builder: strategy metadata, pillars, signals, campaigns, Cult Index, community
+// [x] REQ-4  Insights proactifs (rule-based + AI, 7d expiration, 24h dedup)
+// [x] REQ-5  Scénarios what-if (WHAT_IF, BUDGET_REALLOC, MARKET_ENTRY, COMPETITOR_RESPONSE)
+// [ ] REQ-6  Contextualisation par portal: cockpit=Brand OS, creator=mission+tier, console=god mode, intake=guided
+// [ ] REQ-7  Creator Portal: niveau de détail ADVE selon tier (Apprenti=basique, Maître=complet)
+// [ ] REQ-8  Quick Intake mode: guided interview (questions ADVE accessibles, pas de question libre)
+// [ ] REQ-9  Fixer Console mode: compare clients, analyze cross-patterns, Knowledge Graph access
+//
+// EXPORTS: MestorContext, buildSystemPrompt, buildContext, generateResponse
+// ============================================================================
+
 import type { BusinessContext } from "@/lib/types/business-context";
 import { BUSINESS_MODELS, ECONOMIC_MODELS, POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
 

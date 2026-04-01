@@ -1,3 +1,23 @@
+// ============================================================================
+// MODULE M39 — Media Buying & Performance Sync
+// Score: 40/100 | Priority: P2 | Status: NEEDS_FIX
+// Spec: §6.10 + Annexe E §3.3 | Division: La Fusée (BOOST)
+// ============================================================================
+//
+// CdC REQUIREMENTS (V1):
+// [x] REQ-1  MediaPlatformConnection (Google Ads, Meta Ads, DV360, TikTok Ads, LinkedIn Ads)
+// [x] REQ-2  MediaPerformanceSync (daily: impressions, clicks, spend, conversions)
+// [x] REQ-3  connect, disconnect, list, sync, getPerformance
+// [ ] REQ-4  Câblage MediaPerformanceSync → CampaignAmplification (données réelles)
+// [ ] REQ-5  Benchmarks CPM/CPC/CTR → Knowledge Graph (sector/market/channel)
+// [ ] REQ-6  media-mix-calculator integration (recommend optimal channel mix)
+// [ ] REQ-7  Portal: /console/fusee/media
+// [ ] REQ-8  Auto-signal on performance anomaly (spend > budget, CTR drop > 20%)
+//
+// PROCEDURES: connect, disconnect, list, sync, getPerformance,
+//             getByStrategy, getByCampaign
+// ============================================================================
+
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure } from "../init";
