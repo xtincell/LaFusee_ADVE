@@ -44,6 +44,7 @@ const TRANSITIONS: Transition[] = [
   { from: "PRE_PRODUCTION", to: "CANCELLED", requiresApproval: true },
   { from: "APPROVAL", to: "CANCELLED", requiresApproval: true },
   { from: "READY_TO_LAUNCH", to: "CANCELLED", requiresApproval: true },
+  { from: "LIVE", to: "CANCELLED", requiresApproval: true },
   // Rollback transitions
   { from: "APPROVAL", to: "CREATIVE_DEV", requiresApproval: true },
   { from: "APPROVAL", to: "PRODUCTION", requiresApproval: true },

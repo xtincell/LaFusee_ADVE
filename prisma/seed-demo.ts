@@ -611,13 +611,13 @@ async function main() {
   // 11. CAMPAIGN EXECUTIONS (3)
   // ================================================================
   await prisma.campaignExecution.create({
-    data: { actionId: action1.id, campaignId: campaignLive.id, title: "Video TikTok — Createur @AfroFinance", productionState: "DELIVERED", dueDate: new Date("2025-02-20"), deliverableUrl: "/assets/njangi-tiktok-afrofinance.mp4" },
+    data: { actionId: action1.id, campaignId: campaignLive.id, title: "Video TikTok — Createur @AfroFinance", productionState: "TERMINE", dueDate: new Date("2025-02-20"), deliverableUrl: "/assets/njangi-tiktok-afrofinance.mp4" },
   });
   await prisma.campaignExecution.create({
-    data: { actionId: action1.id, campaignId: campaignLive.id, title: "Video TikTok — Creatrice @MamanEpargne", productionState: "APPROVED", dueDate: new Date("2025-02-25") },
+    data: { actionId: action1.id, campaignId: campaignLive.id, title: "Video TikTok — Creatrice @MamanEpargne", productionState: "LIVRAISON", dueDate: new Date("2025-02-25") },
   });
   await prisma.campaignExecution.create({
-    data: { actionId: action2.id, campaignId: campaignLive.id, title: "Visuel Instagram — Carousel 'Comment ca marche'", productionState: "IN_PRODUCTION", dueDate: new Date("2025-03-10") },
+    data: { actionId: action2.id, campaignId: campaignLive.id, title: "Visuel Instagram — Carousel 'Comment ca marche'", productionState: "EN_PRODUCTION", dueDate: new Date("2025-03-10") },
   });
   track("CampaignExecution", 3);
   console.log("[OK] 3 CampaignExecutions seeded");

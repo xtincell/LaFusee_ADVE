@@ -390,7 +390,7 @@ function CampaignDetailModal({ campaign, pillarContentMap, onClose, onTransition
 
   // Fetch available transitions for current state
   const transitionsQuery = trpc.campaignManager.availableTransitions.useQuery(
-    { state: campaign.status },
+    { state: campaign.status as "BRIEF_DRAFT" | "BRIEF_VALIDATED" | "PLANNING" | "CREATIVE_DEV" | "PRODUCTION" | "PRE_PRODUCTION" | "APPROVAL" | "READY_TO_LAUNCH" | "LIVE" | "POST_CAMPAIGN" | "ARCHIVED" | "CANCELLED" },
   );
 
   // Fetch budget breakdown
@@ -427,7 +427,7 @@ function CampaignDetailModal({ campaign, pillarContentMap, onClose, onTransition
     }
     setTransitioning(true);
     setTransitionError(null);
-    transitionMutation.mutate({ campaignId: campaign.id, toState });
+    transitionMutation.mutate({ campaignId: campaign.id, toState: toState as "BRIEF_DRAFT" | "BRIEF_VALIDATED" | "PLANNING" | "CREATIVE_DEV" | "PRODUCTION" | "PRE_PRODUCTION" | "APPROVAL" | "READY_TO_LAUNCH" | "LIVE" | "POST_CAMPAIGN" | "ARCHIVED" | "CANCELLED" });
   };
 
   const meta = campaign.advertis_vector as Record<string, unknown> | null;

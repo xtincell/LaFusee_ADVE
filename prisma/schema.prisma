@@ -151,12 +151,13 @@ enum ActionCategory {
 }
 
 enum ProductionState {
-  DRAFT
-  IN_PRODUCTION
-  REVIEW
-  APPROVED
-  DELIVERED
-  REJECTED
+  DEVIS
+  BAT
+  EN_PRODUCTION
+  LIVRAISON
+  INSTALLE
+  TERMINE
+  ANNULE
 }
 
 enum ApprovalStatus {
@@ -477,6 +478,8 @@ model Campaign {
   endDate           DateTime?
   objectives        Json?
   aarrTargets       Json?
+  parentCampaignId String?
+  code             String?  // CAMP-YYYY-### auto-generated code
 
   strategy     Strategy             @relation(fields: [strategyId], references: [id])
   missions     Mission[]
@@ -494,6 +497,8 @@ model Campaign {
   fieldOps     CampaignFieldOp[]
   fieldReports CampaignFieldReport[]
   aarrMetrics  CampaignAARRMetric[]
+  links        CampaignLink[]
+  budgetLines  BudgetLine[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1014,6 +1019,11 @@ model CampaignAction {
   status         String         @default("PLANNED")
   specs          Json?
   kpis           Json?
+  aarrStage      String?    // ACQUISITION, ACTIVATION, RETENTION, REVENUE, REFERRAL
+  coutUnitaire   Float?
+  uniteCosting   String?    // CPM, CPC, CPL, CPA, FLAT
+  rendementDecroissant Float?
+  sovTarget      Float?
 
   campaign   Campaign            @relation(fields: [campaignId], references: [id])
   executions CampaignExecution[]
@@ -1030,12 +1040,16 @@ model CampaignExecution {
   actionId       String
   campaignId     String
   title          String
-  productionState ProductionState @default(DRAFT)
+  productionState ProductionState @default(DEVIS)
   assigneeId     String?
   dueDate        DateTime?
   deliverableUrl String?
   feedback       String?
   specs          Json?
+  executionType String?   // OOH, PLV, PACKAGING, PRINT, VIDEO_PROD, PHOTO_PROD, etc.
+  vendor        String?
+  devisAmount   Float?
+  devisCurrency String    @default("XAF")
 
   action   CampaignAction @relation(fields: [actionId], references: [id])
   campaign Campaign       @relation(fields: [campaignId], references: [id])
@@ -1062,6 +1076,14 @@ model CampaignAmplification {
   startDate    DateTime?
   endDate      DateTime?
   metrics      Json?
+  mediaType      String?   // TV_SPOT, RADIO_SPOT, PRESSE_INSERTION, DIGITAL_AD, etc.
+  mediaCost      Float?
+  productionCost Float?
+  agencyFee      Float?
+  reach          Int?
+  views          Int?
+  engagements    Int?
+  aarrAttribution Json?    // {stage: metrics} for AARRR attribution
 
   campaign Campaign @relation(fields: [campaignId], references: [id])
 
@@ -1094,6 +1116,9 @@ model CampaignMilestone {
   completed  Boolean   @default(false)
   completedAt DateTime?
   gateReview Json?
+  phase        String?    // campaign state this milestone belongs to
+  status       String     @default("PENDING")  // PENDING, IN_PROGRESS, COMPLETED, OVERDUE, SKIPPED
+  isGateReview Boolean    @default(false)
 
   campaign Campaign @relation(fields: [campaignId], references: [id])
 
@@ -1111,6 +1136,8 @@ model CampaignApproval {
   status      ApprovalStatus @default(PENDING)
   comment     String?
   decidedAt   DateTime?
+  approvalType String?     // BRIEF, CREATIVE_CONCEPT, KEY_VISUAL, COPY, BAT, MEDIA_PLAN, BUDGET, FINAL_DELIVERY, LAUNCH
+  round        Int    @default(1)
 
   campaign Campaign @relation(fields: [campaignId], references: [id])
   approver User     @relation(fields: [approverId], references: [id])
@@ -1130,6 +1157,9 @@ model CampaignAsset {
   category    String?
   pillarTags  Json?
   version     Int    @default(1)
+  assetType    String?    // KEY_VISUAL, VIDEO, AUDIO, PRINT, etc.
+  gloryOutputId String?
+  brandVaultPublished Boolean @default(false)
 
   campaign Campaign @relation(fields: [campaignId], references: [id])
 
@@ -1147,6 +1177,8 @@ model CampaignBrief {
   advertis_vector Json?
   status      String @default("DRAFT")
   version     Int    @default(1)
+  briefType    String?    // CREATIVE, MEDIA, PRODUCTION, VENDOR, EVENT, DIGITAL, RP
+  generatedBy  String?    // AI generator name or null for manual
 
   campaign Campaign @relation(fields: [campaignId], references: [id])
 
@@ -1184,6 +1216,41 @@ model CampaignDependency {
   @@unique([sourceId, targetId])
 }
 
+model CampaignLink {
+  id          String @id @default(cuid())
+  campaignId  String
+  linkedType  String    // MISSION, PUBLICATION, SIGNAL
+  linkedId    String
+  metadata    Json?
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, linkedType, linkedId])
+  @@index([campaignId])
+}
+
+model BudgetLine {
+  id          String @id @default(cuid())
+  campaignId  String
+  category    String    // PRODUCTION, MEDIA, TALENT, LOGISTICS, TECHNOLOGY, LEGAL, CONTINGENCY, AGENCY_FEE
+  label       String
+  planned     Float
+  actual      Float     @default(0)
+  currency    String    @default("XAF")
+  actionId    String?
+  notes       String?
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([category])
+}
+
 model CampaignFieldOp {
   id          String        @id @default(cuid())
   campaignId  String
@@ -1196,6 +1263,9 @@ model CampaignFieldOp {
   currency    String        @default("XAF")
   briefData   Json?
   results     Json?
+  team         Json?       // [{nom, role, fee, isValidator}]
+  ambassadors  Json?       // [{nom, handle, deliverables}]
+  aarrConfig   Json?       // {labels, units per AARRR stage}
 
   campaign Campaign           @relation(fields: [campaignId], references: [id])
   reports  CampaignFieldReport[]
@@ -1213,6 +1283,25 @@ model CampaignFieldReport {
   reporterName String
   data        Json
   photos      Json?
+  status           String @default("SUBMITTED")  // SUBMITTED, VALIDATED
+  validatedBy      String?
+  validatedAt      DateTime?
+  validatorOverrides Json?
+  acquisitionCount Float?
+  acquisitionLabel String?
+  acquisitionUnit  String?
+  activationCount  Float?
+  activationLabel  String?
+  activationUnit   String?
+  retentionCount   Float?
+  retentionLabel   String?
+  retentionUnit    String?
+  revenueCount     Float?
+  revenueLabel     String?
+  revenueUnit      String?
+  referralCount    Float?
+  referralLabel    String?
+  referralUnit     String?
   submittedAt DateTime @default(now())
 
   fieldOp  CampaignFieldOp @relation(fields: [fieldOpId], references: [id])
