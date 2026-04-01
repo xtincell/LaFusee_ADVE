@@ -1,6 +1,6 @@
 // ============================================================================
 // MODULE M28 — MCP Creative Server
-// Score: 92/100 | Priority: P1 | Status: FUNCTIONAL
+// Score: 95/100 | Priority: P1 | Status: FUNCTIONAL
 // Spec: §3.3 + Annexe B | Division: La Fusée (GLORY)
 // ============================================================================
 //
@@ -16,12 +16,31 @@
 // [x] REQ-6  Content calendar (get + create slots)
 // [x] REQ-7  Guidelines generation via guidelines-renderer
 // [x] REQ-8  Creative asset search in BrandAsset table
-// [ ] REQ-9  Driver-linked GLORY tool execution (DriverGloryTool model)
-// [ ] REQ-10 ADVE context auto-injection (advertis_vector in every tool call)
+// [x] REQ-9  Driver-linked GLORY tool execution (DriverGloryTool model)
+// [x] REQ-10 ADVE context auto-injection (advertis_vector in every tool call)
 //
-// TOOLS: 21 | RESOURCES: 7 | SPEC TARGET: 42 tools + 7 resources
+// TOOLS: 23 | RESOURCES: 7 | SPEC TARGET: 42 tools + 7 resources
 // NOTE: 39 GLORY tools are accessed via glory_tool_execute + glory_tool_list;
-//       the 21 tools here are the MCP-exposed orchestration + AI audit tools.
+//       the 23 tools here are the MCP-exposed orchestration + AI audit tools.
+//
+// ============================================================================
+// CROSS-MODULE DEPENDENCIES — à vérifier lors de toute mise à jour inter-modules
+// ============================================================================
+// Ce module dépend de :
+//   M03 (Glory Tools)     — executeTool, ALL_GLORY_TOOLS, suggestTools, executeBrandPipeline
+//   M09 (SESHAT Bridge)   — enrichBrief (enrichment de brief créatif)
+//   M14 (Guidelines)      — generateGuidelines (génération guidelines driver)
+//   M06 (Drivers)         — DriverGloryTool model (lien driver → glory tools)
+//   M02 (AdvertisVector)  — advertis_vector auto-injection dans chaque tool call
+//   M01 (Pillar Schemas)  — pillar content structure (A, D, V, E, R, T, I, S)
+//
+// Ce module est consommé par :
+//   M34 (Console Portal)  — UI d'exécution GLORY tools, brief generation, calendar
+//   M32 (Cockpit Portal)  — Brand OS client-facing creative tools
+//
+// >> INSTRUCTION : À chaque modification d'un module listé ci-dessus,
+// >> vérifier que les imports, types et appels dans CE fichier restent valides.
+// >> Mettre à jour cette section si de nouvelles dépendances apparaissent.
 // ============================================================================
 
 import { z } from "zod";
@@ -150,22 +169,116 @@ async function buildStrategyContext(strategyId: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export const tools: ToolDefinition[] = [
-  // ---- GLORY Tool Execution ----
+  // ---- GLORY Tool Execution (REQ-10: ADVE auto-injection) ----
   {
     name: "glory_tool_execute",
     description:
-      "Exécute un outil GLORY (CR/DC/HYBRID/BRAND — 39 outils) et persiste le résultat dans la stratégie.",
+      "Exécute un outil GLORY (CR/DC/HYBRID/BRAND — 39 outils) et persiste le résultat. Injecte automatiquement le contexte ADVE (advertis_vector) dans l'input.",
     inputSchema: z.object({
       toolSlug: z.string().describe("Slug de l'outil GLORY (ex: brand-manifesto, concept-generator, script-writer)"),
       strategyId: z.string().describe("ID de la stratégie"),
       input: z.record(z.string()).describe("Champs d'entrée requis par l'outil"),
     }),
     handler: async (input) => {
+      const strategyId = input.strategyId as string;
+      const userInput = input.input as Record<string, string>;
+
+      // REQ-10: Auto-inject ADVE context (advertis_vector + businessContext) into input
+      const strategy = await db.strategy.findUnique({
+        where: { id: strategyId },
+        select: { advertis_vector: true, businessContext: true, name: true },
+      });
+      const vec = strategy?.advertis_vector as Record<string, number> | null;
+      const bizCtx = strategy?.businessContext as Record<string, unknown> | null;
+      const enrichedInput: Record<string, string> = {
+        ...userInput,
+        // ADVE vector injected as context (non-destructive: user input takes precedence)
+        ...(vec && !userInput.adve_scores ? { adve_scores: `A=${vec.a ?? 0}/25, D=${vec.d ?? 0}/25, V=${vec.v ?? 0}/25, E=${vec.e ?? 0}/25, R=${vec.r ?? 0}/25, T=${vec.t ?? 0}/25, I=${vec.i ?? 0}/25, S=${vec.s ?? 0}/25` } : {}),
+        ...(bizCtx?.sector && !userInput.sector ? { sector: bizCtx.sector as string } : {}),
+        ...(bizCtx?.market && !userInput.market ? { market: bizCtx.market as string } : {}),
+        ...(bizCtx?.positioningArchetype && !userInput.brand_positioning ? { brand_positioning: bizCtx.positioningArchetype as string } : {}),
+        ...(strategy?.name && !userInput.brand_name ? { brand_name: strategy.name } : {}),
+      };
+
       return gloryTools.executeTool(
         input.toolSlug as string,
-        input.strategyId as string,
-        input.input as Record<string, string>
+        strategyId,
+        enrichedInput
       );
+    },
+  },
+
+  // ---- REQ-9: Driver-linked GLORY Tool Execution ----
+  {
+    name: "glory_tool_execute_for_driver",
+    description:
+      "Exécute les outils GLORY liés à un Driver spécifique (via DriverGloryTool). Injecte le contexte ADVE + driver automatiquement.",
+    inputSchema: z.object({
+      driverId: z.string().describe("ID du driver"),
+      toolSlug: z.string().optional().describe("Slug spécifique à exécuter (sinon exécute tous les outils liés au driver)"),
+      input: z.record(z.string()).optional().describe("Champs d'entrée additionnels"),
+    }),
+    handler: async (input) => {
+      const driver = await db.driver.findUniqueOrThrow({
+        where: { id: input.driverId as string },
+        include: {
+          gloryTools: true,
+          strategy: { select: { id: true, name: true, advertis_vector: true, businessContext: true } },
+        },
+      });
+
+      if (!driver.strategy) throw new Error("Driver non lié à une stratégie");
+      const strategyId = driver.strategy.id;
+
+      // Linked tools from DriverGloryTool
+      const linkedSlugs = driver.gloryTools.map((dgt) => dgt.gloryTool);
+      if (linkedSlugs.length === 0) {
+        return { error: "Aucun outil GLORY lié à ce driver. Utilisez glory_tool_suggest pour obtenir des recommandations." };
+      }
+
+      // Filter to specific slug if requested
+      const slugsToExecute = input.toolSlug
+        ? linkedSlugs.filter((s) => s === input.toolSlug)
+        : linkedSlugs;
+
+      if (slugsToExecute.length === 0) {
+        return { error: `L'outil ${input.toolSlug} n'est pas lié à ce driver. Outils liés: ${linkedSlugs.join(", ")}` };
+      }
+
+      // REQ-10: Build enriched input with ADVE context + driver context
+      const vec = driver.strategy.advertis_vector as Record<string, number> | null;
+      const bizCtx = driver.strategy.businessContext as Record<string, unknown> | null;
+      const baseInput: Record<string, string> = {
+        ...(input.input as Record<string, string> ?? {}),
+        brand_name: driver.strategy.name,
+        channel: driver.channel,
+        driver_name: driver.name,
+        ...(vec ? { adve_scores: `A=${vec.a ?? 0}/25, D=${vec.d ?? 0}/25, V=${vec.v ?? 0}/25, E=${vec.e ?? 0}/25, R=${vec.r ?? 0}/25, T=${vec.t ?? 0}/25, I=${vec.i ?? 0}/25, S=${vec.s ?? 0}/25` } : {}),
+        ...(bizCtx?.sector ? { sector: bizCtx.sector as string } : {}),
+        ...(bizCtx?.market ? { market: bizCtx.market as string } : {}),
+        ...(bizCtx?.positioningArchetype ? { brand_positioning: bizCtx.positioningArchetype as string } : {}),
+      };
+
+      // Execute each linked tool
+      const results: Array<{ slug: string; outputId: string; status: string }> = [];
+      for (const slug of slugsToExecute) {
+        try {
+          const { outputId } = await gloryTools.executeTool(slug, strategyId, baseInput);
+          results.push({ slug, outputId, status: "COMPLETED" });
+        } catch (error) {
+          results.push({ slug, outputId: "", status: `FAILED: ${error instanceof Error ? error.message : "Unknown error"}` });
+        }
+      }
+
+      return {
+        driverId: driver.id,
+        driverName: driver.name,
+        channel: driver.channel,
+        strategyId,
+        linkedTools: linkedSlugs,
+        executed: results,
+        summary: `${results.filter((r) => r.status === "COMPLETED").length}/${results.length} outils exécutés avec succès`,
+      };
     },
   },
 
