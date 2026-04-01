@@ -1,62 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { trpc } from "@/lib/trpc/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Tabs } from "@/components/shared/tabs";
-import {
-  Crown,
-  Users,
-  Star,
-  TrendingUp,
-  Plus,
-  UserCheck,
-} from "lucide-react";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { SkeletonPage } from "@/components/shared/loading-skeleton";
+import { Crown, Users, Star, TrendingUp } from "lucide-react";
 
 export default function ClubPage() {
-  const [activeTab, setActiveTab] = useState("all");
+  const { data: members, isLoading } = trpc.club.list.useQuery({});
 
-  const tabs = [
-    { key: "all", label: "Tous", count: 0 },
-    { key: "vip", label: "VIP", count: 0 },
-    { key: "premium", label: "Premium", count: 0 },
-    { key: "standard", label: "Standard", count: 0 },
-  ];
+  if (isLoading) return <SkeletonPage />;
+
+  const items = members ?? [];
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Club Members"
-        description="Gestion des membres du club et programmes de fidelite"
-        breadcrumbs={[
-          { label: "Console", href: "/console" },
-          { label: "Arene" },
-          { label: "Club" },
-        ]}
-      >
-        <button className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200">
-          <Plus className="h-4 w-4" /> Nouveau membre
-        </button>
-      </PageHeader>
+      <PageHeader title="Upgraded Brands Club" description="Membres du club, engagement et suivi de fidelite" breadcrumbs={[{ label: "Console", href: "/console" }, { label: "Arene" }, { label: "Club" }]} />
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total membres" value={0} icon={Users} />
-        <StatCard title="Membres VIP" value={0} icon={Crown} />
-        <StatCard title="Satisfaction moy." value="- /10" icon={Star} />
-        <StatCard title="Croissance" value="- %" icon={TrendingUp} />
+        <StatCard title="Membres" value={items.length} icon={Users} />
+        <StatCard title="Actifs" value={items.filter((m) => (m as Record<string, unknown>).status === "ACTIVE").length} icon={Star} />
+        <StatCard title="Score moyen" value="—" icon={TrendingUp} />
+        <StatCard title="Renouvellements" value="—" icon={Crown} />
       </div>
 
-      {/* Tabs */}
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
-
-      {/* Empty state */}
-      <EmptyState
-        icon={UserCheck}
-        title="Aucun membre"
-        description="Les membres du club apparaitront ici. Invitez des clients a rejoindre le programme."
-      />
+      {items.length === 0 ? (
+        <EmptyState icon={Crown} title="Aucun membre" description="Les membres du Upgraded Brands Club apparaitront ici une fois inscrits." />
+      ) : (
+        <div className="space-y-2">
+          {items.map((member) => {
+            const m = member as Record<string, unknown>;
+            return (
+              <div key={m.id as string} className="flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:bg-card-hover">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{(m.name as string) ?? (m.strategyId as string) ?? "Membre"}</p>
+                  <p className="text-xs text-foreground-muted">{m.createdAt ? new Date(m.createdAt as string).toLocaleDateString("fr-FR") : ""}</p>
+                </div>
+                <StatusBadge status={(m.status as string) ?? "active"} />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

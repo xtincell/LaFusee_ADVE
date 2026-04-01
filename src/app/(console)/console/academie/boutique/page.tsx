@@ -1,62 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { trpc } from "@/lib/trpc/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Tabs } from "@/components/shared/tabs";
-import {
-  ShoppingBag,
-  Package,
-  DollarSign,
-  TrendingUp,
-  Plus,
-  Tag,
-} from "lucide-react";
+import { SkeletonPage } from "@/components/shared/loading-skeleton";
+import { ShoppingBag, DollarSign, Package, TrendingUp } from "lucide-react";
 
 export default function BoutiquePage() {
-  const [activeTab, setActiveTab] = useState("all");
+  const { data: items, isLoading } = trpc.boutique.listItems.useQuery({});
 
-  const tabs = [
-    { key: "all", label: "Tous", count: 0 },
-    { key: "templates", label: "Templates", count: 0 },
-    { key: "resources", label: "Ressources", count: 0 },
-    { key: "merchandise", label: "Merchandise", count: 0 },
-  ];
+  if (isLoading) return <SkeletonPage />;
+
+  const allItems = items ?? [];
+  const active = allItems.filter((i) => (i as Record<string, unknown>).isActive !== false);
+  const fmt = (n: number) => new Intl.NumberFormat("fr-FR").format(Math.round(n));
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Boutique"
-        description="Articles, templates et ressources premium de l'Academie"
-        breadcrumbs={[
-          { label: "Console", href: "/console" },
-          { label: "Academie", href: "/console/academie" },
-          { label: "Boutique" },
-        ]}
-      >
-        <button className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200">
-          <Plus className="h-4 w-4" /> Nouvel article
-        </button>
-      </PageHeader>
+      <PageHeader title="Boutique" description="Playbooks, templates et ventes — canal de distribution ADVE" breadcrumbs={[{ label: "Console", href: "/console" }, { label: "Academie", href: "/console/academie" }, { label: "Boutique" }]} />
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Articles" value={0} icon={Package} />
-        <StatCard title="Ventes totales" value="0 XAF" icon={DollarSign} />
-        <StatCard title="Articles actifs" value={0} icon={Tag} />
-        <StatCard title="Croissance ventes" value="- %" icon={TrendingUp} />
+        <StatCard title="Articles" value={allItems.length} icon={Package} />
+        <StatCard title="Actifs" value={active.length} icon={ShoppingBag} />
+        <StatCard title="Revenus" value="—" icon={DollarSign} />
+        <StatCard title="Tendance" value="—" icon={TrendingUp} />
       </div>
 
-      {/* Tabs */}
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
-
-      {/* Empty state */}
-      <EmptyState
-        icon={ShoppingBag}
-        title="Aucun article"
-        description="Ajoutez des templates, ressources et articles a la boutique de l'Academie."
-      />
+      {allItems.length === 0 ? (
+        <EmptyState icon={ShoppingBag} title="Aucun article" description="Ajoutez des playbooks, templates ou formations a la boutique." />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {allItems.map((item) => {
+            const i = item as Record<string, unknown>;
+            return (
+              <div key={i.id as string} className="rounded-xl border border-border bg-card p-5 transition-colors hover:bg-card-hover">
+                <p className="text-sm font-semibold text-foreground">{i.name as string}</p>
+                <p className="mt-1 text-xs text-foreground-muted">{(i.description as string) ?? (i.category as string) ?? ""}</p>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-sm font-bold text-foreground">{fmt((i.price as number) ?? 0)} {(i.currency as string) ?? "XAF"}</span>
+                  <span className="rounded-full bg-primary-subtle px-2 py-0.5 text-xs text-primary">{(i.category as string) ?? "—"}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

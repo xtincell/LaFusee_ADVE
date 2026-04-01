@@ -1,95 +1,53 @@
 "use client";
 
+import { trpc } from "@/lib/trpc/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
-import { EmptyState } from "@/components/shared/empty-state";
-import {
-  GraduationCap,
-  BookOpen,
-  Users,
-  Award,
-  ArrowRight,
-} from "lucide-react";
-
-const SECTIONS = [
-  {
-    title: "Cours",
-    description: "Catalogue de formations et contenus pedagogiques",
-    icon: BookOpen,
-    href: "/console/academie/courses",
-    count: 0,
-  },
-  {
-    title: "Certifications",
-    description: "Programmes de certification et validation des competences",
-    icon: Award,
-    href: "/console/academie/certifications",
-    count: 0,
-  },
-  {
-    title: "Boutique",
-    description: "Articles, templates et ressources premium",
-    icon: GraduationCap,
-    href: "/console/academie/boutique",
-    count: 0,
-  },
-];
+import { SkeletonPage } from "@/components/shared/loading-skeleton";
+import { GraduationCap, BookOpen, Award, ShoppingBag } from "lucide-react";
+import Link from "next/link";
 
 export default function AcademiePage() {
+  const { data: courses, isLoading: loadingCourses } = trpc.learning.listCourses.useQuery({});
+  const { data: boutique, isLoading: loadingBoutique } = trpc.boutique.listItems.useQuery({});
+
+  if (loadingCourses || loadingBoutique) return <SkeletonPage />;
+
+  const allCourses = courses ?? [];
+  const published = allCourses.filter((c) => c.isPublished);
+  const items = boutique ?? [];
+
+  const sections = [
+    { href: "/console/academie/courses", label: "Formations", desc: "Cours, bootcamps et parcours de formation ADVE", icon: BookOpen, stat: `${published.length} cours publies` },
+    { href: "/console/academie/certifications", label: "Certifications", desc: "Certifications ADVE en cours et delivrees", icon: Award, stat: "—" },
+    { href: "/console/academie/boutique", label: "Boutique", desc: "Playbooks, templates et ventes", icon: ShoppingBag, stat: `${items.length} articles` },
+    { href: "/console/academie/content", label: "Contenu editorial", desc: "The Upgrade — contenu de marque et editorial", icon: GraduationCap, stat: "—" },
+  ];
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Academie"
-        description="Formation, certifications et ressources pour l'ecosysteme LaFusee"
-        breadcrumbs={[
-          { label: "Console", href: "/console" },
-          { label: "Academie" },
-        ]}
-      />
+      <PageHeader title="L'Academie" description="Formation, certifications, contenu editorial et boutique" breadcrumbs={[{ label: "Console", href: "/console" }, { label: "Academie" }]} />
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Cours disponibles" value={0} icon={BookOpen} />
-        <StatCard title="Apprenants inscrits" value={0} icon={Users} />
-        <StatCard title="Certifications" value={0} icon={Award} />
-        <StatCard title="Taux de completion" value="- %" icon={GraduationCap} />
+        <StatCard title="Cours publies" value={published.length} icon={BookOpen} />
+        <StatCard title="Total cours" value={allCourses.length} icon={GraduationCap} />
+        <StatCard title="Articles boutique" value={items.length} icon={ShoppingBag} />
+        <StatCard title="Certifications" value="—" icon={Award} />
       </div>
 
-      {/* Section cards */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {SECTIONS.map((section) => {
-          const Icon = section.icon;
-          return (
-            <a
-              key={section.title}
-              href={section.href}
-              className="group rounded-xl border border-zinc-800 bg-zinc-900/80 p-5 transition-colors hover:border-zinc-700"
-            >
-              <div className="flex items-start justify-between">
-                <div className="rounded-lg bg-zinc-800 p-2.5">
-                  <Icon className="h-5 w-5 text-zinc-400" />
-                </div>
-                <ArrowRight className="h-4 w-4 text-zinc-600 transition-colors group-hover:text-zinc-400" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {sections.map((s) => (
+          <Link key={s.href} href={s.href} className="group rounded-xl border border-border bg-card p-6 transition-all hover:bg-card-hover hover:shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary-subtle p-2"><s.icon className="h-5 w-5 text-primary" /></div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">{s.label}</h3>
+                <p className="text-xs text-foreground-muted">{s.desc}</p>
               </div>
-              <h3 className="mt-4 text-base font-semibold text-white">
-                {section.title}
-              </h3>
-              <p className="mt-1 text-sm text-zinc-400">{section.description}</p>
-              <p className="mt-3 text-2xl font-bold text-white">{section.count}</p>
-              <p className="text-xs text-zinc-500">elements</p>
-            </a>
-          );
-        })}
-      </div>
-
-      {/* Recent activity */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-5">
-        <h3 className="mb-4 text-sm font-semibold text-white">Activite recente</h3>
-        <EmptyState
-          icon={GraduationCap}
-          title="Aucune activite"
-          description="L'activite de l'Academie apparaitra ici : inscriptions, completions, certifications."
-        />
+            </div>
+            <p className="mt-3 text-xs text-foreground-muted">{s.stat}</p>
+          </Link>
+        ))}
       </div>
     </div>
   );

@@ -1,79 +1,65 @@
 "use client";
 
+import { useState } from "react";
+import { trpc } from "@/lib/trpc/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import {
-  Radar,
-  Eye,
-  TrendingUp,
-  AlertTriangle,
-  Globe,
-  Search,
-} from "lucide-react";
+import { SkeletonPage } from "@/components/shared/loading-skeleton";
+import { Radar, Eye, Shield, TrendingDown } from "lucide-react";
 
 export default function TarsisPage() {
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const { data: strategies } = trpc.strategy.list.useQuery({});
+  const { data: signals, isLoading } = trpc.signal.list.useQuery(
+    { strategyId: selectedStrategyId ?? "" },
+    { enabled: !!selectedStrategyId },
+  );
+
+  const allSignals = signals ?? [];
+  const competitorSignals = allSignals.filter((s) => s.type === "COMPETITOR" || s.type === "MARKET_TREND" || s.type === "THREAT");
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="TARSIS - Intelligence Marche"
-        description="Signal intelligence, veille concurrentielle et contexte marche"
-        breadcrumbs={[
-          { label: "Console", href: "/console" },
-          { label: "Signal" },
-          { label: "TARSIS" },
-        ]}
-      />
+      <PageHeader title="TARSIS — Veille Concurrentielle" description="Intelligence concurrentielle multi-marques et signaux de menace" breadcrumbs={[{ label: "Console", href: "/console" }, { label: "Signal" }, { label: "Tarsis" }]} />
 
-      {/* Stat Cards */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <label className="mb-2 block text-sm font-medium text-foreground-secondary">Client</label>
+        <select value={selectedStrategyId ?? ""} onChange={(e) => setSelectedStrategyId(e.target.value || null)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
+          <option value="">Selectionnez un client</option>
+          {(strategies ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+
+      {selectedStrategyId && isLoading && <SkeletonPage />}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Signaux detectes" value={0} icon={Radar} />
-        <StatCard title="Concurrents suivis" value={0} icon={Eye} />
-        <StatCard title="Tendances actives" value={0} icon={TrendingUp} />
-        <StatCard title="Alertes en cours" value={0} icon={AlertTriangle} />
+        <StatCard title="Signaux concurrentiels" value={competitorSignals.length} icon={Radar} />
+        <StatCard title="Menaces detectees" value={competitorSignals.filter((s) => s.type === "THREAT").length} icon={Shield} />
+        <StatCard title="Tendances marche" value={competitorSignals.filter((s) => s.type === "MARKET_TREND").length} icon={TrendingDown} />
+        <StatCard title="Sources surveillees" value="—" icon={Eye} />
       </div>
 
-      {/* Sections */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Veille concurrentielle */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Eye className="h-5 w-5 text-zinc-400" />
-            <h3 className="text-sm font-semibold text-white">Veille concurrentielle</h3>
-          </div>
-          <EmptyState
-            icon={Eye}
-            title="Aucun concurrent suivi"
-            description="Ajoutez des concurrents pour commencer la veille automatique."
-          />
+      {competitorSignals.length === 0 ? (
+        <EmptyState icon={Radar} title="Aucune donnee TARSIS" description={selectedStrategyId ? "Aucun signal concurrentiel. La veille sera alimentee par les connecteurs RADAR." : "Selectionnez un client ci-dessus."} />
+      ) : (
+        <div className="space-y-2">
+          {competitorSignals.map((signal) => {
+            const d = signal.data as Record<string, unknown> | null;
+            return (
+              <div key={signal.id} className="rounded-lg border border-border bg-card p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{(d?.competitor as string) ?? signal.type}</p>
+                    <p className="text-xs text-foreground-muted">{(d?.description as string) ?? "Signal concurrentiel"}</p>
+                  </div>
+                  <span className="text-xs text-foreground-muted">{new Date(signal.createdAt).toLocaleDateString("fr-FR")}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
-
-        {/* Contexte marche */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Globe className="h-5 w-5 text-zinc-400" />
-            <h3 className="text-sm font-semibold text-white">Contexte marche</h3>
-          </div>
-          <EmptyState
-            icon={Globe}
-            title="Aucune donnee marche"
-            description="Les analyses de contexte marche apparaitront ici."
-          />
-        </div>
-      </div>
-
-      {/* Signal intelligence feed */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Search className="h-5 w-5 text-zinc-400" />
-          <h3 className="text-sm font-semibold text-white">Flux de signaux</h3>
-        </div>
-        <EmptyState
-          icon={Radar}
-          title="Aucun signal"
-          description="Les signaux d'intelligence marche seront affiches ici en temps reel."
-        />
-      </div>
+      )}
     </div>
   );
 }

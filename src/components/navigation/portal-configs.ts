@@ -246,12 +246,25 @@ export const consoleNavGroups: NavGroup[] = [
       { href: "/console/academie/courses", label: "Formations", icon: BookOpen },
       { href: "/console/academie/certifications", label: "Certifications", icon: Award },
       { href: "/console/academie/boutique", label: "Boutique", icon: ShoppingBag },
+      { href: "/console/academie/content", label: "Contenu", icon: FileText },
+    ],
+  },
+  {
+    title: "Ecosysteme",
+    divisionColor: "var(--color-division-oracle)",
+    items: [
+      { href: "/console/ecosystem", label: "Vue d'ensemble", icon: Globe },
+      { href: "/console/ecosystem/operators", label: "Operateurs", icon: Building2 },
+      { href: "/console/ecosystem/metrics", label: "Metriques", icon: BarChart3 },
+      { href: "/console/ecosystem/scoring", label: "Score /200", icon: Activity },
     ],
   },
   {
     title: "Config",
     items: [
       { href: "/console/config", label: "Parametres", icon: Settings },
+      { href: "/console/config/thresholds", label: "Seuils", icon: Radar },
+      { href: "/console/config/templates", label: "Templates", icon: Layers },
       { href: "/console/config/system", label: "Systeme", icon: Rocket },
       { href: "/console/config/integrations", label: "Integrations", icon: Plug },
     ],
