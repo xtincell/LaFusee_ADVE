@@ -15,9 +15,13 @@ import {
 // ATOMS RÉUTILISABLES (N1)
 // ============================================================================
 
+// Convention recommandation : quand un champ ne peut pas être renseigné (marque trop
+// jeune, pas de site, pas de prix), la valeur est une recommandation Mestor :
+// "À créer", "À concevoir", etc. — .min(1) accepte ces valeurs courtes.
+// Le scorer sémantique différencie : contenu réel (50+ chars) vs reco (courte).
 const textShort = z.string().min(1).max(200);
-const textMedium = z.string().min(30);
-const textLong = z.string().min(100);
+const textMedium = z.string().min(1);
+const textLong = z.string().min(1);
 const currency = z.number().min(0);
 const percentage = z.number().min(0).max(100);
 const rank = z.number().int().min(1);
@@ -31,8 +35,8 @@ const BrandValueSchema = z.object({
   value: z.enum(SCHWARTZ_VALUES),
   customName: textShort,
   rank: rank,
-  justification: z.string().min(50, "La justification doit faire 50+ caractères"),
-  costOfHolding: z.string().min(30, "Le coût de maintien doit faire 30+ caractères"),
+  justification: z.string().min(1),
+  costOfHolding: z.string().min(1),
   tensionWith: z.array(z.enum(SCHWARTZ_VALUES)).optional(),
 });
 
@@ -40,32 +44,32 @@ const BrandValueSchema = z.object({
 const HeroJourneyActSchema = z.object({
   actNumber: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   title: textShort,
-  narrative: z.string().min(100, "Le récit doit faire 100+ caractères"),
+  narrative: z.string().min(1),
   emotionalArc: textShort,
   causalLink: z.string().optional(), // Required for acts 2-5
 });
 
 /** N2.03 — BrandIkigai */
 const BrandIkigaiSchema = z.object({
-  love: z.string().min(50, "La passion doit faire 50+ caractères"),
-  competence: z.string().min(50, "La compétence doit faire 50+ caractères"),
-  worldNeed: z.string().min(50, "Le besoin du monde doit faire 50+ caractères"),
-  remuneration: z.string().min(50, "La rémunération doit faire 50+ caractères"),
+  love: z.string().min(1),
+  competence: z.string().min(1),
+  worldNeed: z.string().min(1),
+  remuneration: z.string().min(1),
 });
 
 /** Timeline narrative (4 sections) */
 const TimelineNarrativeSchema = z.object({
-  origine: z.string().min(50).optional(),
-  transformation: z.string().min(50).optional(),
-  present: z.string().min(50).optional(),
-  futur: z.string().min(50).optional(),
+  origine: z.string().min(1).optional(),
+  transformation: z.string().min(1).optional(),
+  present: z.string().min(1).optional(),
+  futur: z.string().min(1).optional(),
 });
 
 /** Communauté hiérarchique (mapped to Devotion Ladder) */
 const CommunityLevelSchema = z.object({
   level: z.enum(DEVOTION_LEVELS),
-  description: z.string().min(30),
-  privileges: z.string().min(30),
+  description: z.string().min(1),
+  privileges: z.string().min(1),
   entryCriteria: textShort.optional(),
 });
 
@@ -74,8 +78,8 @@ export const PillarASchema = z.object({
   // Identité
   archetype: z.enum(ARCHETYPES),
   archetypeSecondary: z.enum(ARCHETYPES).optional(),
-  citationFondatrice: z.string().min(30, "Format: 'Je crois que...'"),
-  noyauIdentitaire: z.string().min(100),
+  citationFondatrice: z.string().min(1),
+  noyauIdentitaire: z.string().min(1),
 
   // Hero's Journey (5 actes)
   herosJourney: z.array(HeroJourneyActSchema).min(3).max(5),
@@ -92,19 +96,55 @@ export const PillarASchema = z.object({
   // Timeline narrative
   timelineNarrative: TimelineNarrativeSchema.optional(),
 
-  // ARTEMIS Extensions (optionnelles)
-  prophecy: z.string().min(100).optional(),
+  // Extensions mouvement/cult marketing (Annexe G v2)
+  prophecy: z.union([
+    z.object({
+      worldTransformed: z.string().min(1),
+      pioneers: z.string().min(1),
+      urgency: z.string().min(1),
+      horizon: z.string().min(1),
+    }),
+    z.string().min(1), // legacy flat string
+  ]).optional(),
   enemy: z.object({
     name: textShort,
     manifesto: textMedium.optional(),
     narrative: textMedium.optional(),
     enemySchwartzValues: z.array(z.enum(SCHWARTZ_VALUES)).optional(),
+    overtonMap: z.object({
+      ourPosition: z.string().min(1).optional(),
+      enemyPosition: z.string().min(1).optional(),
+      battleground: z.string().min(1).optional(),
+      shiftDirection: z.string().min(1).optional(),
+    }).optional(),
+    enemyBrands: z.array(z.object({
+      name: textShort,
+      howTheyFight: textShort.optional(),
+    })).optional(),
+    activeOpposition: z.array(z.string().min(1)).optional(),
+    passiveOpposition: z.array(z.string().min(1)).optional(),
     counterStrategy: z.object({
       marketingCounter: textMedium.optional(),
       alliances: z.array(textShort).optional(),
     }).optional(),
+    fraternityFuel: z.object({
+      sharedHatred: z.string().min(1).optional(),
+      bondingRituals: z.array(z.string().min(1)).optional(),
+    }).optional(),
   }).optional(),
-  doctrine: z.string().min(100).optional(),
+  doctrine: z.union([
+    z.object({
+      dogmas: z.array(z.string().min(1)).min(3),
+      principles: z.array(z.string().min(1)).min(3),
+      practices: z.array(z.string().min(1)).optional(),
+    }),
+    z.string().min(1), // legacy flat string
+  ]).optional(),
+  livingMythology: z.object({
+    canon: z.string().min(1),
+    extensionRules: z.string().min(1),
+    captureSystem: z.string().min(1).optional(),
+  }).optional(),
 });
 
 // ============================================================================
@@ -130,15 +170,15 @@ const PersonaSchema = z.object({
   schwartzValues: z.array(z.enum(SCHWARTZ_VALUES)).min(1).max(3).optional(),
 
   // Psychographie
-  lifestyle: z.string().min(50).optional(),
-  mediaConsumption: z.string().min(50).optional(),
-  brandRelationships: z.string().min(50).optional(),
+  lifestyle: z.string().min(1).optional(),
+  mediaConsumption: z.string().min(1).optional(),
+  brandRelationships: z.string().min(1).optional(),
 
   // Motivation & Friction
-  motivations: z.string().min(50),
-  fears: z.string().min(50).optional(),
-  hiddenDesire: z.string().min(50).optional(),
-  whatTheyActuallyBuy: z.string().min(50).optional(),
+  motivations: z.string().min(1),
+  fears: z.string().min(1).optional(),
+  hiddenDesire: z.string().min(1).optional(),
+  whatTheyActuallyBuy: z.string().min(1).optional(),
 
   // Jobs to be done
   jobsToBeDone: z.array(textShort).min(1).max(3).optional(),
@@ -152,7 +192,7 @@ const PersonaSchema = z.object({
 const CompetitorSchema = z.object({
   name: textShort,
   partDeMarcheEstimee: percentage.optional(),
-  avantagesCompetitifs: z.array(z.string().min(50)).min(1),
+  avantagesCompetitifs: z.array(z.string().min(1)).min(1),
   faiblesses: z.array(textShort).optional(),
   strategiePos: textShort.optional(),
   distinctiveAssets: z.array(textShort).optional(),
@@ -168,7 +208,7 @@ export const PillarDSchema = z.object({
 
   // Promesses de marque
   promesseMaitre: z.string().max(150, "La promesse maître doit faire ≤150 caractères"),
-  sousPromesses: z.array(z.string().min(50)).min(2),
+  sousPromesses: z.array(z.string().min(1)).min(2),
 
   // Positionnement
   positionnement: z.string().max(200, "Le positionnement doit faire ≤200 caractères"),
@@ -176,15 +216,16 @@ export const PillarDSchema = z.object({
   // Ton de voix
   tonDeVoix: z.object({
     personnalite: z.array(textShort).min(5).max(7),
-    onDit: z.array(z.string().min(30)).min(3),
-    onNeditPas: z.array(z.string().min(30)).min(2),
+    onDit: z.array(z.string().min(1)).min(3),
+    onNeditPas: z.array(z.string().min(1)).min(2),
   }),
 
   // Assets linguistiques
   assetsLinguistiques: z.object({
     slogan: z.string().max(50).optional(),
     tagline: z.string().max(100).optional(),
-    motto: z.string().min(50).max(150).optional(),
+    motto: z.string().min(1).max(150).optional(),
+    mantras: z.array(z.string().min(1)).optional(),
     lexiquePropre: z.array(z.object({ word: textShort, definition: textShort })).min(3).optional(),
   }).optional(),
 
@@ -259,7 +300,7 @@ export const PillarDSchema = z.object({
     }).optional(),
     brandGuidelines: z.object({
       gloryOutputId: z.string().optional(),
-      sections: z.array(z.object({ title: textShort, content: z.string().min(10) })).optional(),
+      sections: z.array(z.object({ title: textShort, content: z.string().min(1) })).optional(),
       dosAndDonts: z.array(z.object({ do: textShort, dont: textShort })).optional(),
       applicationExamples: z.array(z.object({ medium: textShort, description: textShort })).optional(),
     }).optional(),
@@ -269,6 +310,26 @@ export const PillarDSchema = z.object({
       sublimationRules: z.array(z.object({ literal: textShort, sublimated: textShort })).optional(),
     }).optional(),
   }).optional(),
+
+  // Extensions Annexe G v2
+  sacredObjects: z.array(z.object({
+    name: textShort,
+    form: textShort.optional(),
+    narrative: textShort.optional(),
+    stage: textShort.optional(),
+    socialSignal: textShort.optional(),
+  })).optional(),
+  proofPoints: z.array(z.object({
+    type: textShort,
+    claim: textShort,
+    evidence: textShort.optional(),
+    source: textShort.optional(),
+  })).optional(),
+  symboles: z.array(z.object({
+    symbol: textShort,
+    meanings: z.array(textShort).optional(),
+    usageContexts: z.array(textShort).optional(),
+  })).optional(),
 });
 
 // ============================================================================
@@ -280,22 +341,22 @@ const ProduitServiceSchema = z.object({
   id: textShort.optional(),
   nom: textShort,
   categorie: z.enum(PRODUCT_CATEGORIES),
-  prix: currency,
-  cout: currency,
+  prix: currency.optional(),
+  cout: currency.optional(),
   margeUnitaire: currency.optional(), // Derived: prix - cout
 
   // Matrice de valeur 2×2×2
-  gainClientConcret: z.string().min(50),
-  gainClientAbstrait: z.string().min(50),
-  gainMarqueConcret: z.string().min(50).optional(),
-  gainMarqueAbstrait: z.string().min(50).optional(),
-  coutClientConcret: z.string().min(50).optional(),
-  coutClientAbstrait: z.string().min(50).optional(),
+  gainClientConcret: z.string().min(1),
+  gainClientAbstrait: z.string().min(1),
+  gainMarqueConcret: z.string().min(1).optional(),
+  gainMarqueAbstrait: z.string().min(1).optional(),
+  coutClientConcret: z.string().min(1).optional(),
+  coutClientAbstrait: z.string().min(1).optional(),
   coutMarqueConcret: currency.optional(),
-  coutMarqueAbstrait: z.string().min(50).optional(),
+  coutMarqueAbstrait: z.string().min(1).optional(),
 
   // Positionnement produit
-  lienPromesse: z.string().min(50),
+  lienPromesse: z.string().min(1),
   segmentCible: textShort, // Persona ID/name
   phaseLifecycle: z.enum(PRODUCT_LIFECYCLE),
 
@@ -316,19 +377,19 @@ const ProduitServiceSchema = z.object({
 /** N2.07 — ProductLadderTier */
 const ProductLadderTierSchema = z.object({
   tier: textShort,
-  prix: currency,
+  prix: currency.optional(),
   produitIds: z.array(textShort).min(1),
   cible: textShort, // Persona name/ID
-  description: z.string().min(50),
+  description: z.string().min(1),
   position: rank,
 });
 
 /** Unit Economics */
 const UnitEconomicsSchema = z.object({
-  cac: currency,
-  ltv: currency,
+  cac: currency.optional(),
+  ltv: currency.optional(),
   ltvCacRatio: z.number().optional(), // Derived
-  pointMort: textShort,
+  pointMort: textShort.optional(),
   margeNette: z.number().optional(), // Derived
   roiEstime: percentage.optional(),
   paybackPeriod: z.number().optional(), // months
@@ -349,6 +410,16 @@ export const PillarVSchema = z.object({
 
   // Promesse de valeur
   promesseDeValeur: textMedium.optional(),
+
+  // Quadrants Valeur/Cout brand-level (Annexe G §V.1)
+  valeurMarqueTangible: z.array(z.string().min(1)).optional(),
+  valeurMarqueIntangible: z.array(z.string().min(1)).optional(),
+  valeurClientTangible: z.array(z.string().min(1)).optional(),
+  valeurClientIntangible: z.array(z.string().min(1)).optional(),
+  coutMarqueTangible: z.array(z.string().min(1)).optional(),
+  coutMarqueIntangible: z.array(z.string().min(1)).optional(),
+  coutClientTangible: z.array(z.string().min(1)).optional(),
+  coutClientIntangible: z.array(z.string().min(1)).optional(),
 });
 
 // ============================================================================
@@ -360,7 +431,7 @@ const TouchpointSchema = z.object({
   canal: textShort,
   type: z.enum(TOUCHPOINT_TYPES),
   channelRef: z.enum(CHANNELS),
-  role: z.string().min(30),
+  role: z.string().min(1),
   aarrStage: z.enum(AARRR_STAGES),
   devotionLevel: z.array(z.enum(DEVOTION_LEVELS)).min(1),
   priority: rank.optional(),
@@ -372,7 +443,7 @@ const RitualSchema = z.object({
   nom: textShort,
   type: z.enum(RITUAL_TYPES),
   frequency: z.enum(["DAILY", "WEEKLY", "MONTHLY", "YEARLY", "SEASONAL", "AD_HOC"]).optional(),
-  description: z.string().min(60),
+  description: z.string().min(1),
   devotionLevels: z.array(z.enum(DEVOTION_LEVELS)).min(1),
   touchpoints: z.array(textShort).optional(),
   aarrPrimary: z.enum(AARRR_STAGES),
@@ -397,7 +468,7 @@ export const PillarESchema = z.object({
 
   // Principes communautaires
   principesCommunautaires: z.array(z.object({
-    principle: z.string().min(50),
+    principle: z.string().min(1),
     enforcement: textShort,
   })).min(3).optional(),
 
@@ -414,17 +485,23 @@ export const PillarESchema = z.object({
 
   // AARRR Funnel
   aarrr: z.object({
-    acquisition: z.string().min(80),
-    activation: z.string().min(80),
-    retention: z.string().min(80),
-    revenue: z.string().min(80),
-    referral: z.string().min(80),
+    acquisition: z.string().min(1),
+    activation: z.string().min(1),
+    retention: z.string().min(1),
+    revenue: z.string().min(1),
+    referral: z.string().min(1),
   }),
 
   // KPIs (6+)
   kpis: z.array(KPISchema).min(6),
 
-  // ARTEMIS Extensions
+  // Tabous communautaires
+  taboos: z.array(z.object({
+    taboo: textShort,
+    consequence: textShort.optional(),
+  })).optional(),
+
+  // Extensions engagement sacré
   sacredCalendar: z.array(z.object({
     date: textShort,
     name: textShort,
@@ -468,7 +545,7 @@ const RiskEntrySchema = z.object({
   risk: textShort,
   probability: z.enum(RISK_LEVELS),
   impact: z.enum(RISK_LEVELS),
-  mitigation: z.string().min(40),
+  mitigation: z.string().min(1),
 });
 
 export const PillarRSchema = z.object({
@@ -483,7 +560,7 @@ export const PillarRSchema = z.object({
 
   // Priorités de mitigation (5+ actions)
   mitigationPriorities: z.array(z.object({
-    action: z.string().min(40),
+    action: z.string().min(1),
     owner: textShort.optional(),
     timeline: textShort.optional(),
     investment: textShort.optional(),
@@ -500,10 +577,10 @@ export const PillarRSchema = z.object({
 export const PillarTSchema = z.object({
   // Triangulation marché (4 méthodes)
   triangulation: z.object({
-    customerInterviews: z.string().min(100).optional(),
-    competitiveAnalysis: z.string().min(100).optional(),
-    trendAnalysis: z.string().min(100).optional(),
-    financialBenchmarks: z.string().min(100).optional(),
+    customerInterviews: z.string().min(1).optional(),
+    competitiveAnalysis: z.string().min(1).optional(),
+    trendAnalysis: z.string().min(1).optional(),
+    financialBenchmarks: z.string().min(1).optional(),
   }),
 
   // Validation d'hypothèses (5+, ≥2 validées)
@@ -536,7 +613,7 @@ export const PillarTSchema = z.object({
 // ============================================================================
 
 const MarketingActionSchema = z.object({
-  action: z.string().min(100),
+  action: z.string().min(1),
   owner: textShort.optional(),
   kpi: textShort,
   priority: rank,
@@ -556,8 +633,8 @@ export const PillarISchema = z.object({
 
   // Roadmap
   sprint90Days: z.array(MarketingActionSchema).min(8),
-  year1: z.string().min(200).optional(),
-  vision3years: z.string().min(100).optional(),
+  year1: z.string().min(1).optional(),
+  vision3years: z.string().min(1).optional(),
 
   // Campagnes
   annualCalendar: z.array(z.object({
@@ -569,7 +646,7 @@ export const PillarISchema = z.object({
   })).min(6),
 
   // Budget
-  globalBudget: currency,
+  globalBudget: currency.optional(),
   budgetBreakdown: z.object({
     production: currency.optional(),
     media: currency.optional(),
@@ -615,8 +692,8 @@ export const PillarISchema = z.object({
 // ============================================================================
 
 export const PillarSSchema = z.object({
-  syntheseExecutive: z.string().min(400, "La synthèse exécutive doit faire 400+ caractères"),
-  visionStrategique: z.string().min(200).optional(),
+  syntheseExecutive: z.string().min(1),
+  visionStrategique: z.string().min(1).optional(),
 
   coherencePiliers: z.array(z.object({
     pilier: textShort,

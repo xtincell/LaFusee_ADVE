@@ -1,0 +1,1184 @@
+
+
+
+
+
+
+SPAWT
+La carte du bon goût
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PRÉSENTATION AU TOP MANAGEMENT
+Nouvel État du Projet — Février 2026
+Document confidentiel — Usage interne
+
+
+
+
+UPGRADERS × SPAWT
+
+Table des matières
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+0.  Contexte & Philosophie de Marque
+  0.1  Le problème
+  0.2  Pourquoi les solutions existantes échouent
+  0.3  L’origine
+  0.4  Ce que SPAWT est
+  0.5  La mascotte et le ton
+  0.6  Le marché
+  0.7  Le modèle économique en une phrase
+  0.8  Ce document
+1.  Résumé Exécutif
+2.  Vision, Philosophie & Contrat SPAWT
+3.  Le Système Palais — L'identité du Spawter
+  3.1  Les 5 axes du Palais
+  3.2  Les 5 stades de maturité
+  3.3  Les 13 archétypes
+  3.4  La collection de titres
+  3.5  La mue et les transitions
+4.  Le Profil du Lieu (Le Spawt)
+  4.1  L'ADN du Lieu
+  4.2  Le système de notation
+  4.3  Les signaux spéciaux
+5.  L'Interaction Humaine — Les 3 Actions
+6.  Le Matching Instinctif
+7.  Le Système de Badges — Architecture Business
+  7.1  Badges B2C (Exploration, Expertise, Influence)
+  7.2  Badges B2B (Réputation organique des lieux)
+  7.3  MVP vs Phase 2
+8.  L'Expérience Utilisateur V3
+  8.1  Mode Rapide
+  8.2  Mode Crew
+  8.3  Mode Explore
+9.  Le Système de Cartes
+10.  Monétisation
+  10.1  Premium B2C (Spawter Gold)
+  10.2  Tiers B2B (Libre / Pro / Gold)
+  10.3  Unit Economics & Projections
+11.  L'Économie Interne — Les Boucles
+12.  Les Tensions Résolues
+13.  Identité de Marque & Positionnement
+14.  Plan de Missions
+15.  Prochaines Étapes & Décisions Requises
+
+0. Contexte & Philosophie de Marque
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+0.1 Le problème
+Abidjan compte plus de 15 000 points de restauration. Google Maps en référence 847 dans un rayon de 5 kilomètres autour de Cocody. TripAdvisor propose des classements construits par des touristes de passage. Les groupes WhatsApp et Facebook débordent de recommandations contradictoires — 47 messages pour choisir un lieu d’anniversaire, 3 heures de débat, et au final quelqu’un choisit « le même endroit que d’habitude ».
+Le problème n’est pas l’offre. L’offre est massive. Le problème est le filtre. Il n’existe aucun système qui comprend ce que toi, personnellement, tu aimes manger, dans quel contexte, avec qui, et pourquoi — et qui te propose le bon lieu au bon moment sans que tu aies à fouiller, comparer, demander.
+Le mangeur d’Abidjan est seul face au bruit.
+0.2 Pourquoi les solutions existantes échouent
+Les plateformes de restauration occidentales (Yelp, TheFork, Google Maps) partagent un défaut structurel : elles traitent le mangeur comme un consommateur anonyme et le restaurant comme une fiche dans un catalogue. La note moyenne est la même pour tout le monde. La recommandation est la même pour tout le monde. Le résultat : un classement par popularité qui pousse les mêmes 50 adresses et ignore les 14 950 autres.
+En Afrique de l’Ouest, le problème est amplifié par trois facteurs. D’abord, la fracture digitale : Tantie Rose à Abobo Baoulé fait le meilleur attiéké d’Abidjan mais n’a ni site web, ni page Instagram, ni fiche Google. Elle n’existe pas dans l’écosystème digital. Ensuite, la culture de recommandation orale : le bouche-à-oreille reste le premier canal de découverte culinaire, mais il ne scale pas au-delà du cercle immédiat. Enfin, l’absence de data culinaire locale structurée : personne ne sait combien de maquis existent à Yopougon, quels sont leurs horaires réels, ce qu’ils servent un mardi vs un samedi.
+0.3 L’origine
+2020. Abidjan. Pleine pandémie. Stéphanie Bidje, camerounaise, débarque sans réseau. Zéro recommandation. Google Maps lui propose 847 résultats. Elle passe 1h30 à comparer des avis contradictoires pour un simple déjeuner. Par réflexe de problem solver, elle ouvre un fichier Excel. 47 spots testés en quelques mois. Notés, commentés, catégorisés. Ce fichier devient le document le plus demandé de son cercle. Chaque collègue veut la liste. Chaque nouveau venu à Abidjan finit par la recevoir.
+Le fichier Excel de Stéphanie est le prototype de SPAWT. Pas une vision grandiose. Pas une mission sociétale. Une frustration personnelle transformée en outil, puis en produit.
+0.4 Ce que SPAWT est
+SPAWT est un compagnon de découverte culinaire communautaire. Pas un catalogue de restaurants. Pas un TripAdvisor local. Pas une marketplace de réservation.
+La différence tient en trois mots : instinct, identité, communauté.
+Instinct. SPAWT ne demande pas au mangeur de remplir des formulaires de préférences. Le système observe ses comportements réels — où il va, ce qu’il aime, ce qu’il ignore — et construit un profil gustatif multidimensionnel appelé le Palais. Le Palais comprend le mangeur mieux que le mangeur ne se comprend lui-même. La recommandation qui en sort n’est pas « les 10 meilleurs restaurants de Cocody ». C’est « ce lieu-là, maintenant, pour toi, vu ce que tu es ».
+Identité. Le mangeur sur SPAWT n’est pas un utilisateur anonyme avec un pseudo et un avatar. C’est un spawter — quelqu’un dont le profil culinaire a un nom, une trajectoire, une collection de titres gagnés par l’exploration. Le système transforme l’acte banal de « chercher un restau » en construction progressive d’une identité. Le spawter ne consomme pas l’app. Il se découvre à travers elle.
+Communauté. La data de SPAWT n’est pas générée par un algorithme ni par une rédaction. Elle est générée par la tribu — les spawters qui explorent, avisent, recommandent. Chaque check-in nourrit le système. Chaque avis calibre la réputation d’un lieu. La qualité de l’information croît avec la taille et la maturité de la communauté. SPAWT ne fonctionne pas sans ses spawters. C’est le design, pas un accident.
+0.5 La mascotte et le ton
+Le chat. Pas un chatbot. Un félin. Il se balade sur la carte. Il flaire les bons spots. Il ne suit pas, il guide. Il ne juge pas, il observe. Il ne classe pas, il comprend.
+La mascotte incarne la posture de la marque : indépendance curieuse, discrétion, nez fin. Le chat ne crie pas. Il murmure. Il ne vend pas. Il suggère. Et sa voix évolue avec le spawter — enjouée et taquine au début, plus grave et complice à mesure que le spawter mûrit.
+Le dialecte SPAWT structure toute la communication. 
+Un restaurant est un « spawt ». 
+Checker/repérer un spawt c’est « spawter ». 
+Noter = Noter
+Créer un spawt = créer un spawt
+Les utilisateurs sont des « spawteurs ». 
+Les favoris sont des « coups de cœur ». 
+Les niveaux n’existent pas — il y a des « stades de maturité ». 
+Ce vocabulaire n’est pas cosmétique. Il crée un monde. Un spawter ne « note un restaurant sur une app ». Il « note un lieu et enrichit son Palais ».
+0.6 Le marché
+Abidjan d’abord. 6 millions d’habitants. Classe moyenne en expansion. Pénétration smartphone supérieure à 50%. Scène culinaire en explosion — des maquis de quartier aux restaurants gastronomiques, des garba de rue aux brunchs Instagram. Aucun acteur digital local ne structure cette offre avec intelligence.
+SPAWT commence à Abidjan parce que la densité culinaire, la culture communautaire et l’appétit digital y créent les conditions idéales. Mais le design est portable. Le système Palais, les archétypes, les mécaniques de gamification, le modèle de monétisation — rien n’est codé en dur pour Abidjan. Douala, Dakar, Lagos, Accra sont des extensions naturelles. Pas avant le mois 12. Pas avant d’avoir prouvé le modèle.
+0.7 Le modèle économique en une phrase
+SPAWT est gratuit pour les mangeurs dans un rayon de 3 km. Au-delà, le premium déverrouille tout Abidjan pour 2 500 FCFA/mois. Les restaurants existent gratuitement sur la plateforme parce que la communauté les y met. S’ils veulent comprendre leur clientèle et amplifier leur voix, ils paient 15 000 et 65 000 FCFA/mois selon le niveau d’intelligence désiré. La data du Palais est le pont entre les deux : ce que les spawters génèrent en explorant, les restaurants le consomment en insights.
+0.8 Ce document
+Ce document consolide l’état complet du projet SPAWT en février 2026. Il couvre l’architecture produit (le système Palais, les archétypes, la gamification), l’expérience utilisateur (les 3 modes contextuels), la monétisation (B2C et B2B), l’identité de marque, le programme ambassadeur et le plan d’exécution en 3 missions. Chaque section a été construite pour être lue indépendamment, mais la logique d’ensemble se comprend mieux dans l’ordre.
+La lecture complète prend environ 45 minutes. Pour une vue rapide, le Résumé Exécutif (section 1) donne l’essentiel en 2 pages.
+
+1. Résumé Exécutif
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SPAWT est une application mobile de découverte culinaire communautaire, positionnée comme un compagnon instinctif — pas un catalogue. Le projet a connu des mutations significatives en quelques mois. Ce document consolide l'état actuel du produit, de la stratégie et de l'architecture système.
+Ce qui a changé
+Identité > Score : Le système de gamification a été entièrement repensé autour du concept de « Palais » — un profil gustatif instinctif qui remplace les métriques visibles (points, niveaux affichés, classements).
+Compagnon > Catalogue : L'application adopte un système de contexte à 3 modes (Rapide, Crew, Explore) qui s'adapte au moment de la journée, au lieu de présenter un catalogue statique.
+13 Archétypes : 13 archétypes nommés (Pisteur, Fantôme, Bouche d'Or, etc.) remplacent les niveaux numériques. Chaque spawter collectionne ses titres et choisit lequel afficher.
+Monétisation B2B structurée : Trois paliers B2B (Spawt Libre / Spawt Pro  / Spawt Gold) structurent la monétisation restaurant.
+Premium B2C calibré : Le premium B2C est fixé à 2 500 FCFA/mois (24 000 FCFA/an) avec un paywall géographique (gratuit dans un rayon de 3 km, tout Abidjan en premium).
+Cartes collectibles : Un système de cartes collectibles (Profil Spawter / Fiche Lieu / Plat Emblématique) crée de la viralité et de l'engagement visuel. – La carte du bon goût
+Tensions résolues : 8 tensions architecturales identifiées et tranchées (paywall géo, badges vs titres, B2B sans architecture, coups de cœur, multi-villes, influenceuse, calendrier commercial, utilité vs identité).
+Le principe directeur
+« On ne chasse pas pour des points. On explore par instinct. On partage par passion. »— Contrat SPAWT 
+Chiffres clés à retenir
+Métrique
+Valeur
+Source
+Premium B2C
+2 500 FCFA/mois*
+Formulaire ADVE
+B2B Pro
+15 000 FCFA/mois*
+Écosystème
+B2B Gold
+65 000 FCFA/mois*
+Écosystème
+ARR potentiel M12
+~30M FCFA (~45K EUR)*
+Écosystème
+Archétypes
+13 (12 polarisés + 1 neutre)
+Palais Final
+Stades de maturité
+5 (Touriste → Guide)
+Gamification
+MVP Badges
+8-12 jours dev
+Badges System
+Restaurants cibles Mission 1
+20
+Plan de Missions
+
+
+2. Vision, Philosophie & Contrat SPAWT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2.1 La vision
+SPAWT n'est pas une application de restaurant. SPAWT est un compagnon de découverte culinaire — un chat discret, curieux et indépendant qui guide le mangeur à travers la ville. Le chat symbolise la marque : il ne suit pas, il flaire. Il ne juge pas, il observe. Il ne classe pas, il comprend.
+2.2 Le Contrat SPAWT
+Le contrat est un engagement mutuel entre la plateforme et ses utilisateurs. Il définit ce que SPAWT promet et ce que SPAWT ne fera jamais.
+Ce que SPAWT promet au Spawter :
+Ton profil t'appartient. Jamais exposé sans ton consentement.
+Les recommandations sont basées sur ton Palais, pas sur qui paie le plus.
+Tes données nourrissent la tribu
+Le système récompense la qualité et la diversité, jamais la quantité brute.
+Ce que SPAWT promet au Lieu :
+Ta fiche reflète ce que la communauté pense réellement de toi.
+Payer ne change pas ta note. Payer te donne de la compréhension (data) et de la voix (réponses aux avis).
+Les badges restaurant sont gagnés organiquement.
+Ce que SPAWT promet à la Tribu :
+Pas de leaderboard. Pas de classement. Pas de compétition entre spawters.
+L'identité prime sur l'utilité. La communauté prime sur le funnel.
+Le calendrier commercial respecte le contrat philosophique. Quand ils se contredisent, le contrat gagne.
+2.3 La philosophie de gamification
+
+Six principes fondateurs guident toute la conception :
+1. Instinct, pas formulaire. Le Palais du spawter se calibre automatiquement à partir de ses comportements réels.
+2. Gamification discrete. Pas de scores visibles, mais badge, titre, et progression dans la page de profil : La reconnaissance vient de la tribu, pas d'un compteur.
+3. Le nom est calculé, jamais choisi. Le spawter ne choisit pas son titre. Il le découvre quand le chat l'annonce. Mais il choisit lequel afficher.
+4. Réputation organique. L'influence du spawter croît par la diversité de ses explorations, la qualité de ses avis, et la confirmation par ses pairs — jamais par le volume brut.
+5. Identité stable, usage fluide. Le Palais (identité stable) coexiste avec des humeurs contextuelles (filtres temporaires). « Solo rapide » le mardi, « Crew festif » le samedi.
+6. Matching instinctif. Le matching recommande en croisant le Palais du spawter, l'ADN du lieu, l'historique, les profils similaires et le contexte (heure, météo, disponibilité).
+
+3. Le Système Palais — L'identité du Spawter
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Le Palais est le cœur de SPAWT. C'est un profil gustatif multidimensionnel qui définit qui est le spawter — pas ce qu'il a fait. La formule :
+FORMULE2 AXES DOMINANTS  ×  MATURITÉ COMPORTEMENTALE  =  TITRE COLLECTIONNABLE
+
+3.1 Les 5 axes du Palais
+Chaque spawter est positionné sur 5 axes bipolaires, calibrés automatiquement à partir de ses explorations réelles. Le calibrage initial se fait via 5 questions d'humeur lors de l'onboarding, puis s'ajuste en continu.
+Axe
+Pôle gauche
+Pôle droit
+Ce que ça mesure
+1
+Racines
+Horizons
+Attachement aux saveurs locales vs ouverture internationale
+2
+Tanière
+Nomade
+Fidélité à ses spots vs exploration constante de nouveaux lieux
+3
+Exigeant
+Enthousiaste
+Sélectivité critique vs ouverture bienveillante
+4
+Foule
+Secret
+Aime les spots populaires vs préfère les adresses cachées
+5
+Maquis
+Table
+Street food / maquis vs gastronomie / tables dressées
+
+Les 2 axes les plus marqués du spawter déterminent son archétype. Un spawter fortement « Nomade + Maquis» sera un Pisteur. Un spawter « Secret + Exigeant » sera un Œil de Chat.
+3.2 Les 5 stades de maturité
+La maturité mesure le comportement accumulé du spawter — elle ne recule jamais. Chaque stade change la posture du chat et la gravité du nom.
+Stade
+Icône
+Seuil
+Comportement
+Système
+Touriste
+🐱
+0–10 spots
+Renifle tout. Apprend. Son Palais bouge beaucoup.
+Nom provisoire dès l'onboarding. Mention « Premier Palais ». Le chat prévient : ça va bouger.
+Explorateur
+🐈
+11–20 spots
+Territoire qui se dessine. Axes se stabilisent.
+Archétype confirmé si stable sur 15+ spots. L'Omnivore débloqué. Premier titre collectionnable.
+Détective
+🐈‍⬛
+21–30 spots
+Sûr de son flair. Respecté dans sa zone.
+Le chat entre dans le nom (Chat Fantôme, Chat du Monde). Point de fusion spawter/mascotte.
+Djidji
+✦
+31–50 spots
+Expert reconnu. La colonie écoute.
+Noms abstraits et graves (Spectre, Palais d'Or, Griotte). Fiabilité affichée.
+Guide
+◉
+50+ spots
+Le chat qui marche devant.
+Noms uniques (3-5 slots par archétype par ville). Critères opaques. Réévaluation annuelle.
+
+POINT CLÉ — Le « Djidji »Le terme « Djidji » est un mot nouchi (argot ivoirien) signifiant l'expert, le connaisseur. C'est un ancrage culturel fort qui positionne SPAWT dans le contexte local abidjanais. Le terme serait adapté par ville lors de l'expansion (ex: un terme différent à Dakar).
+
+3.3 Les 13 archétypes
+12 archétypes polarisés (basés sur 2 axes dominants) + 1 archétype neutre (l'Omnivore, accessible uniquement à partir du stade Explorateur). Chaque archétype a un esprit, une description, et 5 noms progressifs.
+Archétype
+Axes dominants
+Esprit
+Progression (Touriste → Guide)
+Pisteur
+Nomade + Maquis
+Le nez au vent, les pieds dans la poussière.
+Petit Pisteur → Pisteur → Pisteur de Brousse → Pisteur Noir → La Piste
+Fantôme
+Nomade + Secret
+Tu ne le trouves pas. C'est lui qui te trouve.
+Petite Ombre → Fantôme → Chat Fantôme → Spectre → L'Introuvable
+Bouche d'Or
+Nomade + Table
+Le palais n'a pas de frontières mais il a des standards.
+Bec Fin → Bouche d'Or → Bouche d'Or Affûtée → Palais d'Or → L'Oracle du Goût
+Gardien du Maquis
+Tanière + Maquis
+Pourquoi chercher ailleurs quand tu as trouvé le bon ?
+Habitué → Gardien du Maquis → Chat du Comptoir → Patron d'Ombre → Le Pilier
+Mémoire
+Tanière + Racines
+Le vrai goût ne se réinvente pas. Il se transmet.
+Nostalgique → Mémoire → Mémoire Longue → Griotte → La Source
+Feu de Braise
+Foule + Enthousiaste
+Manger seul c'est se nourrir. Manger ensemble c'est vivre.
+Étincelle → Feu de Braise → Brasier → Foyer → Le Rassembleur
+Œil de Chat
+Secret + Exigeant
+Si c'est moyen, ça n'existe pas.
+Œil Neuf → Œil de Chat → Œil Vert → Regard → Le Verdict
+Vent d'Ailleurs
+Horizons + Nomade
+Chaque assiette est un billet d'avion.
+Brise → Vent d'Ailleurs → Chat du Monde → Courant → Le Monde
+Murmure
+Secret + Maquis
+Les meilleurs spots ne sont pas sur Google.
+Chuchoteur → Murmure → Chat de Ruelle → Écho → Le Secret
+Lame
+Table + Exigeant
+Le détail sépare le bon du mémorable.
+Tranchant → Lame → Lame Fine → Scalpel → L'Absolu
+Passeport Doré
+Table + Horizons
+La grande table n'a pas de nationalité.
+Curieux Doré → Passeport Doré → Chat Voyageur → Ambassadeur → Le Cosmopolite
+Ancre
+Tanière + Table
+La fidélité est une forme d'expertise.
+Point Fixe → Ancre → Chat de Maison → Institution → La Permanence
+Omnivore
+Équilibré (aucun axe dominant)
+Mange tout. Juge tout. N'appartient à aucune case.
+— → Omnivore → Chat Errant → Caméléon → L'Inclassable
+
+Le pattern Detective : au stade Detective, le mot « Chat » entre systématiquement dans le nom (Chat Fantôme, Chat du Monde, Chat de Ruelle, Chat du Comptoir, etc.). C'est le point de fusion entre le spawter et la mascotte SPAWT. Au stade Djidji et Guide, le chat disparaît du nom — il n'a plus besoin d'être nommé, il est incarné.
+3.4 La collection de titres
+Innovation majeure : chaque titre obtenu par le franchissement d’un stade est permanent et s'ajoute à une collection. Le spawter choisit lequel afficher publiquement.
+Permanent. Chaque titre obtenu reste dans la collection pour toujours. L'historique identitaire est un asset, pas un log.
+Choix d'affichage. Le titre « actuel » est calculé automatiquement (profil × maturité). Le titre « affiché » est au choix du spawter.
+Double affichage. Si le titre affiché ≠ titre actuel, le profil montre les deux : le titre choisi en grand, le titre actuel en petit.
+Événement. Chaque montée de stade ou mue ajoute un titre. Moment célébré avec écran dédié et partage possible.
+Rareté Guide. Les titres Guide sont les seuls limités par ville (3-5 slots par archétype). Tout le reste est illimité.
+HYPOTHÈSE VALIDEELes spawters afficheront au choix leur titre le plus prestigieux (accomplissement=titre+badge) Tracking prévu : ratio titre affiché = titre plus haut stade vs titre plus récent. Mesure à N+30 / N+90 / N+180 après le premier changement d'archétype.
+
+3.5 La mue et les transitions
+Deux mouvements distincts avec deux tons distincts :
+
+Montée de stade ↑
+Mue d'archétype ↔
+Nature
+Progression verticale
+Changement latéral
+Ton du chat
+Célébration enthousiaste
+Constat neutre (pas promotion ni rétrogradation)
+Déclencheur
+Seuil de spots atteint
+Axes dominants stables sur 30 jours + 5 spots
+Exemple
+« 40 spots. Tu passes Detective. Chat Fantôme. »
+« Je te sens différent. Tes 30 derniers spots disent Fantôme plus que Pisteur. »
+Impact
+Nouveau titre ajouté + écran de célébration
+Nouveau titre ajouté + notification du chat
+
+Règle d'inertie : l'archétype ne switch que si les axes dominants sont stables sur 30 jours + 5 spots minimum dans la nouvelle direction. Pas de flip-flop hebdomadaire.
+3.6 Honnêteté par couches
+Le système communique à trois niveaux de profondeur :
+Couche
+Audience
+Ton
+Exemple
+Nom / Titre
+Social (profil public)
+Émotionnel, cool, mémorable
+« Pisteur Noir » — identité partageable
+Palais Radar
+Personnel (optionnel)
+Analytique, 5 axes avec valeurs
+Les axes Racines/Horizons, Tanière/Nomade, etc.
+Voix du Chat
+Intime (dans l'app)
+Transparent, contextualise
+« 12 spots, ton Palais se dessine encore. »
+
+
+4. Le Profil du Lieu (Le Spawt)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4.1 L'ADN du Lieu
+Chaque lieu possède un profil multidimensionnel appelé « ADN du Lieu » ou « Terroir », construit organiquement par les avis et comportements des spawters. Il est l'équivalent du Palais pour les restaurants.
+Axe du lieu
+Pôle gauche
+Pôle droit
+Ce que ça mesure
+1
+Local
+International
+Cuisine d'ici vs cuisine du monde
+2
+Informel
+Établi
+Maquis de rue vs restaurant structuré
+3
+Budget
+Premium
+Accessibilité financière
+4
+Populaire
+Privé
+Notoriété large vs adresse cachée
+5
+Décontracté
+Habillé
+Ambiance relax vs setting soigné
+
+L'ADN du lieu se construit automatiquement à partir des check-ins, avis et profils Palais des spawters qui visitent. Le restaurateur ne le contrôle pas directement — c'est la perception communautaire.
+4.2 Le système de notation
+Le système de notation SPAWT utilise des étoiles de 1 à 5, mais avec une pondération intelligente :
+Le niveau (stade) du spawter affecte le poids algorithmique de son avis. Un avis de Djidji pèse plus qu'un avis de Touriste.
+La note affichée est la note pondérée. Le dashboard B2B (Pro+) montre la note brute vs la note pondérée.
+Les avis récents pèsent plus que les anciens. Un restaurant qui s'améliore voit sa note monter.
+4.3 Les signaux spéciaux
+Signal
+Condition
+Signification
+Coup de Cœur
+X Coups de Cœur reçus ce mois
+La communauté a un coup de cœur collectif pour ce lieu
+Pépite Vérifiée
+3+ experts (Djidji/Guide) ont confirmé
+Les connaisseurs valident — pas juste les amateurs
+Institution
+Note ≥4.5 stable +12 mois, 50+ avis
+Un classique qui ne déçoit jamais
+Fidélité
+Taux de retour spawters >30%
+Les gens reviennent — signe fort
+Découverte
+0→20 spawts en 30 jours
+Nouveau lieu en montée fulgurante
+Table Diverse
+Attire 5+ archétypes différents
+Lieu universel qui plaît à tous les profils
+Noctambule Vérifié
+Confirmé ouvert tard par 10+ spawters
+Information pratique validée par la communauté
+
+
+5. L'Interaction Humaine — Les 3 Actions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Le document de gamification définit trois actions essentielles, et uniquement trois. Toute mécanique additionnelle doit se justifier par rapport à ce socle.
+Action 1 : Le Spawt (Check-in)
+Le spawter confirme sa présence dans un lieu. Action rapide, instinctive. C'est la brique de base de la data — chaque spawt nourrit le Palais du spawter et l'ADN du lieu.
+Action 2 : L'Avis Qualitatif
+Plus qu'une note, c'est un témoignage structuré. L'avis alimente la réputation organique du lieu et le poids algorithmique dépend du stade du spawter. Les avis des Djidji et Guide sont marqués « Fiable » ou « Très fiable ».
+Action 3 : Le Coup de Cœur
+Monnaie sociale rare. Le nombre de Coups de Cœur disponibles est indexé sur la maturité, pas sur le portefeuille :
+Stade
+Base (gratuit)
+Bonus Premium
+Total Free
+Total Gold
+Touriste
+1
++1
+1/mois
+2/mois
+Explorateur
+1
++1
+1/mois
+2/mois
+Detective
+1
++1
+1/mois
+2/mois
+Djidji
+2
++1
+2/mois
+3/mois
+Guide
+3
++1
+3/mois
+4/mois
+
+La rareté est indexée sur la crédibilité. Plus tu es crédible, plus tu peux donner. Le premium ajoute un bonus fixe, jamais le double.
+
+Réputation organique
+L'influence d'un spawter croît par quatre mécaniques naturelles :
+Diversité : Explorer des lieux variés (pas toujours les mêmes)
+Avis lus/sauvegardés : Écrire des avis que les autres lisent et sauvegardent
+Recommandations réussies : Recommander des spots que les autres visitent ensuite
+Visites de retour : Revenir dans les lieux qu'on a recommandés (cohérence)
+
+6. Le Matching Instinctif
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Le moteur de recommandation SPAWT croise quatre dimensions pour proposer le bon lieu au bon moment :
+1. Palais × ADN du Lieu. Les 5 axes du Palais du spawter croisés avec l'ADN du lieu. Un Pisteur (Nomade + maquis) sera naturellement orienté vers les maquis qu'il ne connaît pas encore.
+2. Historique personnel. Les spots déjà visités, aimés ou ignorés. Le système apprend des comportements passés.
+3. Profils similaires (colonie). Les spawters avec des profils Palais similaires. « Les spawters qui te ressemblent ont aimé ce spot. »
+4. Contexte. Heure, jour, météo, localisation, nombre de personnes. Le système propose différemment à midi (rapide) vs samedi soir (festif).
+SCORE DE MATCHINGChaque lieu reçoit un score de compatibilité avec le spawter (ex: 92%). Ce score est eventuellement affiché sur les fiches lieu et les cartes de recommandation. Il est le produit du croisement Palais × ADN × Contexte.
+
+Le matching est la valeur fondamentale de SPAWT pour le B2B Gold : le restaurant accède à l'intelligence du Palais pour comprendre QUI mange chez lui, QUI ne vient pas encore, et POURQUOI.
+
+7. Le Système de Badges — Architecture Business
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRINCIPE DIRECTEURUn badge qui ne déplace pas un KPI n'existe pas. Chaque badge doit servir au moins une des 5 fonctions business : Activer, Crédibiliser, Convertir, Viraliser, Retenir.
+
+Distinction fondamentale : Titre vs Badge
+
+Titre
+Badge
+Nature
+Qui tu ES
+Ce que tu AS FAIT
+Calcul
+Automatique (Palais × Maturité)
+Conditions spécifiques remplies
+Permanence
+Mue possible (peut changer)
+Permanent (s'accumule)
+Affichage
+1 seul affiché (choisi)
+Jusqu'à 3 affichés (choisis)
+Exemple
+Pisteur Noir
+Noctambule + Chasseur de Pépites
+
+7.1 Badges B2C
+Catégorie Exploration — Ce que tu as fait (ton territoire)
+Badge
+Condition
+Rareté
+Stade minimum
+Pionnier de [Commune]
+Premier à spawter 5 lieux dans une commune
+Rare (1 par commune)
+Explorateur+
+Noctambule
+10 spawts après 21h
+Commun
+Explorateur
+Lève-Tôt
+10 spawts avant  10h (petit-déj)
+Commun
+Explorateur
+Marathon Maquis
+5 maquis différents en 15 jours
+Peu commun
+Explorateur
+Traversée
+Spawts dans 5 communes différentes
+Commun
+Touriste
+Cartographe
+Spawts dans 10 communes différentes
+Rare
+Detective
+
+Catégorie Expertise — Ce que tu sais (ta spécialisation)
+Badge
+Condition
+Rareté
+Stade minimum
+Gardien du Garba
+10 spawts garba + avis détaillés
+Peu commun
+Explorateur
+Ambassadeur [Cuisine]
+10 lieux d'une même cuisine + avis influents
+Rare
+Detective
+Palais Diversifié
+Spawts dans 5+ types de cuisine
+Peu commun
+Explorateur
+Chasseur de Pépites
+10 lieux avec moins de 10 avis existants
+Rare
+Explorateur
+Œil de Braise
+5 avis confirmés par un Djidji/Guide
+Très rare
+Detective
+Calibré
+Note moyenne à <0.5 point de la note finale
+Rare
+Detective
+
+Catégorie Influence — Ce que tu provoques (ton impact)
+Badge
+Condition
+Rareté
+Stade minimum
+Éclaireur
+Un de tes avis sauvegardé 10 fois
+Peu commun
+Explorateur
+Aimant
+Reçois 5 Coups de Cœur
+Rare
+Detective
+Meneur de Crew
+Crew actif (5+ membres, 10+ spawts)
+Peu commun
+Explorateur
+Bouche à Oreille
+3 spawters recrutés via ton code atteignent Chat
+Rare
+Explorateur
+Faiseur de Pluie
+Un lieu que tu as spawté en premier dépasse 50 visites
+Très rare
+Djidji
+Voix de la Colonie
+Invité au Conseil des Experts
+Légendaire
+Djidji
+
+7.2 Badges B2B — Réputation organique des lieux
+Les badges B2B sont gagnés organiquement par les restaurants. Un restaurant avec « Institution + Pépite Vérifiée » n'a pas besoin de payer pour être visible — l'algo le pousse naturellement. Le tier Gold accélère, il ne remplace pas la qualité.
+Badge
+Condition
+Type
+✓ Vérifié
+Fiche revendiquée par le propriétaire (Spawt Pro+)
+Statut
+❤ Coup de Cœur Colonie
+X Coups de Cœur reçus ce mois
+Social
+🔍 Pépite Vérifiée
+3+ experts (Djidji/Guide) ont confirmé
+Expertise
+🏆 Institution
+Note ≥4.5 stable +12 mois, 50+ avis
+Expertise
+🔄 Fidélité
+Taux de retour spawters >30%
+Comportement
+🌱 Découverte
+0→20 spawts en 30 jours
+Momentum
+🎭 Table Diverse
+Attire 5+ archétypes Palais différents
+Diversité
+🌙 Noctambule Vérifié
+Confirmé ouvert tard par 10+ spawters
+Info
+
+7.3 MVP vs Phase 2
+Le document « Badges System » (débat stakeholders, février 2026) a identifié une contradiction structurelle entre le document de Gamification (« pas de niveaux, des états d'esprit ») et le Formulaire ADVE (5 niveaux, 30+ badges, paws, streaks). La résolution :
+
+MVP — Mois 2
+Phase 2 — Post-PMF (Mois 12+)
+Niveaux
+5 niveaux backend (poids algorithmique)
+30+ badges thématiques
+Affichage
+Labels textuels +Barre d’experience
+Titres personnalisés, avatar chat évolutif
+Mécanique
+Feature gating (contenu débloqué par stade)
+Streaks, leaderboards, badges saisonniers
+Viralité
+Share card auto-générée
+Pins (stade, titres etc) collectible
+Business
+Badge « Spawter Vérifié » (verrou activation)
+Badges saisonniers, événements
+Dev estimé
+4-6 semaines supplémentaires
+10 mois supplémentaires
+
+Les 5 fonctions business de chaque badge
+Fonction
+Objectif
+Mécanique
+1. ACTIVER
+40% → 65% activation
+Badge « Spawter Vérifié » = verrou. Pas d'accès aux avis détaillés sans premier spawt.
+2. CRÉDIBILISER
+Poids avis, data B2B
+Le stade du spawter apparaît comme label textuel. Côté resto : poids algorithmique.
+3. CONVERTIR
+5% → 8% premium
+Feature gating par stade. « Tu es Explorateur. Passe Détective pour les food tours. »
+4. VIRALISER
+Coefficient viral 1.4x
+Share card mensuelle auto-générée (type Spotify Wrapped miniature).
+5. RETENIR
+M6: 25% rétention
+Djidji/Guide = rôle avec responsabilités. Invitation privée (WhatsApp).
+
+
+8. L'Expérience Utilisateur
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+« Le compagnon, pas le catalogue. »— Principe directeur
+L'application actuelle abandonne le modèle catalogue (liste de restaurants) pour un routeur contextuel intelligent. L'app détecte le contexte et propose le bon mode automatiquement.
+Architecture : Routeur Contextuel
+Mode
+Question
+Déclencheur
+Format
+Cible
+Rapide ⚡
+Où manger maintenant ?
+Midi (11h-14h)
+Swipe cards (type Tinder)
+Décision en 3 taps
+Crew ◎
+On sort où ce soir ?
+Vendredi soir, samedi soir
+Vote collectif + WhatsApp
+Décision de groupe en 5 min
+Explore ◈
+Prends ton temps.
+Par défaut (dimanche, temps libre)
+Magazine scroll éditorial
+Découverte et inspiration
+
+8.1 Mode Rapide
+Le chat ouvre avec une phrase contextuelle : « Il est midi passé. Tu as faim. Moi aussi. »
+Affichage du Palais du jour avec le nombre de spots filtrés.
+Cartes swipables avec : photo, nom, quartier, étoiles, budget, tags, un avis social proof, une note du chat.
+Chaque note du chat est personnalisée : « Ton Palais dit maquis + Secret. Aïcha coche les deux. »
+Actions : passer (←), valider (✓), partager WhatsApp.
+8.2 Mode Crew
+Le chat contextualise : « Vendredi soir. Ton crew attend. Décidez en 5 minutes, pas en 45. »
+Affichage des membres du crew avec avatars.
+Spots proposés avec système de vote en temps réel.
+Bouton WhatsApp pour envoyer le vote au crew. Le lien s'ouvre directement dans SPAWT.
+8.3 Mode Explore
+Layout magazine éditorial avec hero image et grid.
+Section « La meute valide » : le spot le plus spawté de la semaine.
+Section « Trouvailles de la semaine » : grid de découvertes.
+Section « Ton Palais » : visualisation radar des 5 axes.
+Rappel du Coup de Cœur mensuel disponible.
+Éléments transversaux
+Voix du chat. Le chat est omniprésent. Il parle en dialecte SPAWT. Sa voix change avec la maturité du spawter.
+Paywall géographique. Les spots premium (hors zone 3 km) sont affichés floutés avec mention « PREMIUM — 2 500 F/mois · Tout Abidjan ».
+Signaux sociaux. Signaux visuels « Pépite vérifiée » (vert) et « Institution » (or) sur les cartes.
+Navigation. Barre de navigation : Accueil / Chercher / Spawt (central, surélevé) / Crews / Moi.
+
+9. Le Système de Cartes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SPAWT intègre un système de cartes collectibles qui sert trois objectifs : engagement visuel, viralité sociale, et densité informationnelle. Chaque carte est interactive (tap pour retourner) avec un recto (identité) et un verso (données).
+3 types de cartes
+Type
+Recto
+Verso
+Usage
+Fiche Profil Spawter
+Avatar, nom, titre, rang, stats (Paws, Trouvailles, Coups de Cœur), crew/clan, badges
+Le Palais (5 axes radar), territoires explorés, structures sociales, rang archétypal
+Identité partageable, fierté, social proof
+Fiche Spawt (Lieu)
+Photo, nom, type, quartier, score matching, étoiles, budget, spécialités, horaires
+Le Terroir (5 axes ADN), cuisine tags, gardien de la tanière, score matching détaillé
+Découverte, décision, partage
+Plat Collectible
+Numéro, rareté (Commun/Rare/Épique/Légendaire), photo, nom, spawt, prix, stats
+Description, ingrédients, top review, collection info, spawt en filigrane
+Collectible, viralité, engagement
+
+Système de rareté (Plats Collectibles)
+Rareté
+Étoiles
+Couleur
+Signification
+Commun
+★
+Gris
+Plat de base du lieu
+Rare
+★★
+Vert
+Spécialité reconnue
+Épique
+★★★
+Violet
+Plat signature remarquable
+Légendaire
+★★★★
+Or
+Le plat qui fait la réputation du lieu
+
+
+Direction artistique des cartes
+Palette : Noir #0A0A0A, Or #D4AF37, Vert Chat #50C878, Blanc cassé #F8F6F0
+Typographies : Playfair Display (titres), DM Sans (corps), JetBrains Mono (données)
+Effets : Bordures subtiles, gradients sombres, effets de glow dorés, pattern dots discrets
+
+10. Monétisation
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10.1 Premium B2C — Spawter Gold
+
+Spawter (Gratuit)
+Spawter Gold (Premium)
+Prix
+0 FCFA
+2 500 FCFA/mois · 25 000 FCFA/an
+Découverte
+Dans ta commune (~3 km)
+Tout Abidjan déverrouillé
+Contenu
+60% (avis, photos, ADN)
+100% + avis détaillés
+Palais
+Basique (2 axes visibles)
+Complet (5 axes + historique)
+Coups de Cœur
+Selon maturité
+Selon maturité + 1 bonus
+Réservation
+Non
+1 tap intégré
+Badge
+Standard
+Badge doré sur le profil
+Crews
+Rejoindre uniquement
+Créer + gérer
+Listes curatées
+Limitées
+Illimitées
+Analytics perso
+Non
+Ton Palais dans le temps
+SPAWT Wrapped
+Non
+Bilan annuel personnalisé
+
+Segmentation personas B2C
+Persona
+Revenu
+Paie ?
+Pourquoi
+Betsy (Superfan)
+250-350K FCFA*
+OUI
+Sort 3-4×/mois à travers Abidjan. Se rentabilise en 1 sortie.
+Brice (Pro)
+500K FCFA*
+OUI
+Badge doré + réservation 1 tap. Ne veut jamais se tromper.
+Dominic (Fêtard)
+150K FCFA*
+NON
+Reste dans sa commune. Sa valeur : partage TikTok, ramène 50 amis.
+Vanessa (Influenceuse)
+300K FCFA*
+NON
+Statut Ambassadrice séparé. Pas dans le Palais. Deal : visibilité IG.
+
+10.2 Tiers B2B — Monétisation restaurant
+Spawt Libre — 0 FCFA (par défaut)
+« Tu existes parce que la tribu te connaît. »
+Fiche lieu créée par les spawters (le restaurant ne fait rien)
+ADN du lieu auto-calculé (budget, ambiance, cadence)
+Étoiles et avis visibles
+Apparition dans les recommandations organiques
+Persona type : Tantie Rose (avant qu'on la contacte). Son maquis apparaît parce que 24 spawters l'ont trouvée.
+Spawt Pro — 15 000 FCFA/mois*
+« Ton lieu, ta voix, tes chiffres. »
+Tout Spawt Libre +
+Badge ✓ Vérifié sur la fiche
+Répondre aux avis (voix du resto)
+Le Carnet : espace éditorial (histoire, menu, événements)
+Dashboard basique : qui spawte chez moi, profils Palais, heures de pointe
+1 photo officielle mise en avant
+Bridge digital : pour les spots peu digitalisés, un Allié SPAWT (community manager quartier) gère 5-10 fiches Pro. Le resto paie, l'Allié exécute.
+Spawt Gold —65 000 FCFA/mois*
+« L'intelligence de la tribu travaille pour toi. »
+Tout Spawt Pro +
+Visibilité contextuelle : apparaître dans « Pour Toi Aujourd'hui » (marqueur discret « Sponsorisé par »)
+Analytics avancés : profil Palais de la clientèle vs la zone
+Tendances : fréquentation par jour/heure, saisonnalité, évolution
+Ciblage par archétype : « Montre-moi aux Pisteurs et Bouches d'Or »
+Événements exclusifs : inviter des spawters par profil/stade
+Comparaison zone : benchmark vs spots similaires (anonymisé)
+Insights personnalisés (ex: « Tu attires 70% Tanière+maquis mais ta zone a 40% Nomade+Horizons »)
+10.3 Unit Economics & Projections M12*
+Source
+Prix
+Cible M12
+Projection mensuelle
+Note
+B2C Premium
+2 500 FCFA/mois
+500 spawters Gold
+1,25M FCFA/mois
+LTV : 12 mois × 2 500 = 30 000 FCFA
+B2B Pro
+15 000 FCFA/mois
+50 restos Pro
+750K FCFA/mois
+CAC : sales/bizdev 20-30 meetings/mois
+B2B Gold
+65K FCFA/mois
+10 restos Gold
+500K-1M FCFA/mois
+Pipeline : Bô Zinc, Assinie, chaînes
+
+ARR POTENTIEL M12~30M FCFA (~45 000 EUR). Le B2B Gold (10 restaurants) peut générer autant que 500 spawters premium. Priorité : le B2C crée le volume, le B2B crée le revenu.
+
+
+11. L'Économie Interne — Les Boucles
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11.1 Boucle B2C — Le cercle vertueux du Palais
+Le flywheel B2C fonctionne en 8 étapes :
+Étape 1 : Le spawter explore de nouveaux lieux
+Étape 2 : Le lieu gagne en données (ADN se construit)
+Étape 3 : L'ADN du lieu permet un matching Palais ↔ ADN
+Étape 4 : Le matching améliore les recommandations
+Étape 5 : Le spawter est satisfait, revient
+Étape 6 : Son titre progresse, ses badges s'accumulent
+Étape 7 : L'attachement identitaire se renforce
+Étape 8 : Le spawter explore encore plus (retour à l'étape 1)
+11.2 Boucle B2B — De la visibilité à l'intelligence
+Étape 1 : Les spawters créent la fiche du lieu (Spawt Libre)
+Étape 2 : Le restaurant voit qu'il existe sur SPAWT
+Étape 3 : Le restaurant veut contrôler sa voix → upgrade Pro (15K/mois)
+Étape 4 : Le restaurant veut comprendre sa clientèle → upgrade Gold (65K/mois)
+Étape 5 : Le Gold génère des insights → le restaurant optimise son offre
+Étape 6 : Meilleure offre → plus de spawters satisfaits → plus de data → boucle
+11.3 Le pont entre les deux boucles : la Data du Palais
+Ce que le Spawter génère
+Ce que le Restaurant reçoit (Gold)
+Son profil Palais (5 axes)
+Profil agrégé de sa clientèle
+Ses spawts (check-ins)
+Gaps vs potentiel de sa zone
+Ses avis qualitatifs
+Tendances temporelles
+Ses Coups de Cœur
+Benchmark anonymisé vs similaires
+Son archétype + badges
+Ciblage par archétype
+
+Exemples d'insights Gold
+« 60% de tes clients sont Tanière+maquis. Ta zone a 40% de Nomade+Horizons que tu ne captes pas. »
+« Les Pisteurs viennent le mardi. Les Ancres le samedi. Tu pourrais faire un event Pisteur le jeudi. »
+« Tes avis mentionnent 'rapide' et 'copieux' mais jamais 'ambiance'. Ton ADN dit Service — pas Expérience. »
+« Le Maquis d'à côté capte 3× plus de Bouches d'Or que toi. Voici ce qui les attire. »
+
+12. Les Tensions Résolues
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8 tensions architecturales ont été identifiées et tranchées durant le processus de mise à jour. Chaque décision est documentée avec son verdict et sa justification.
+1. Paywall géographiqueVerdict : MAINTENU3 km ≈ commune ≈ rayon de déplacement naturel. Au-delà, le pouvoir d'achat justifie le premium. Le paywall géo EST le ciblage socio-économique. Dominic reste dans sa commune gratuitement et amplifie sur TikTok. Brice paie pour traverser Abidjan.
+
+2. Badges vs Titres — doublon ?Verdict : COMPLÉMENTAIRE — SÉPARATION FORMALISÉETitres = qui tu ES (calculé, mue possible, 1 affiché). Badges = ce que tu AS FAIT (permanent, collectionnables, sélection affichée). Un spawter montre son titre + 3 badges max sur son profil. Les badges sont les preuves, le titre est l'identité.
+
+3. B2B sans architecture produitVerdict : 3 TIERS DÉFINIS — Libre / Pro / GoldLibre = organique (existe par la communauté). Pro = revendiqué (dashboard, voix, vérifié). Gold = intelligence (data Palais, ciblage archétype, événements). Le bridge pour Tantie Rose : un Allié SPAWT gère 5-10 fiches Pro par quartier.
+
+4. Coups de Cœur — 1/mois trop restrictifVerdict : INDEXÉ SUR LA MATURITÉLa rareté est indexée sur la crédibilité, pas sur le portefeuille. Touriste/Detective = 1. Djidji = 2. Guide = 3. Le premium donne +1 bonus. La monnaie sociale s'aligne avec la progression.
+
+5. Multi-villes vs PMF AbidjanVerdict : DESIGN PORTABLE, ZÉRO ÉNERGIE D'EXÉCUTIONL'architecture supporte déjà « Guide à Abidjan, Touriste à Dakar ». Mais aucune minute de dev/marketing/ops ne va dans la multi-villes avant Mois 12. On ne construit pas pour Dakar, on s'assure de ne rien casser pour Dakar.
+
+
+
+6. Vanessa l'influenceuse — persona ou canal ?Verdict : CANAL D'ACQUISITION — STATUT SÉPARÉVanessa n'est pas un spawter classique. Statut « Ambassadrice » hors du système Palais. Ses metrics : reach, conversion followers→spawters actifs. Son profil n'alimente pas l'algo. Elle amène du monde, elle ne juge pas les spots.
+
+7. Contrat philosophique vs calendrier commercialVerdict : COEXISTENCE — WORDING STRICTLes Foodie Games de Mai = défi COLLECTIF (« La tribu a spawté 500 lieux »), pas un leaderboard individuel. Le Black Spawtday = événement communautaire, pas Cyber Monday. Le Contrat SPAWT est la loi. Le calendrier est l'exécution. Quand ils se contredisent, le Contrat gagne.
+
+8. Utilité vs Identité — qui gagne ?Verdict : L'IDENTITÉ GAGNE, L'UTILITÉ SERTL'utilité (trouver un resto vite) est le hook d'acquisition. L'identité (être Pisteur Noir) est le moat de rétention. Le funnel ramène les gens. Le Palais les garde. Quand les deux se contredisent, l'identité prime. Une communauté morte ne se ranime pas. Un funnel se recalibre toujours.
+
+
+13. Identité de Marque & Positionnement
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13.1 La fondatrice
+Stéphanie Bidje, 33 ans, camerounaise. Background : Business Development, Tech, E-commerce (Jumia, Auchan). Archétype de marque redéfini : « The Simplifier / The Curator » (vs « Mission-Driven » précédemment). Compétence ajoutée : Sensibilité Culinaire.
+13.2 Positionnement
+« Plus jamais le goumin d'un mauvais restau. »— Promesse maître SPAWT
+SPAWT se positionne comme le compagnon de découverte culinaire communautaire pour les foodies d'Abidjan. Il se distingue de la concu par :
+Utilitaire, universel, impersonnel. SPAWT : identitaire, local, personnel.
+Des étoiles anonymes. SPAWT : des avis pondérés par la crédibilité du reviewer.
+Même recommandation pour tous. SPAWT : recommandation personnalisée via le Palais.
+
+
+13.3 Direction artistique
+Élément
+Choix
+Justification
+Couleurs
+Noir #0A0A0A, Or #C8A44E, Vert Chat #2D6B4F, Blanc cassé #FAFAF8
+Luxe accessible, nocturne, sophistication discrète
+Typographies
+Instrument Serif (display), Manrope (body), JetBrains Mono (data)
+Élégance éditoriale + lisibilité mobile + précision données
+Mascotte
+Le Chat SPAWT (à nommer)
+Discret, curieux, indépendant — jamais mignon, toujours pertinent
+Ton
+Direct, complice, jamais condescendant
+« On ne te dit pas quoi manger. On te dit où ton palais veut aller. »
+Photo
+Food porn authentique, lumière naturelle
+Le vrai de la rue — pas du studio
+
+13.4 Dialecte SPAWT
+Terme SPAWT
+Signification
+Remplace
+Spawter
+Faire un check-in / Utilisateur actif
+Check-in / User
+Spawt
+Un lieu découvert / L'action de découvrir
+Restaurant / Spot
+La Meute
+La communauté SPAWT
+Community
+Djidji
+Expert reconnu (stade 4)
+Power user
+Trouvaille
+Découverte culinaire
+Recommendation
+Palais
+Profil gustatif instinctif
+Taste profile
+Le Chat
+La voix/mascotte de l'app
+Assistant / Bot
+Paws
+Monnaie d'activité (backend)
+Points
+Coup de Cœur
+Vote social rare
+Like / Super like
+Tanière
+Spot favori récurrent
+Favorite place
+
+
+13.5 Hiérarchie organisationnelle
+Rôle SPAWT
+Description
+Pioneer
+Fondateur/trice
+Co-Pilots
+Co-fondateurs
+Chiefs
+Directeurs
+Leads
+Managers
+Allies
+Community managers terrain
+Spawters
+Utilisateurs actifs
+Manifeste
+Document de vision
+Crew/Meute/Gbonhi
+Équipe / Groupe d'amis
+
+
+14. Le Programme Ambassadeur
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14.1 Le principe
+SPAWT n’utilise pas d’influenceurs. SPAWT crée des ambassadeurs.
+La distinction est architecturale : l’influenceur classique est un canal publicitaire payé à la performance. L’ambassadeur SPAWT est un spawter dont le profil Palais, le stade de maturité et le comportement organique en font un vecteur naturel de la marque. L’influence est une conséquence de la crédibilité — pas un achat.
+Vanessa est le blueprint de ce programme. 25-31 ans, Marcory, 300K FCFA/mois, content creator, elle n’est pas un client core SPAWT. mais un levier marketing. Sa valeur ne se mesure pas en revenue direct mais en acquisition, en contenu organique et en social proof.
+14.2 L’architecture du programme
+Le programme fonctionne sur trois paliers, alignés sur le système de maturité du Palais :
+Palier 1 — Allié Content (Stade Touriste à Rôdeur)
+Le spawter influenceur utilise l’app organiquement et produit du contenu spontané. SPAWT ne paie rien. SPAWT offre l’accès premium gratuit et une visibilité dans la section « Trouvailles de la semaine » du Mode Explore. L’ambassadeur n’est pas encore nommé — il est observé.
+Critères d’entrée : 10+ spawts, 5+ avis qualitatifs, présence active sur au moins un réseau social avec 2 000+ followers, contenu food régulier.
+Palier 2 — Ambassadeur Actif (Stade Detective minimum)
+Le spawter est officiellement intégré au programme. Il reçoit un brief mensuel léger (pas un script — une direction). Il produit 2 à 4 contenus/mois intégrant naturellement SPAWT dans son parcours food. Rémunération : compensation fixe (50 000 à 100 000 FCFA/mois selon audience) + perks restaurants partenaires (invitations Spawt Gold).
+Critères d’entrée : 20+ spawts, 10+ avis, stade Detective atteint, audience 5 000+, taux d’engagement supérieur à 3%.
+Palier 3 — Guide Ambassadeur (Stade Djidji ou Guide)
+Le spawter est co-créateur. Il participe aux food tours SPAWT, aux événements de lancement, et ses avis sont marqués « Très fiable ». Il a accès au dashboard d’impact (combien de spawters ont visité un lieu après son contenu). Rémunération : compensation mensuelle (150 000 à 250 000 FCFA/mois) + co-branding possible sur ses propres contenus.
+Critères d’entrée : Stade Djidji minimum, 50+ spawts, contribution exceptionnelle validée par l’équipe, audience 10 000+.
+14.3 Ce que l’ambassadeur n’est pas
+Le programme ne crée pas de faux spawters. Trois règles non négociables :
+Premièrement, l’ambassadeur spawte réellement. Chaque check-in, chaque avis est authentique. Pas de contenu sponsorisé déguisé en avis organique. Si le lieu est un partenaire Spawt Gold qui a invité l’ambassadeur, c’est marqué « Invitation » sur l’avis.
+Deuxièmement, le stade de maturité est réel. L’ambassadeur ne reçoit pas de boost artificiel. Son Palais se calibre comme celui de tout spawter. Si Vanessa est Touriste, elle est Touriste — même avec 50 000 followers Instagram.
+Troisièmement, la rémunération ne change pas la note. Un ambassadeur payé qui donne 2 étoiles à un lieu garde ses 2 étoiles affichées. Le contrat SPAWT (section 2) s’applique sans exception.
+14.4 Métriques du programme
+Le programme se mesure sur quatre KPIs : le coût par acquisition (CPA) généré par les ambassadeurs vs les canaux paid classiques (cible : CPA 3× inférieur), le taux de conversion des followers exposés au contenu ambassadeur vers le téléchargement (cible : 2-5%), le nombre de spawts déclenchés dans les 48h suivant un post ambassadeur, et le Net Promoter Score des spawters recrutés via ambassadeur vs acquisition organique.
+14.5 Intégration Mission 2
+Le programme ambassadeur s’active en Mission 2 (Mois 5-6). Le séquençage : Mission 1 identifie 5 à 10 profils Vanessa-type parmi les early adopters. Mission 2 les onboarde au Palier 1 et en fait monter 2 à 3 au Palier 2. Mission 3 évalue le programme et identifie les candidats Palier 3.
+Budget estimé Mission 2 : 300 000 à 500 000 FCFA/mois (3 à 5 ambassadeurs Palier 2 actifs).
+15. Plan de Missions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Le plan d'exécution est structuré en 3 missions avec des objectifs, livrables et KPIs distincts.
+Mission 1 — Cadrage & Vérité Terrain (Mois 2, Q1)
+« Valider le problème. Identifier les use cases. Ajuster le storytelling local. »
+Interviews : 20-30 interviews foodies
+Tests app : Tests de parcours app avec utilisateurs réels
+Visites : Visites terrain des 20 restaurants cibles
+Contenu : Audit du contenu existant
+Benchmark : Benchmark concurrentiel local
+6 catégories de restaurants prioritaires Mission 1
+Catégorie
+Nombre
+Exemples
+Date night / Premium
+5
+Restaurants haut de gamme pour occasions
+Dabali / Racines clean
+5
+Street food authentique, propre
+Boys / Barbecue
+3
+Spots viande/grill, ambiance masculine
+Nouveaux restaurants
+3
+Ouvertures récentes à valider
+Hype / Instagram
+2
+Spots tendance, photogéniques
+Sceptiques
+2
+Restaurants qui ne croient pas au digital
+
+Total : 20 restaurants à onboarder en Mission 1.
+Mission 2 — Activation & Traction (Mois 5-6, Q2)
+« Croître la base active. Tester la traction organique. Structurer l'activation locale. »
+Campagnes d'acquisition ciblées
+Activation du Programme Ambassadeur — Modèle Vanessa (cf. section 14)
+Activation communautaire (événements, défis collectifs)
+Coaching de l'équipe terrain (Alliés)
+Premiers tests de conversion premium
+Mission 3 — Consolidation & Scale Prep (Mois 9-10, Q4)
+« Confirmer les signaux PMF. Réduire le churn. Préparer l'expansion. »
+Analyse de cohortes (rétention M1/M3/M6)
+Interviews power users (Djidji/Guide)
+Audit de marque (perception vs intention)
+Validation pricing (B2C et B2B)
+Préparation expansion géographique (design portable)
+AARRR Funnel — Objectifs
+Étape
+B2C Objectif
+B2B Objectif
+Acquisition
+Referral organique + influenceurs + events
+Sales/bizdev direct + bouche-à-oreille resto
+Activation
+40% → 65% (premier spawt)
+Revendication fiche (Spawt Libre → Pro)
+Rétention
+M6: 25% actifs
+Renouvellement Pro/Gold
+Referral
+Coeff viral 1.4x
+Restaurant recommande SPAWT à d'autres restos
+Revenue
+5% → 8% premium
+Upgrade Pro → Gold
+
+
+16. Prochaines Étapes & Décisions Requises
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Décisions requises 
+Les décisions suivantes conditionnent la suite du développement et nécessitent un arbitrage :
+1. Validation de ce document. 
+2. Confirmation MVP 
+3. Pricing B2B*. Spawt Pro à 15 000 FCFA/mois et Spawt Gold à 65K FCFA/mois. Ces prix nécessitent une validation terrain (Mission 1).
+4. Nommage du chat. La communauté suggère de nommer le chat mascotte. Proposition de process de naming (interne ou communautaire ?).
+5. Périmètre géographique. Aucune énergie multi-villes avant Mois 12. Mais le design ne casse rien pour l'expansion future.
+Calendrier immédiat
+Action
+Responsable
+Deadline
+Dépendance
+Arbitrage Stéphanie + Kidam sur badges MVP
+Pioneer + Tech
+Semaine 1
+Ce document
+Brief technique badges MVP
+Tech Lead
+Semaine 2
+Arbitrage
+Lancement Mission 1 terrain
+Allies + Pioneer
+Semaine 2
+Validation plan
+Développement badges MVP (8-12j)
+Dev
+Semaine 3-5
+Brief technique
+Premiers 20 restaurants onboardés
+Allies
+Semaine 6-8
+Mission 1
+Test premium B2C (beta fermée)
+Product
+Mois 3
+MVP badges live
+Premiers pitchs Spawt Pro
+Sales
+Mois 3-4
+20 restos onboardés
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Le Palais donne l'identité.Les badges prouvent.Les tiers monétisent.La data connecte.
+On ne chasse pas pour des points.On explore par instinct.On partage par passion.
+🐾
+SPAWT — Février 2026
+Workshop 26/2/26
+
+Note: 
+quel delai de resaisie? 
+horodater la note
+duree d affichage du fichier de revu
+Texte des grades de palais à valider
+Crew = Gbonhi
+Club section to add to loisirs Business Unit >>next business unit : hebergement
+

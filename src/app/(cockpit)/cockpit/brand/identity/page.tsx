@@ -197,8 +197,12 @@ function RenderPillarA({ content }: { content: AnyContent }) {
   const valeurs = safeArr(content.valeurs);
   const hierarchy = safeArr(content.hierarchieCommunautaire);
   const timeline = safe<AnyContent>(content.timelineNarrative);
-  const prophecy = safeStr(content.prophecy);
+  const prophecy = safe<AnyContent>(content.prophecy);
+  const prophecyStr = typeof content.prophecy === "string" ? content.prophecy as string : null; // legacy
   const enemy = safe<AnyContent>(content.enemy);
+  const doctrine = safe<AnyContent>(content.doctrine);
+  const doctrineStr = typeof content.doctrine === "string" ? content.doctrine as string : null;
+  const livingMythology = safe<AnyContent>(content.livingMythology);
 
   return (
     <div className="space-y-5">
@@ -354,29 +358,228 @@ function RenderPillarA({ content }: { content: AnyContent }) {
       ) : <Section title="Timeline Narrative" icon={Clock} accent="text-violet-400" empty />}
 
       {/* Prophecy */}
-      {prophecy && (
-        <Section title="Prophecy" icon={Flame} accent="text-violet-400">
-          <blockquote className="border-l-4 border-violet-400/40 pl-4 py-3 text-sm text-zinc-200 italic bg-violet-950/10 rounded-r-lg pr-4 leading-relaxed">
-            {prophecy}
-          </blockquote>
+      {(prophecy || prophecyStr) && (
+        <Section title="Prophetie" icon={Flame} accent="text-violet-400">
+          {prophecyStr ? (
+            <blockquote className="border-l-4 border-violet-400/40 pl-4 py-3 text-sm text-zinc-200 italic bg-violet-950/10 rounded-r-lg pr-4 leading-relaxed">
+              {prophecyStr}
+            </blockquote>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { key: "worldTransformed", label: "Le monde transforme" },
+                { key: "pioneers", label: "Pionniers" },
+                { key: "urgency", label: "Urgence" },
+                { key: "horizon", label: "Horizon" },
+              ].map(({ key, label }) => {
+                const val = safeStr((prophecy as AnyContent)[key]);
+                return val ? (
+                  <div key={key} className="rounded-lg border border-violet-900/30 bg-violet-950/10 p-3">
+                    <span className="text-[10px] font-semibold uppercase text-violet-400/70 block mb-1">{label}</span>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{val}</p>
+                  </div>
+                ) : null;
+              })}
+            </div>
+          )}
         </Section>
       )}
 
-      {/* Enemy */}
+      {/* Enemy — complet */}
       {enemy && safeStr(enemy.name) && (
-        <Section title="Enemy" icon={Swords} accent="text-violet-400">
-          <div className="rounded-lg border border-red-900/30 bg-red-950/10 p-4">
-            <h5 className="text-sm font-semibold text-red-300 mb-2">{safeStr(enemy.name)}</h5>
-            {safeStr(enemy.manifesto) && <p className="text-xs text-zinc-400 mb-2">{safeStr(enemy.manifesto)}</p>}
-            {safeStr(enemy.narrative) && <p className="text-xs text-zinc-400 mb-2">{safeStr(enemy.narrative)}</p>}
+        <Section title="Ennemi" icon={Swords} accent="text-red-400">
+          <div className="space-y-3">
+            {/* Core */}
+            <div className="rounded-lg border border-red-900/30 bg-red-950/10 p-4">
+              <h5 className="text-sm font-semibold text-red-300 mb-1">{safeStr(enemy.name)}</h5>
+              {safeStr(enemy.manifesto) && <p className="text-xs text-zinc-400 mb-2 leading-relaxed">{safeStr(enemy.manifesto)}</p>}
+              {safeStr(enemy.narrative) && <p className="text-xs text-zinc-400 leading-relaxed">{safeStr(enemy.narrative)}</p>}
+              {safeArr(enemy.enemySchwartzValues as unknown).length > 0 && (
+                <div className="flex gap-1.5 mt-2 flex-wrap">
+                  {(enemy.enemySchwartzValues as string[]).map((v, i) => (
+                    <Badge key={i} className="bg-red-500/10 text-red-400 text-[10px]">{v}</Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Overton Map */}
+            {!!enemy.overtonMap && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { key: "ourPosition", label: "Notre position" },
+                  { key: "enemyPosition", label: "Position ennemi" },
+                  { key: "battleground", label: "Champ de bataille" },
+                  { key: "shiftDirection", label: "Direction du shift" },
+                ].map(({ key, label }) => {
+                  const val = safeStr((enemy.overtonMap as AnyContent)[key]);
+                  return val ? (
+                    <div key={key} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                      <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-1">{label}</span>
+                      <p className="text-xs text-zinc-300">{val}</p>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            )}
+
+            {/* Enemy Brands */}
+            {safeArr(enemy.enemyBrands as unknown).length > 0 && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-2">Marques incarnant l&apos;ennemi</span>
+                <div className="space-y-1.5">
+                  {(enemy.enemyBrands as AnyContent[]).map((b, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <span className="text-red-400 font-medium shrink-0">{safeStr(b.name)}</span>
+                      <span className="text-zinc-500">{safeStr(b.howTheyFight)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Active / Passive Opposition */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {safeArr(enemy.activeOpposition as unknown).length > 0 && (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                  <span className="text-[10px] font-semibold uppercase text-red-400/70 block mb-2">Opposition active</span>
+                  <ul className="space-y-1">
+                    {(enemy.activeOpposition as string[]).map((a, i) => (
+                      <li key={i} className="text-xs text-zinc-400 flex items-start gap-1.5">
+                        <span className="text-red-500 mt-0.5 shrink-0">•</span>{a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {safeArr(enemy.passiveOpposition as unknown).length > 0 && (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                  <span className="text-[10px] font-semibold uppercase text-amber-400/70 block mb-2">Resistance structurelle</span>
+                  <ul className="space-y-1">
+                    {(enemy.passiveOpposition as string[]).map((a, i) => (
+                      <li key={i} className="text-xs text-zinc-400 flex items-start gap-1.5">
+                        <span className="text-amber-500 mt-0.5 shrink-0">•</span>{a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Counter Strategy */}
             {!!enemy.counterStrategy && (
-              <div className="mt-2 border-t border-zinc-800 pt-2">
-                <span className="text-[10px] font-semibold uppercase text-zinc-500">Contre-strategie</span>
+              <div className="rounded-lg border border-emerald-900/30 bg-emerald-950/10 p-3">
+                <span className="text-[10px] font-semibold uppercase text-emerald-400/70 block mb-2">Contre-strategie</span>
                 {safeStr((enemy.counterStrategy as AnyContent)?.marketingCounter) && (
-                  <p className="text-xs text-zinc-300 mt-1">{safeStr((enemy.counterStrategy as AnyContent).marketingCounter)}</p>
+                  <p className="text-xs text-zinc-300 mb-2 leading-relaxed">{safeStr((enemy.counterStrategy as AnyContent).marketingCounter)}</p>
+                )}
+                {safeArr((enemy.counterStrategy as AnyContent)?.alliances as unknown).length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-[10px] text-zinc-500 block mb-1">Alliances</span>
+                    <ul className="space-y-1">
+                      {((enemy.counterStrategy as AnyContent).alliances as string[]).map((a, i) => (
+                        <li key={i} className="text-xs text-zinc-400 flex items-start gap-1.5">
+                          <span className="text-emerald-500 mt-0.5 shrink-0">+</span>{a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
             )}
+
+            {/* Fraternity Fuel */}
+            {!!enemy.fraternityFuel && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                <span className="text-[10px] font-semibold uppercase text-orange-400/70 block mb-1">Carburant fraternel</span>
+                <p className="text-xs text-zinc-300 mb-2">{safeStr((enemy.fraternityFuel as AnyContent).sharedHatred)}</p>
+                {safeArr((enemy.fraternityFuel as AnyContent)?.bondingRituals as unknown).length > 0 && (
+                  <ul className="space-y-1">
+                    {((enemy.fraternityFuel as AnyContent).bondingRituals as string[]).map((r, i) => (
+                      <li key={i} className="text-xs text-zinc-400 flex items-start gap-1.5">
+                        <span className="text-orange-500 mt-0.5 shrink-0">🔥</span>{r}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
+
+      {/* Doctrine */}
+      {(doctrine || doctrineStr) && (
+        <Section title="Doctrine" icon={BookOpen} accent="text-violet-400">
+          {doctrineStr ? (
+            <p className="text-sm text-zinc-300 leading-relaxed border-l-2 border-violet-600/40 pl-4">{doctrineStr}</p>
+          ) : (
+            <div className="space-y-3">
+              {safeArr((doctrine as AnyContent).dogmas as unknown).length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold uppercase text-violet-400/70 block mb-2">Dogmes</span>
+                  <div className="space-y-2">
+                    {((doctrine as AnyContent).dogmas as string[]).map((d, i) => (
+                      <div key={i} className="rounded-lg border border-violet-900/20 bg-violet-950/10 p-3">
+                        <p className="text-xs text-zinc-300 leading-relaxed">{d}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {safeArr((doctrine as AnyContent).principles as unknown).length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-2">Principes</span>
+                  <ul className="space-y-1">
+                    {((doctrine as AnyContent).principles as string[]).map((p, i) => (
+                      <li key={i} className="text-xs text-zinc-400 flex items-start gap-1.5">
+                        <span className="text-violet-500 mt-0.5 shrink-0">→</span>{p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {safeArr((doctrine as AnyContent).practices as unknown).length > 0 && (
+                <div>
+                  <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-2">Pratiques</span>
+                  <ul className="space-y-1">
+                    {((doctrine as AnyContent).practices as string[]).map((p, i) => (
+                      <li key={i} className="text-xs text-zinc-400 flex items-start gap-1.5">
+                        <span className="text-zinc-600 mt-0.5 shrink-0">•</span>{p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </Section>
+      )}
+
+      {/* Living Mythology */}
+      {livingMythology && (
+        <Section title="Mythologie vivante" icon={BookOpen} accent="text-violet-400">
+          <div className="space-y-3">
+            {safeStr((livingMythology as AnyContent).canon) && (
+              <div className="rounded-lg border border-violet-900/20 bg-violet-950/10 p-4">
+                <span className="text-[10px] font-semibold uppercase text-violet-400/70 block mb-2">Canon</span>
+                <p className="text-xs text-zinc-300 leading-relaxed">{safeStr((livingMythology as AnyContent).canon)}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {safeStr((livingMythology as AnyContent).extensionRules) && (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                  <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-1">Regles d&apos;extension</span>
+                  <p className="text-xs text-zinc-400">{safeStr((livingMythology as AnyContent).extensionRules)}</p>
+                </div>
+              )}
+              {safeStr((livingMythology as AnyContent).captureSystem) && (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                  <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-1">Systeme de capture</span>
+                  <p className="text-xs text-zinc-400">{safeStr((livingMythology as AnyContent).captureSystem)}</p>
+                </div>
+              )}
+            </div>
           </div>
         </Section>
       )}
@@ -396,6 +599,10 @@ function RenderPillarD({ content }: { content: AnyContent }) {
   const positionnement = safeStr(content.positionnement);
   const tonDeVoix = safe<AnyContent>(content.tonDeVoix);
   const assets = safe<AnyContent>(content.assetsLinguistiques);
+  const dirArt = safe<AnyContent>(content.directionArtistique);
+  const sacredObjects = safeArr(content.sacredObjects);
+  const proofPoints = safeArr(content.proofPoints);
+  const symboles = safeArr(content.symboles);
 
   return (
     <div className="space-y-5">
@@ -436,7 +643,20 @@ function RenderPillarD({ content }: { content: AnyContent }) {
                   {safeArr(p.jobsToBeDone as unknown).length > 0 && (
                     <KVLine label="JTBD" value={(p.jobsToBeDone as string[]).join(" / ")} />
                   )}
+                  {safeStr(p.lifestyle) && <KVLine label="Lifestyle" value={safeStr(p.lifestyle)} />}
+                  {safeStr(p.mediaConsumption) && <KVLine label="Conso media" value={safeStr(p.mediaConsumption)} />}
+                  {safeStr(p.brandRelationships) && <KVLine label="Relation marques" value={safeStr(p.brandRelationships)} />}
+                  {safeStr(p.decisionProcess) && <KVLine label="Processus decision" value={safeStr(p.decisionProcess)} />}
+                  {safeStr(p.familySituation) && <KVLine label="Situation familiale" value={safeStr(p.familySituation)} />}
                 </div>
+                {/* Tension Profile */}
+                {!!p.tensionProfile && (
+                  <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                    {safeStr((p.tensionProfile as AnyContent)?.segmentId) && <Badge className="bg-zinc-700 text-zinc-300">{safeStr((p.tensionProfile as AnyContent).segmentId)}</Badge>}
+                    {safeStr((p.tensionProfile as AnyContent)?.category) && <Badge className="bg-violet-500/10 text-violet-300">{safeStr((p.tensionProfile as AnyContent).category)}</Badge>}
+                    {safeStr((p.tensionProfile as AnyContent)?.position) && <span className="text-zinc-400">Position : {safeStr((p.tensionProfile as AnyContent).position)}</span>}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -454,6 +674,7 @@ function RenderPillarD({ content }: { content: AnyContent }) {
                   <th className="text-right py-2 px-3 text-zinc-500 font-medium">Part marche</th>
                   <th className="text-left py-2 px-3 text-zinc-500 font-medium">Avantages</th>
                   <th className="text-left py-2 px-3 text-zinc-500 font-medium">Faiblesses</th>
+                  <th className="text-left py-2 px-3 text-zinc-500 font-medium">Strategie</th>
                 </tr>
               </thead>
               <tbody>
@@ -463,6 +684,7 @@ function RenderPillarD({ content }: { content: AnyContent }) {
                     <td className="py-2.5 px-3 text-right text-zinc-300">{safeNum(c.partDeMarcheEstimee) > 0 ? `${safeNum(c.partDeMarcheEstimee)}%` : "—"}</td>
                     <td className="py-2.5 px-3 text-zinc-400">{safeArr(c.avantagesCompetitifs as unknown).map((v: unknown) => safeStr(v)).join(". ").slice(0, 120)}</td>
                     <td className="py-2.5 px-3 text-zinc-500">{safeArr(c.faiblesses as unknown).map((v: unknown) => safeStr(v)).join(". ").slice(0, 120)}</td>
+                    <td className="py-2.5 px-3 text-zinc-500">{safeStr(c.strategiePos).slice(0, 80) || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -555,6 +777,24 @@ function RenderPillarD({ content }: { content: AnyContent }) {
                 <p className="text-sm text-zinc-200 mt-1">{safeStr(assets.tagline)}</p>
               </div>
             )}
+            {safeStr(assets.motto) && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                <span className="text-[10px] uppercase text-zinc-500 font-medium">Motto</span>
+                <p className="text-sm text-zinc-200 mt-1">{safeStr(assets.motto)}</p>
+              </div>
+            )}
+            {safeArr(assets.mantras as unknown).length > 0 && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                <span className="text-[10px] uppercase text-zinc-500 font-medium block mb-2">Mantras</span>
+                <div className="space-y-1">
+                  {(assets.mantras as string[]).map((m, i) => (
+                    <p key={i} className="text-xs text-zinc-300 italic flex items-start gap-1.5">
+                      <span className="text-blue-400/50 mt-0.5 shrink-0">✦</span>{m}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
             {safeArr(assets.lexiquePropre as unknown).length > 0 && (
               <div className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
                 <span className="text-[10px] uppercase text-zinc-500 font-medium block mb-2">Lexique propre</span>
@@ -571,6 +811,130 @@ function RenderPillarD({ content }: { content: AnyContent }) {
           </div>
         </Section>
       ) : <Section title="Assets Linguistiques" icon={BookOpen} accent="text-blue-400" empty />}
+
+      {/* Direction Artistique */}
+      {dirArt ? (
+        <Section title="Direction Artistique" icon={Eye} accent="text-blue-400">
+          <div className="space-y-3">
+            {/* Core DA fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {["chromaticStrategy", "typographySystem", "visualLandscape", "semioticAnalysis", "moodboard", "designTokens", "brandGuidelines", "motionIdentity", "logoTypeRecommendation", "logoValidation"].map((key) => {
+                const val = safeStr((dirArt as AnyContent)[key]);
+                if (!val) return null;
+                const labels: Record<string, string> = {
+                  chromaticStrategy: "Strategie chromatique", typographySystem: "Typographie", visualLandscape: "Paysage visuel",
+                  semioticAnalysis: "Analyse semiotique", moodboard: "Moodboard", designTokens: "Design Tokens",
+                  brandGuidelines: "Brand Guidelines", motionIdentity: "Motion Identity", logoTypeRecommendation: "Logo/Type Reco", logoValidation: "Logo Validation",
+                };
+                return (
+                  <div key={key} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                    <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-1">{labels[key] ?? key}</span>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{val.slice(0, 200)}{val.length > 200 ? "..." : ""}</p>
+                  </div>
+                );
+              })}
+            </div>
+            {/* LSI Matrix */}
+            {!!(dirArt as AnyContent).lsiMatrix && (() => {
+              const lsi = (dirArt as AnyContent).lsiMatrix as AnyContent;
+              const concepts = safeArr(lsi.concepts as unknown);
+              const layers = safe<AnyContent>(lsi.layers);
+              const rules = safeArr(lsi.sublimationRules as unknown);
+              return (
+                <div className="rounded-lg border border-violet-800/30 bg-violet-950/10 p-4">
+                  <span className="text-[10px] font-semibold uppercase text-violet-400 block mb-3">Matrice LSI</span>
+                  {concepts.length > 0 && (
+                    <div className="mb-3">
+                      <span className="text-[10px] text-zinc-500 block mb-1">Concepts</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {concepts.map((c, i) => <Badge key={i} className="bg-violet-500/10 text-violet-300 text-[10px]">{safeStr(c)}</Badge>)}
+                      </div>
+                    </div>
+                  )}
+                  {layers && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-3">
+                      {["visuel", "verbal", "comportemental", "emotionnel", "rituel"].map((layerKey) => {
+                        const items = safeArr((layers as AnyContent)[layerKey] as unknown);
+                        if (items.length === 0) return null;
+                        return (
+                          <div key={layerKey} className="rounded bg-zinc-900/50 p-2">
+                            <span className="text-[10px] font-medium text-violet-300 capitalize block mb-1">{layerKey}</span>
+                            <ul className="space-y-0.5">{items.map((it, j) => <li key={j} className="text-[10px] text-zinc-400">{safeStr(it)}</li>)}</ul>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {rules.length > 0 && (
+                    <div>
+                      <span className="text-[10px] text-zinc-500 block mb-1">Regles de sublimation</span>
+                      <ul className="space-y-0.5">{rules.map((r, i) => <li key={i} className="text-[10px] text-zinc-400 flex items-start gap-1"><span className="text-violet-500">-</span>{safeStr(r)}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </Section>
+      ) : null}
+
+      {/* Sacred Objects */}
+      {sacredObjects.length > 0 && (
+        <Section title={`Objets Sacres (${sacredObjects.length})`} icon={Crown} accent="text-blue-400">
+          <div className="space-y-2">
+            {sacredObjects.map((obj, i) => (
+              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <h5 className="text-xs font-semibold text-white">{safeStr(obj.name)}</h5>
+                  {safeStr(obj.form) && <Badge className="bg-zinc-700 text-zinc-300 text-[10px]">{safeStr(obj.form)}</Badge>}
+                  {safeStr(obj.stage) && <Badge className="bg-violet-500/10 text-violet-300 text-[10px]">{safeStr(obj.stage)}</Badge>}
+                </div>
+                {safeStr(obj.narrative) && <p className="text-[10px] text-zinc-400 leading-relaxed">{safeStr(obj.narrative)}</p>}
+                {safeStr(obj.socialSignal) && <p className="text-[10px] text-zinc-500 mt-1">Signal social : {safeStr(obj.socialSignal)}</p>}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Proof Points */}
+      {proofPoints.length > 0 && (
+        <Section title={`Proof Points (${proofPoints.length})`} icon={Check} accent="text-blue-400">
+          <div className="space-y-2">
+            {proofPoints.map((pp, i) => (
+              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 flex items-start gap-3">
+                <Badge className="bg-emerald-500/10 text-emerald-300 text-[10px] shrink-0">{safeStr(pp.type)}</Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-white font-medium">{safeStr(pp.claim)}</p>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">{safeStr(pp.evidence)}</p>
+                  {safeStr(pp.source) && <p className="text-[10px] text-zinc-500 mt-0.5">Source : {safeStr(pp.source)}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Symboles */}
+      {symboles.length > 0 && (
+        <Section title={`Symboles (${symboles.length})`} icon={CircleDot} accent="text-blue-400">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {symboles.map((s, i) => (
+              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                <h5 className="text-xs font-semibold text-white mb-1">{safeStr(s.symbol)}</h5>
+                {safeArr(s.meanings as unknown).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {(s.meanings as string[]).map((m, j) => <Badge key={j} className="bg-blue-500/10 text-blue-300 text-[10px]">{m}</Badge>)}
+                  </div>
+                )}
+                {safeArr(s.usageContexts as unknown).length > 0 && (
+                  <p className="text-[10px] text-zinc-500">Contextes : {(s.usageContexts as string[]).join(", ")}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
     </div>
   );
 }
@@ -583,6 +947,18 @@ function RenderPillarV({ content }: { content: AnyContent }) {
   const produits = safeArr(content.produitsCatalogue);
   const ladder = safeArr(content.productLadder);
   const ue = safe<AnyContent>(content.unitEconomics);
+  const promesseDeValeur = safeStr(content.promesseDeValeur);
+  const quadrantKeys = [
+    { key: "valeurMarqueTangible", label: "Valeur Marque Tangible", color: "text-emerald-300", bg: "bg-emerald-500/10" },
+    { key: "valeurMarqueIntangible", label: "Valeur Marque Intangible", color: "text-emerald-200", bg: "bg-emerald-500/5" },
+    { key: "valeurClientTangible", label: "Valeur Client Tangible", color: "text-sky-300", bg: "bg-sky-500/10" },
+    { key: "valeurClientIntangible", label: "Valeur Client Intangible", color: "text-sky-200", bg: "bg-sky-500/5" },
+    { key: "coutMarqueTangible", label: "Cout Marque Tangible", color: "text-red-300", bg: "bg-red-500/10" },
+    { key: "coutMarqueIntangible", label: "Cout Marque Intangible", color: "text-red-200", bg: "bg-red-500/5" },
+    { key: "coutClientTangible", label: "Cout Client Tangible", color: "text-amber-300", bg: "bg-amber-500/10" },
+    { key: "coutClientIntangible", label: "Cout Client Intangible", color: "text-amber-200", bg: "bg-amber-500/5" },
+  ] as const;
+  const hasQuadrants = quadrantKeys.some(({ key }) => safeArr(content[key] as unknown).length > 0);
 
   return (
     <div className="space-y-5">
@@ -787,6 +1163,39 @@ function RenderPillarV({ content }: { content: AnyContent }) {
           })()}
         </Section>
       ) : <Section title="Unit Economics" icon={BarChart3} accent="text-emerald-400" empty />}
+
+      {/* Promesse de Valeur */}
+      {promesseDeValeur ? (
+        <Section title="Promesse de Valeur" icon={Award} accent="text-emerald-400">
+          <div className="rounded-lg border border-emerald-800/30 bg-emerald-950/10 p-4">
+            <p className="text-sm text-white leading-relaxed">{promesseDeValeur}</p>
+          </div>
+        </Section>
+      ) : null}
+
+      {/* 8 Quadrants Valeur/Cout */}
+      {hasQuadrants && (
+        <Section title="Quadrants Valeur / Cout" icon={PieChart} accent="text-emerald-400">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {quadrantKeys.map(({ key, label, color, bg }) => {
+              const items = safeArr(content[key] as unknown);
+              if (items.length === 0) return null;
+              return (
+                <div key={key} className={`rounded-lg border border-zinc-800 ${bg} p-3`}>
+                  <span className={`text-[10px] font-semibold uppercase ${color} block mb-2`}>{label}</span>
+                  <ul className="space-y-1">
+                    {items.map((item, j) => (
+                      <li key={j} className="text-[10px] text-zinc-300 flex items-start gap-1">
+                        <span className="text-zinc-600 mt-0.5 shrink-0">-</span>{safeStr(item)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
     </div>
   );
 }
@@ -801,6 +1210,12 @@ function RenderPillarE({ content }: { content: AnyContent }) {
   const aarrr = safe<AnyContent>(content.aarrr);
   const kpis = safeArr(content.kpis);
   const sacredCalendar = safeArr(content.sacredCalendar);
+  const principes = safeArr(content.principesCommunautaires);
+  const taboos = safeArr(content.taboos);
+  const gamification = safe<AnyContent>(content.gamification);
+  const commandments = safeArr(content.commandments);
+  const ritesDePassage = safeArr(content.ritesDePassage);
+  const sacraments = safeArr(content.sacraments);
 
   return (
     <div className="space-y-5">
@@ -927,6 +1342,137 @@ function RenderPillarE({ content }: { content: AnyContent }) {
                 <span className="text-xs font-bold text-amber-300">{safeStr(d.date)}</span>
                 <p className="text-xs text-white mt-0.5">{safeStr(d.name)}</p>
                 <p className="text-[10px] text-zinc-500 mt-0.5">{safeStr(d.significance)}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Commandements */}
+      {commandments.length > 0 && (
+        <Section title={`Commandements (${commandments.length})`} icon={ListChecks} accent="text-amber-400">
+          <div className="space-y-2">
+            {commandments.map((cmd, i) => (
+              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 flex items-start gap-3">
+                <span className="text-xs font-bold text-amber-400 shrink-0 w-6">{i + 1}.</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-white font-medium">{safeStr(cmd.commandment)}</p>
+                  {safeStr(cmd.justification) && <p className="text-[10px] text-zinc-500 mt-0.5">{safeStr(cmd.justification)}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Principes Communautaires */}
+      {principes.length > 0 && (
+        <Section title={`Principes Communautaires (${principes.length})`} icon={Shield} accent="text-amber-400">
+          <div className="space-y-2">
+            {principes.map((pr, i) => (
+              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                <p className="text-xs text-white">{safeStr(pr.principle)}</p>
+                {safeStr(pr.enforcement) && <p className="text-[10px] text-zinc-500 mt-1">Application : {safeStr(pr.enforcement)}</p>}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Taboos */}
+      {taboos.length > 0 && (
+        <Section title={`Tabous (${taboos.length})`} icon={AlertTriangle} accent="text-red-400">
+          <div className="space-y-2">
+            {taboos.map((t, i) => (
+              <div key={i} className="rounded-lg border border-red-900/30 bg-red-950/10 p-3 flex items-start gap-3">
+                <Swords className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-red-200 font-medium">{safeStr(t.taboo)}</p>
+                  {safeStr(t.consequence) && <p className="text-[10px] text-zinc-500 mt-0.5">{safeStr(t.consequence)}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Gamification */}
+      {gamification ? (
+        <Section title="Gamification" icon={Award} accent="text-amber-400">
+          <div className="space-y-3">
+            {/* Niveaux */}
+            {safeArr((gamification as AnyContent).niveaux as unknown).length > 0 && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-2">Niveaux de devotion</span>
+                <div className="flex flex-col gap-1.5">
+                  {safeArr((gamification as AnyContent).niveaux as unknown).map((niv, i) => {
+                    const n = niv as AnyContent;
+                    return (
+                      <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3 flex items-center gap-3">
+                        <Badge className="bg-amber-500/10 text-amber-300 text-[10px] shrink-0">{safeStr(n.niveau)}</Badge>
+                        <span className="text-[10px] text-zinc-400 flex-1">{safeStr(n.condition)}</span>
+                        {safeStr(n.reward) && <span className="text-[10px] text-emerald-400">{safeStr(n.reward)}</span>}
+                        {safeStr(n.duration) && <span className="text-[10px] text-zinc-500">{safeStr(n.duration)}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {/* Recompenses */}
+            {safeArr((gamification as AnyContent).recompenses as unknown).length > 0 && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-2">Recompenses</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {((gamification as AnyContent).recompenses as string[]).map((r, i) => (
+                    <Badge key={i} className="bg-amber-500/10 text-amber-300 text-[10px]">{r}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Section>
+      ) : null}
+
+      {/* Rites de Passage */}
+      {ritesDePassage.length > 0 && (
+        <Section title={`Rites de Passage (${ritesDePassage.length})`} icon={Milestone} accent="text-amber-400">
+          <div className="space-y-2">
+            {ritesDePassage.map((rp, i) => (
+              <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge className="bg-zinc-700 text-zinc-300 text-[10px]">{safeStr(rp.fromStage)}</Badge>
+                  <ArrowRight className="h-3 w-3 text-amber-400" />
+                  <Badge className="bg-amber-500/10 text-amber-300 text-[10px]">{safeStr(rp.toStage)}</Badge>
+                </div>
+                {safeStr(rp.rituelEntree) && <p className="text-[10px] text-zinc-400">{safeStr(rp.rituelEntree)}</p>}
+                {safeArr(rp.symboles as unknown).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(rp.symboles as string[]).map((s, j) => <Badge key={j} className="bg-violet-500/10 text-violet-300 text-[10px]">{s}</Badge>)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Sacrements */}
+      {sacraments.length > 0 && (
+        <Section title={`Sacrements (${sacraments.length})`} icon={Star} accent="text-amber-400">
+          <div className="space-y-2">
+            {sacraments.map((sac, i) => (
+              <div key={i} className="rounded-lg border border-amber-800/30 bg-amber-950/10 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <h5 className="text-xs font-semibold text-amber-200">{safeStr(sac.nomSacre)}</h5>
+                  {safeStr(sac.aarrStage) && <Badge className={`text-[10px] ${AARRR_COLORS[safeStr(sac.aarrStage)] ?? "bg-zinc-800 text-zinc-300"}`}>{safeStr(sac.aarrStage)}</Badge>}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                  {safeStr(sac.trigger) && <span className="text-zinc-400"><strong className="text-zinc-300">Trigger :</strong> {safeStr(sac.trigger)}</span>}
+                  {safeStr(sac.action) && <span className="text-zinc-400"><strong className="text-zinc-300">Action :</strong> {safeStr(sac.action)}</span>}
+                  {safeStr(sac.reward) && <span className="text-zinc-400"><strong className="text-zinc-300">Reward :</strong> {safeStr(sac.reward)}</span>}
+                  {safeStr(sac.kpi) && <span className="text-zinc-400"><strong className="text-zinc-300">KPI :</strong> {safeStr(sac.kpi)}</span>}
+                </div>
               </div>
             ))}
           </div>
@@ -1547,6 +2093,9 @@ export default function IdentityPage() {
     { enabled: !!strategyId },
   );
 
+  const [actualizingPillar, setActualizingPillar] = useState<string | null>(null);
+  const [cascadeRunning, setCascadeRunning] = useState(false);
+
   const updatePartialMutation = trpc.pillar.updatePartial.useMutation({
     onSuccess: () => {
       strategyQuery.refetch();
@@ -1560,6 +2109,59 @@ export default function IdentityPage() {
       setSavingSection(null);
     },
   });
+
+  const actualizeMutation = trpc.pillar.actualize.useMutation({
+    onSuccess: (data) => {
+      strategyQuery.refetch();
+      const composite = data.scoreResult?.composite;
+      setSaveResult({
+        success: data.updated,
+        message: data.updated
+          ? `Pilier ${data.pillarKey} actualise par Mestor${composite ? ` (score global: ${composite.toFixed(1)}/200)` : ""}`
+          : `Erreur: ${data.error ?? "Echec de l'actualisation"}`,
+      });
+      setTimeout(() => setSaveResult(null), 5000);
+    },
+    onError: (err) => {
+      setSaveResult({ success: false, message: `Erreur Mestor: ${err.message}` });
+    },
+    onSettled: () => {
+      setActualizingPillar(null);
+    },
+  });
+
+  const cascadeMutation = trpc.pillar.cascadeRTIS.useMutation({
+    onSuccess: (data) => {
+      strategyQuery.refetch();
+      const successCount = data.results.filter((r) => r.updated).length;
+      setSaveResult({
+        success: successCount > 0,
+        message: `Cascade RTIS terminee: ${successCount}/${data.results.length} piliers actualises${data.finalScore ? ` (score: ${data.finalScore.composite.toFixed(1)}/200)` : ""}`,
+      });
+      setTimeout(() => setSaveResult(null), 8000);
+    },
+    onError: (err) => {
+      setSaveResult({ success: false, message: `Erreur cascade: ${err.message}` });
+    },
+    onSettled: () => {
+      setCascadeRunning(false);
+    },
+  });
+
+  const handleActualize = useCallback((pillarKey: PillarKey) => {
+    if (!strategyId) return;
+    setActualizingPillar(pillarKey);
+    actualizeMutation.mutate({
+      strategyId,
+      key: pillarKey.toUpperCase() as "A" | "D" | "V" | "E" | "R" | "T" | "I" | "S",
+    });
+  }, [strategyId, actualizeMutation]);
+
+  const handleCascadeRTIS = useCallback(() => {
+    if (!strategyId) return;
+    setCascadeRunning(true);
+    cascadeMutation.mutate({ strategyId, updateADVE: true });
+  }, [strategyId, cascadeMutation]);
 
   const handleSaveSection = useCallback((pillarKey: PillarKey, sectionKey: string, newValue: unknown) => {
     if (!strategyId) return;
@@ -1622,16 +2224,25 @@ export default function IdentityPage() {
           { label: "Identite" },
         ]}
       >
-        <button
-          onClick={() => setEditMode(!editMode)}
-          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            editMode
-              ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25"
-              : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700"
-          }`}
-        >
-          {editMode ? <><X className="h-4 w-4" /> Quitter l&apos;edition</> : <><Pencil className="h-4 w-4" /> Modifier</>}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCascadeRTIS}
+            disabled={cascadeRunning}
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors bg-purple-500/15 text-purple-400 border border-purple-500/30 hover:bg-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {cascadeRunning ? <><Activity className="h-4 w-4 animate-pulse" /> Cascade en cours...</> : <><Brain className="h-4 w-4" /> Cascade RTIS</>}
+          </button>
+          <button
+            onClick={() => setEditMode(!editMode)}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              editMode
+                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25"
+                : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700"
+            }`}
+          >
+            {editMode ? <><X className="h-4 w-4" /> Quitter l&apos;edition</> : <><Pencil className="h-4 w-4" /> Modifier</>}
+          </button>
+        </div>
       </PageHeader>
 
       {/* Edit mode banner */}
@@ -1654,21 +2265,42 @@ export default function IdentityPage() {
         </div>
       )}
 
-      {/* Top: score + radar */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-6 text-center">
-          <p className="text-sm font-medium text-zinc-400">Score composite</p>
-          <ScoreBadge score={composite} size="lg" className="mt-3" />
+      {/* Compact score strip: score + mini pillar bars + radar toggle */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 px-5 py-4">
+        <div className="flex items-center gap-6 flex-wrap">
+          {/* Score composite — compact */}
+          <div className="flex items-center gap-3 shrink-0">
+            <ScoreBadge score={composite} size="sm" />
+            <div>
+              <p className="text-lg font-bold text-white">{composite.toFixed(0)}<span className="text-sm text-zinc-500">/200</span></p>
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                {composite >= 181 ? "Icône" : composite >= 161 ? "Culte" : composite >= 121 ? "Forte" : composite >= 81 ? "Ordinaire" : "Zombie"}
+              </p>
+            </div>
+          </div>
+          {/* Separator */}
+          <div className="h-10 w-px bg-zinc-800 shrink-0 hidden sm:block" />
+          {/* Mini pillar scores inline */}
+          <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
+            {PILLAR_KEYS.map((key) => {
+              const s = scores[key] ?? 0;
+              const pct = (s / 25) * 100;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs transition-colors hover:bg-zinc-800 ${activeTab === key ? "bg-zinc-800 ring-1 ring-zinc-700" : ""}`}
+                >
+                  <span className={`font-bold ${PILLAR_ACCENT[key]}`}>{key.toUpperCase()}</span>
+                  <div className="w-12 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                    <div className={`h-full rounded-full ${PILLAR_ACCENT[key].replace("text-", "bg-").replace("-400", "-500")}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-zinc-500 tabular-nums">{s.toFixed(0)}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="col-span-2 rounded-xl border border-zinc-800 bg-zinc-900/80 p-6">
-          <AdvertisRadar scores={scores} className="flex justify-center" />
-        </div>
-      </div>
-
-      {/* Pillar progress */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-6">
-        <h3 className="mb-4 font-semibold text-white">Progression par pilier</h3>
-        <PillarProgress scores={scores} />
       </div>
 
       {/* Tab navigation */}
@@ -1770,6 +2402,17 @@ export default function IdentityPage() {
                 )}
               </div>
               <p className="mt-3 text-xs text-zinc-500 leading-relaxed">{PILLAR_DESCRIPTIONS[selectedPillar]}</p>
+              <button
+                onClick={() => handleActualize(selectedPillar)}
+                disabled={actualizingPillar === selectedPillar || cascadeRunning}
+                className="mt-4 w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors bg-purple-500/15 text-purple-400 border border-purple-500/30 hover:bg-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actualizingPillar === selectedPillar ? (
+                  <><Activity className="h-4 w-4 animate-pulse" /> Mestor analyse...</>
+                ) : (
+                  <><Brain className="h-4 w-4" /> Actualiser via Mestor</>
+                )}
+              </button>
             </div>
 
             {/* Content area */}

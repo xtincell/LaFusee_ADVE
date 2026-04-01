@@ -92,8 +92,21 @@ function scoreA(c: Record<string, unknown>, b: ScoreBreakdown[]): number {
   const tl = (c.timelineNarrative ?? {}) as Record<string, unknown>;
   const tlF = ["origine","transformation","present","futur"].filter(k => isStr(tl[k], 50)).length;
   b.push({ component: "Timeline", score: tlF >= 4 ? 2 : tlF >= 3 ? 1 : 0, maxScore: 2, details: `${tlF}/4` }); t += tlF >= 4 ? 2 : tlF >= 3 ? 1 : 0;
-  let art = (isStr(c.prophecy, 100) ? 1.5 : 0) + (c.enemy && typeof c.enemy === "object" && (c.enemy as Record<string,unknown>).name ? 2 : 0) + (isStr(c.doctrine, 100) ? 0.5 : 0);
-  b.push({ component: "ARTEMIS", score: art, maxScore: 4, details: "" }); t += art;
+  // prophecy: structured object or legacy string
+  const proph = c.prophecy;
+  const prophOk = (proph && typeof proph === "object" && isStr((proph as Record<string,unknown>).worldTransformed, 100)) || isStr(proph, 100);
+  // enemy: check expanded fields
+  const en = (c.enemy ?? {}) as Record<string,unknown>;
+  const enemyBase = en.name ? 1 : 0;
+  const enemyExpanded = (en.overtonMap ? 0.25 : 0) + (arrLen(en.enemyBrands) >= 1 ? 0.25 : 0) + (en.counterStrategy ? 0.25 : 0) + (en.fraternityFuel ? 0.25 : 0);
+  // doctrine: structured object or legacy string
+  const doc = c.doctrine;
+  const docOk = (doc && typeof doc === "object" && arrLen((doc as Record<string,unknown>).dogmas) >= 3) || isStr(doc, 100);
+  // livingMythology bonus
+  const myth = c.livingMythology;
+  const mythOk = myth && typeof myth === "object" && isStr((myth as Record<string,unknown>).canon, 200);
+  let art = (prophOk ? 1.5 : 0) + Math.min(2, enemyBase + enemyExpanded) + (docOk ? 0.5 : 0) + (mythOk ? 0.5 : 0);
+  b.push({ component: "Extensions A", score: Math.min(4.5, art), maxScore: 4.5, details: "" }); t += Math.min(4.5, art);
   const q = Math.min(2, (t / 19) * 2);
   b.push({ component: "Qualite", score: Math.round(q*10)/10, maxScore: 2, details: "" }); t += q;
   return t;
@@ -117,7 +130,10 @@ function scoreD(c: Record<string, unknown>, b: ScoreBreakdown[]): number {
   const da = (c.directionArtistique ?? {}) as Record<string,unknown>;
   const daC = Object.values(da).filter(v => v != null && typeof v === "object" && Object.keys(v as object).length > 0).length;
   b.push({ component: "Direction art.", score: Math.min(6.5, daC * 0.65), maxScore: 6.5, details: `${daC}/10` }); t += Math.min(6.5, daC * 0.65);
-  const q = Math.min(2, (t/20)*2);
+  // Extensions D: sacredObjects, proofPoints, symboles (1.5 pts max)
+  const artD = (arrLen(c.sacredObjects) >= 1 ? 0.5 : 0) + (arrLen(c.proofPoints) >= 2 ? 0.5 : 0) + (arrLen(c.symboles) >= 1 ? 0.5 : 0);
+  b.push({ component: "Extensions D", score: artD, maxScore: 1.5, details: "" }); t += artD;
+  const q = Math.min(2, (t/21.5)*2);
   b.push({ component: "Qualite", score: Math.round(q*10)/10, maxScore: 2, details: "" }); t += q;
   return t;
 }
@@ -138,8 +154,12 @@ function scoreV(c: Record<string, unknown>, b: ScoreBreakdown[]): number {
   b.push({ component: "Unit Eco", score: ueS, maxScore: 5, details: `${ueS}/5` }); t += ueS;
   const adj = (typeof ue.ltv === "number" && typeof ue.cac === "number" && (ue.cac as number) > 0 && (ue.ltv as number)/(ue.cac as number) >= 3 ? 2 : 0);
   b.push({ component: "Ajustements", score: adj, maxScore: 3, details: "" }); t += adj;
-  const q = Math.min(5, (t/16)*5);
-  b.push({ component: "Qualite V", score: Math.round(q*10)/10, maxScore: 5, details: "" }); t += q;
+  // 8 brand-level value/cost quadrants (4 pts — 0.5 per quadrant)
+  const quadrants = ["valeurMarqueTangible","valeurMarqueIntangible","valeurClientTangible","valeurClientIntangible","coutMarqueTangible","coutMarqueIntangible","coutClientTangible","coutClientIntangible"];
+  const quadS = quadrants.filter(k => arrLen(c[k]) >= 1).length * 0.5;
+  b.push({ component: "Quadrants V/C", score: Math.min(4, quadS), maxScore: 4, details: `${Math.round(quadS/0.5)}/8` }); t += Math.min(4, quadS);
+  const q = Math.min(3, (t/19)*3);
+  b.push({ component: "Qualite V", score: Math.round(q*10)/10, maxScore: 3, details: "" }); t += q;
   return t;
 }
 
@@ -157,7 +177,7 @@ function scoreE(c: Record<string, unknown>, b: ScoreBreakdown[]): number {
   b.push({ component: "AARRR", score: Math.min(2, aaF * 0.4), maxScore: 2, details: `${aaF}/5` }); t += Math.min(2, aaF * 0.4);
   b.push({ component: "KPIs", score: Math.min(1.5, arrLen(c.kpis) * 0.25), maxScore: 1.5, details: `${arrLen(c.kpis)}` }); t += Math.min(1.5, arrLen(c.kpis) * 0.25);
   let art = (arrLen(c.sacredCalendar) >= 4 ? 2 : 0) + (arrLen(c.commandments) >= 5 ? 2 : 0) + (arrLen(c.ritesDePassage) >= 3 ? 2 : 0) + (arrLen(c.sacraments) >= 5 ? 2 : 0);
-  b.push({ component: "ARTEMIS E", score: Math.min(8, art), maxScore: 8, details: "" }); t += Math.min(8, art);
+  b.push({ component: "Extensions E", score: Math.min(8, art), maxScore: 8, details: "" }); t += Math.min(8, art);
   return t;
 }
 

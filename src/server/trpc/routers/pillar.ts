@@ -33,6 +33,7 @@ import { PILLAR_SCHEMAS, validatePillarContent, validatePillarPartial, type Pill
 import { validateCrossReferences, getCrossRefSummary } from "@/server/services/cross-validator";
 import { scorePillarSemantic, scoreAllPillarsSemantic } from "@/server/services/advertis-scorer/semantic";
 import { propagateFromPillar } from "@/server/services/staleness-propagator";
+import { actualizePillar, runRTISCascade } from "@/server/services/mestor/rtis-cascade";
 
 const pillarKeyEnum = z.enum(["A", "D", "V", "E", "R", "T", "I", "S"]);
 
@@ -534,6 +535,20 @@ export const pillarRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  // ── Mestor RTIS Cascade ────────────────────────────────────────────────
+
+  actualize: protectedProcedure
+    .input(z.object({ strategyId: z.string(), key: pillarKeyEnum }))
+    .mutation(async ({ input }) => {
+      return actualizePillar(input.strategyId, input.key);
+    }),
+
+  cascadeRTIS: protectedProcedure
+    .input(z.object({ strategyId: z.string(), updateADVE: z.boolean().optional(), skipT: z.boolean().optional() }))
+    .mutation(async ({ input }) => {
+      return runRTISCascade(input.strategyId, { updateADVE: input.updateADVE, skipT: input.skipT });
     }),
 });
 

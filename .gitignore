@@ -4,6 +4,9 @@ tsconfig.tsbuildinfo
 .env
 .env.local
 .DS_Store
+._*
 playwright-report/
 test-results/
 .claude/
+Customers/SPAWT/unpacked_spawt/
+Customers/SPAWT/xlsx_raw.txt
