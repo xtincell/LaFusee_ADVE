@@ -631,6 +631,7 @@ model Pillar {
   staleAt          DateTime?                   // Set when pillar is marked stale; cleared on content update
   sources          Json?                       // [{ sourceId, sourceType, field, confidence }]
   pendingRecos     Json?                       // [{ field, currentValue, proposedValue, justification, source: "R"|"T"|"R+T", accepted?: boolean }]
+  commentary       Json?                       // { fieldName: "operator commentary text", ... } — qualitative justification per field
 
   currentVersion Int       @default(1)
 

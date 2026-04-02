@@ -49,6 +49,7 @@ import { stalenessRouter } from "./routers/staleness";
 import { pillarRouter } from "./routers/pillar";
 import { systemConfigRouter } from "./routers/system-config";
 import { ingestionRouter } from "./routers/ingestion";
+import { superfanRouter } from "./routers/superfan";
 
 export const appRouter = createTRPCRouter({
   // Existing routers
@@ -102,6 +103,7 @@ export const appRouter = createTRPCRouter({
   pillar: pillarRouter,
   systemConfig: systemConfigRouter,
   ingestion: ingestionRouter,
+  superfan: superfanRouter,
 });
 
 export type AppRouter = typeof appRouter;

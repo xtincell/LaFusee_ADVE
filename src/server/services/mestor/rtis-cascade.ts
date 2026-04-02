@@ -16,9 +16,9 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
 import { db } from "@/lib/db";
-import type { PillarKey } from "@/lib/types/pillar-schemas";
+import { PILLAR_SCHEMAS, type PillarKey } from "@/lib/types/pillar-schemas";
 import { scoreAllPillarsSemantic } from "@/server/services/advertis-scorer/semantic";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 const MODEL = "claude-sonnet-4-20250514";
 
@@ -75,16 +75,54 @@ async function callLLM(system: string, prompt: string, strategyId?: string): Pro
 }
 
 function extractJSON(text: string): Record<string, unknown> {
-  // Try to find JSON block in response
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)```/) ?? text.match(/\{[\s\S]*\}/);
+  // Try to find JSON block in response (objects or arrays)
+  const jsonMatch = text.match(/```json\s*([\s\S]*?)```/)
+    ?? text.match(/(\[[\s\S]*\])/)
+    ?? text.match(/(\{[\s\S]*\})/);
   if (!jsonMatch) throw new Error("No JSON found in LLM response");
   const raw = jsonMatch[1] ?? jsonMatch[0];
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return JSON.parse(raw.trim());
 }
 
 function serializePillar(key: string, content: unknown): string {
   if (!content || typeof content !== "object") return `[${key}] Vide`;
   return `[PILIER ${key}]\n${JSON.stringify(content, null, 2)}`;
+}
+
+/**
+ * Extract a human-readable field map from a Zod schema for LLM context.
+ * Returns lines like: "prophecy: string | object (optional)"
+ */
+function describeSchemaFields(key: "A" | "D" | "V" | "E"): string {
+  const schema = PILLAR_SCHEMAS[key];
+  const shape = schema.shape as Record<string, { _def?: { typeName?: string; innerType?: unknown }; description?: string }>;
+  const lines: string[] = [];
+
+  for (const [fieldName, fieldSchema] of Object.entries(shape)) {
+    const def = fieldSchema?._def;
+    const typeName = def?.typeName ?? "unknown";
+
+    let typeLabel = "unknown";
+    if (typeName.includes("ZodString")) typeLabel = "string";
+    else if (typeName.includes("ZodNumber")) typeLabel = "number";
+    else if (typeName.includes("ZodArray")) typeLabel = "array";
+    else if (typeName.includes("ZodObject")) typeLabel = "object";
+    else if (typeName.includes("ZodEnum")) typeLabel = "enum";
+    else if (typeName.includes("ZodUnion")) typeLabel = "string | object";
+    else if (typeName.includes("ZodOptional")) {
+      const inner = def?.innerType as { _def?: { typeName?: string } } | undefined;
+      const innerType = inner?._def?.typeName ?? "";
+      if (innerType.includes("ZodArray")) typeLabel = "array (optional)";
+      else if (innerType.includes("ZodObject")) typeLabel = "object (optional)";
+      else if (innerType.includes("ZodString")) typeLabel = "string (optional)";
+      else if (innerType.includes("ZodUnion")) typeLabel = "string | object (optional)";
+      else typeLabel = `${innerType.replace("Zod", "").toLowerCase()} (optional)`;
+    }
+
+    lines.push(`  - ${fieldName}: ${typeLabel}`);
+  }
+  return lines.join("\n");
 }
 
 // ── RTIS System Prompts ────────────────────────────────────────────────────
@@ -414,7 +452,13 @@ export async function generateADVERecommendations(
       return { pillarKey, recommendations: [], error: "R et T sont vides — lancez d'abord la cascade R→T." };
     }
 
-    const prompt = `Voici le pilier ${pillarKey} actuel:
+    // Describe the schema fields so the LLM knows exact types
+    const schemaDesc = describeSchemaFields(pillarKey);
+
+    const prompt = `Voici le SCHEMA du pilier ${pillarKey} (types attendus pour chaque champ):
+${schemaDesc}
+
+Voici le pilier ${pillarKey} actuel:
 ${JSON.stringify(currentContent, null, 2)}
 
 Voici le pilier R (Risk):
@@ -423,7 +467,11 @@ ${rContent ? JSON.stringify(rContent, null, 2) : "Non disponible"}
 Voici le pilier T (Track):
 ${tContent ? JSON.stringify(tContent, null, 2) : "Non disponible"}
 
-Produis les recommandations d'enrichissement pour le pilier ${pillarKey}.`;
+Produis les recommandations d'enrichissement pour le pilier ${pillarKey}.
+IMPORTANT: chaque proposedValue DOIT respecter EXACTEMENT le type et la structure du champ decrit dans le schema ci-dessus.
+Pour les champs "array", propose le tableau COMPLET (items existants + ajouts), chaque item doit avoir TOUS les sous-champs requis.
+Pour les champs "object", propose l'objet COMPLET avec tous les sous-champs.
+Pour les champs "string", propose le texte COMPLET.`;
 
     const response = await callLLM(RECO_PROMPT, prompt, strategyId);
     const parsed = extractJSON(response);
@@ -434,6 +482,20 @@ Produis les recommandations d'enrichissement pour le pilier ${pillarKey}.`;
       : (parsed as Record<string, unknown>).recommendations
         ? (parsed as Record<string, unknown>).recommendations as FieldRecommendation[]
         : [];
+
+    // Validate each reco's proposedValue against the schema field
+    const schema = PILLAR_SCHEMAS[pillarKey];
+    const shape = schema.shape as Record<string, { safeParse?: (v: unknown) => { success: boolean } }>;
+    for (const reco of recos) {
+      const fieldSchema = shape[reco.field];
+      if (fieldSchema?.safeParse) {
+        const result = fieldSchema.safeParse(reco.proposedValue);
+        if (!result.success) {
+          // Tag invalid recos so UI can warn the operator
+          (reco as unknown as Record<string, unknown>).validationWarning = `Le format proposé ne correspond pas au schema attendu pour "${reco.field}"`;
+        }
+      }
+    }
 
     // Store in DB as pendingRecos
     await db.pillar.update({

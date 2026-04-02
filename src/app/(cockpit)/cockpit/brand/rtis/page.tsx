@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { useCurrentStrategyId } from "@/components/cockpit/strategy-context";
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,7 +10,7 @@ import {
   AlertTriangle, ChevronDown, ChevronUp, Zap, BarChart3,
   Target, TrendingUp, DollarSign, Users, Calendar, Layers,
   Eye, Activity, Gauge, FileText, ArrowRight, Play, Fingerprint,
-  Sparkles, ThumbsUp, ThumbsDown, Trash2,
+  Sparkles, ThumbsUp, ThumbsDown, Trash2, Loader2, CheckCircle2, Circle, Lock,
 } from "lucide-react";
 
 // ============================================================================
@@ -250,13 +250,135 @@ function ADVERecommendationsPanel({ strategyId, onApplied }: { strategyId: strin
 }
 
 // ============================================================================
+// CASCADE WORKFLOW — Guided step-by-step with operator validation
+// ============================================================================
+
+// The cascade flow:
+// 1. Generate R → operator reviews → validates R
+// 2. Generate T → operator reviews → validates T
+// 3. Generate R+T Recos → operator accepts/rejects per field
+// 4. Generate I → operator reviews → validates I
+// 5. Generate S → operator reviews → validates S (dedicated page)
+
+type WorkflowPhase = "R" | "T" | "RECOS" | "I" | "S" | "COMPLETE";
+
+const WORKFLOW_STEPS: { phase: WorkflowPhase; label: string; description: string; accent: string; border: string; bg: string; icon: React.ElementType }[] = [
+  { phase: "R", label: "1. Risk", description: "Generer puis valider l'analyse de risques", accent: "text-red-400", border: "border-red-800/40", bg: "bg-red-500/10", icon: Shield },
+  { phase: "T", label: "2. Track", description: "Generer puis valider la triangulation marche", accent: "text-sky-400", border: "border-sky-800/40", bg: "bg-sky-500/10", icon: Crosshair },
+  { phase: "RECOS", label: "3. Recos R+T", description: "Accepter ou rejeter les recommandations ADVE", accent: "text-violet-400", border: "border-violet-800/40", bg: "bg-violet-500/10", icon: Sparkles },
+  { phase: "I", label: "4. Implementation", description: "Generer puis valider le plan d'action", accent: "text-orange-400", border: "border-orange-800/40", bg: "bg-orange-500/10", icon: Rocket },
+  { phase: "S", label: "5. Synthese", description: "Generer puis presenter au client", accent: "text-pink-400", border: "border-pink-800/40", bg: "bg-pink-500/10", icon: Brain },
+];
+
+type PillarData = { content: unknown; score: number; completion: number; errors: number; validationStatus?: string } | undefined;
+
+function computeCurrentPhase(data: Record<string, PillarData>): WorkflowPhase {
+  const r = data["R"];
+  const t = data["T"];
+  const i = data["I"];
+  const s = data["S"];
+
+  const isValidated = (p: PillarData) => p?.validationStatus === "VALIDATED" || p?.validationStatus === "LOCKED";
+  const hasContent = (p: PillarData) => !!p?.content;
+
+  // Step 1: R must be generated and validated
+  if (!hasContent(r)) return "R";
+  if (!isValidated(r)) return "R"; // Generated but not yet validated
+
+  // Step 2: T must be generated and validated
+  if (!hasContent(t)) return "T";
+  if (!isValidated(t)) return "T";
+
+  // Step 3: R+T recos → ADVE enrichment
+  // Move to I only if I has content (operator chose to move on)
+  if (!hasContent(i)) return "RECOS";
+
+  // Step 4: I must be generated and validated
+  if (!isValidated(i)) return "I";
+
+  // Step 5: S must be generated and validated
+  if (!hasContent(s)) return "S";
+  if (!isValidated(s)) return "S";
+
+  return "COMPLETE";
+}
+
+function CascadeWorkflowTracker({
+  currentPhase,
+  generatingStep,
+}: {
+  currentPhase: WorkflowPhase;
+  generatingStep: string | null;
+}) {
+  const phaseOrder: WorkflowPhase[] = ["R", "T", "RECOS", "I", "S", "COMPLETE"];
+  const currentIdx = phaseOrder.indexOf(currentPhase);
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+      <div className="p-4 border-b border-zinc-800">
+        <div className="flex items-center gap-3">
+          <Layers className="h-5 w-5 text-violet-400" />
+          <span className="font-semibold text-violet-300">Workflow Cascade RTIS</span>
+          {currentPhase === "COMPLETE" && (
+            <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-300">Complet</span>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 flex flex-col gap-2">
+        {WORKFLOW_STEPS.map((step, i) => {
+          const stepIdx = phaseOrder.indexOf(step.phase);
+          const isDone = stepIdx < currentIdx;
+          const isCurrent = step.phase === currentPhase;
+          const isGenerating = generatingStep === step.phase;
+          const isLocked = stepIdx > currentIdx;
+
+          return (
+            <div
+              key={step.phase}
+              className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
+                isCurrent
+                  ? `${step.border} ${step.bg} ring-1 ring-white/10`
+                  : isDone
+                    ? "border-emerald-800/30 bg-emerald-500/5"
+                    : "border-zinc-800 bg-zinc-900/40 opacity-50"
+              }`}
+            >
+              {isDone ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+              ) : isGenerating ? (
+                <Loader2 className="h-5 w-5 shrink-0 text-violet-400 animate-spin" />
+              ) : isCurrent ? (
+                <step.icon className={`h-5 w-5 shrink-0 ${step.accent}`} />
+              ) : (
+                <Circle className="h-5 w-5 shrink-0 text-zinc-600" />
+              )}
+              <div className="flex-1 min-w-0">
+                <span className={`text-sm font-semibold ${isDone ? "text-emerald-300" : isCurrent ? step.accent : "text-zinc-500"}`}>
+                  {step.label}
+                </span>
+                <p className="text-xs text-zinc-500">{step.description}</p>
+              </div>
+              {isDone && <span className="text-[10px] text-emerald-400 font-bold uppercase">Valide</span>}
+              {isCurrent && !isGenerating && <ArrowRight className={`h-4 w-4 ${step.accent}`} />}
+              {isGenerating && <span className="text-[10px] text-violet-400 font-bold uppercase">Generation...</span>}
+              {isLocked && <Lock className="h-4 w-4 text-zinc-600" />}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN PAGE
 // ============================================================================
 
 export default function RTISPage() {
   const strategyId = useCurrentStrategyId();
   const [expandedPillar, setExpandedPillar] = useState<RTISKey | null>("R");
-  const [cascadeRunning, setCascadeRunning] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState<string | null>(null);
   const [actualizingKey, setActualizingKey] = useState<RTISKey | null>(null);
 
   const pillarsQuery = trpc.pillar.getAll.useQuery(
@@ -264,19 +386,35 @@ export default function RTISPage() {
     { enabled: !!strategyId },
   );
 
-  const cascadeMutation = trpc.pillar.cascadeRTIS.useMutation({
-    onSuccess: () => { pillarsQuery.refetch(); setCascadeRunning(false); },
-    onError: () => setCascadeRunning(false),
+  const utils = trpc.useUtils();
+
+  // Individual step mutations
+  const actualizeMutation = trpc.pillar.actualize.useMutation({
+    onSuccess: () => { pillarsQuery.refetch(); setGeneratingStep(null); setActualizingKey(null); },
+    onError: () => { setGeneratingStep(null); setActualizingKey(null); },
   });
 
-  const actualizeMutation = trpc.pillar.actualize.useMutation({
-    onSuccess: () => { pillarsQuery.refetch(); setActualizingKey(null); },
-    onError: () => setActualizingKey(null),
-  });
+  const generateRecosMut = trpc.pillar.generateRecos.useMutation();
 
   const transitionMutation = trpc.pillar.transitionStatus.useMutation({
     onSuccess: () => pillarsQuery.refetch(),
   });
+
+  // Generate recos for all 4 ADVE pillars sequentially
+  const generateAllRecos = useCallback(async () => {
+    if (!strategyId) return;
+    setGeneratingStep("RECOS");
+    try {
+      for (const key of ["A", "D", "V", "E"] as const) {
+        await generateRecosMut.mutateAsync({ strategyId, key });
+      }
+    } catch {
+      // Error handled by mutation
+    }
+    setGeneratingStep(null);
+    pillarsQuery.refetch();
+    utils.pillar.getRecos.invalidate();
+  }, [strategyId, generateRecosMut, pillarsQuery, utils]);
 
   if (!strategyId) {
     return (
@@ -296,97 +434,146 @@ export default function RTISPage() {
   const adveAllPresent = adveKeys.every((k) => data[k] && (data[k] as { content: unknown }).content);
   const rtisKeys: RTISKey[] = ["R", "T", "I", "S"];
 
-  // Compute overall RTIS readiness
-  const rtisScores = rtisKeys.map((k) => {
-    const p = data[k] as { content: unknown; score: number; completion: number } | undefined;
-    return { key: k, score: p?.score ?? 0, completion: p?.completion ?? 0, hasContent: !!p?.content };
-  });
-  const avgRTISScore = rtisScores.reduce((s, r) => s + r.score, 0) / 4;
+  // Compute guided workflow phase
+  const currentPhase = computeCurrentPhase(data as Record<string, { content: unknown; score: number; completion: number; errors: number } | undefined>);
 
   return (
     <div className="p-8 space-y-6">
       <PageHeader title="RTIS — Risk, Track, Implementation, Synthese" />
 
-      {/* ── Summary Bar ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      {/* ── Pillar Status Row (content-first, scores tertiary) ──────── */}
+      <div className="flex flex-wrap gap-2">
         {rtisKeys.map((k) => {
           const meta = RTIS_META[k];
-          const p = data[k] as { score: number; completion: number } | undefined;
+          const p = data[k] as { content: unknown; completion: number; validationStatus?: string } | undefined;
+          const hasContent = !!p?.content;
+          const status = p?.validationStatus ?? "DRAFT";
+          const statusBadge = STATUS_BADGE[status] ?? STATUS_BADGE.DRAFT!;
+
           return (
             <button
               key={k}
               onClick={() => setExpandedPillar(expandedPillar === k ? null : k)}
-              className={`rounded-xl border ${meta.border} ${meta.bg} p-4 text-left transition-all hover:brightness-125 ${expandedPillar === k ? "ring-1 ring-white/20" : ""}`}
+              className={`flex items-center gap-2.5 rounded-lg border px-3.5 py-2 text-left transition-all hover:brightness-125 ${expandedPillar === k ? `${meta.border} ${meta.bg} ring-1 ring-white/10` : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-700"}`}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <meta.icon className={`h-4 w-4 ${meta.accent}`} />
-                <span className={`text-xs font-bold uppercase tracking-wider ${meta.accent}`}>{meta.full}</span>
-              </div>
-              <div className="flex items-end justify-between">
-                <span className="text-2xl font-bold text-white">{(p?.score ?? 0).toFixed(1)}</span>
-                <span className="text-xs text-zinc-500">/25</span>
-              </div>
-              <div className="mt-1.5 h-1 rounded-full bg-zinc-800 overflow-hidden">
-                <div className={`h-full rounded-full ${meta.bg.replace("/10", "/60")}`} style={{ width: `${p?.completion ?? 0}%` }} />
-              </div>
+              <meta.icon className={`h-4 w-4 ${meta.accent}`} />
+              <span className={`text-sm font-medium ${expandedPillar === k ? meta.accent : "text-zinc-300"}`}>{meta.full}</span>
+              {hasContent ? (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${statusBadge.color}`}>{statusBadge.label}</span>
+              ) : (
+                <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-600">Vide</span>
+              )}
             </button>
           );
         })}
-
-        {/* Avg score card */}
-        <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Gauge className="h-4 w-4 text-zinc-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Moyenne RTIS</span>
-          </div>
-          <div className="flex items-end justify-between">
-            <span className="text-2xl font-bold text-white">{avgRTISScore.toFixed(1)}</span>
-            <span className="text-xs text-zinc-500">/25</span>
-          </div>
-        </div>
       </div>
 
-      {/* ── Actions Bar ─────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={() => { setCascadeRunning(true); cascadeMutation.mutate({ strategyId, updateADVE: true }); }}
-          disabled={cascadeRunning || !adveAllPresent}
-          className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {cascadeRunning ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          {cascadeRunning ? "Cascade en cours..." : "Lancer cascade RTIS"}
-        </button>
+      {/* ── Workflow Tracker + Actions ──────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left: Workflow phases */}
+        <div className="lg:col-span-1">
+          <CascadeWorkflowTracker currentPhase={currentPhase} generatingStep={generatingStep} />
+        </div>
 
-        {!adveAllPresent && (
-          <span className="flex items-center gap-1.5 text-xs text-amber-400">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            Remplissez d&apos;abord les 4 piliers ADVE
-          </span>
-        )}
+        {/* Right: Current step action */}
+        <div className="lg:col-span-2 space-y-4">
+          {!adveAllPresent && (
+            <div className="rounded-xl border border-amber-800/40 bg-amber-500/5 p-4 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+              <p className="text-sm text-amber-300">Remplissez d&apos;abord les 4 piliers ADVE avant de lancer la cascade RTIS.</p>
+            </div>
+          )}
 
-        {cascadeMutation.isSuccess && (
-          <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-            <Check className="h-3.5 w-3.5" />
-            Cascade terminee
-          </span>
-        )}
+          {adveAllPresent && currentPhase !== "COMPLETE" && currentPhase !== "RECOS" && (
+            <div className={`rounded-xl border ${RTIS_META[currentPhase as RTISKey]?.border ?? "border-zinc-800"} ${RTIS_META[currentPhase as RTISKey]?.bg ?? "bg-zinc-900/60"} p-5`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  {(() => { const Icon = RTIS_META[currentPhase as RTISKey]?.icon ?? Shield; return <Icon className={`h-5 w-5 ${RTIS_META[currentPhase as RTISKey]?.accent ?? ""}`} />; })()}
+                  <span className={`font-semibold ${RTIS_META[currentPhase as RTISKey]?.accent ?? ""}`}>
+                    Etape: Generer {RTIS_META[currentPhase as RTISKey]?.full ?? currentPhase}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setGeneratingStep(currentPhase);
+                      actualizeMutation.mutate({ strategyId, key: currentPhase as RTISKey });
+                    }}
+                    disabled={!!generatingStep}
+                    className={`flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}
+                  >
+                    {generatingStep === currentPhase ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                    {generatingStep === currentPhase ? "Generation..." : `Generer ${RTIS_META[currentPhase as RTISKey]?.full ?? ""}`}
+                  </button>
+                  {Boolean(data[currentPhase]?.content) && (
+                    <button
+                      onClick={() => transitionMutation.mutate({ strategyId, key: currentPhase as RTISKey, targetStatus: "VALIDATED" })}
+                      disabled={transitionMutation.isPending}
+                      className="flex items-center gap-1.5 rounded-lg border border-emerald-800/40 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors"
+                    >
+                      <Check className="h-4 w-4" />
+                      Valider {RTIS_META[currentPhase as RTISKey]?.full ?? ""}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-zinc-500">
+                {RTIS_META[currentPhase as RTISKey]?.description ?? ""}
+                {" — "}Generez le contenu puis validez-le pour passer a l&apos;etape suivante.
+              </p>
+            </div>
+          )}
 
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-zinc-500">
-          <ArrowRight className="h-3 w-3" />
-          <span>R = analyse(ADVE)</span>
-          <ArrowRight className="h-3 w-3" />
-          <span>T = analyse(ADVE+R)</span>
-          <ArrowRight className="h-3 w-3" />
-          <span>R+T {"\u2192"} ADVE</span>
-          <ArrowRight className="h-3 w-3" />
-          <span>I = produit</span>
-          <ArrowRight className="h-3 w-3" />
-          <span>S = synthese</span>
+          {adveAllPresent && currentPhase === "RECOS" && (
+            <div className="rounded-xl border border-violet-800/40 bg-violet-500/5 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 text-violet-400" />
+                  <span className="font-semibold text-violet-300">Etape: Recommandations R+T pour ADVE</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={generateAllRecos}
+                    disabled={!!generatingStep}
+                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {generatingStep === "RECOS" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {generatingStep === "RECOS" ? "Generation des recos..." : "Generer les recommandations"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGeneratingStep("I");
+                      actualizeMutation.mutate({ strategyId, key: "I" });
+                    }}
+                    disabled={!!generatingStep}
+                    className="flex items-center gap-2 rounded-lg border border-orange-800/40 px-4 py-2 text-sm font-medium text-orange-400 hover:bg-orange-500/10 disabled:opacity-40 transition-colors"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                    Passer a Implementation
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-zinc-500">
+                R et T sont valides. Generez les recommandations puis acceptez/rejetez chaque proposition ci-dessous.
+                Une fois traite, passez a l&apos;etape I.
+              </p>
+            </div>
+          )}
+
+          {currentPhase === "COMPLETE" && (
+            <div className="rounded-xl border border-emerald-800/40 bg-emerald-500/5 p-5 flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+              <div>
+                <span className="font-semibold text-emerald-300">Cascade RTIS complete</span>
+                <p className="text-xs text-zinc-500">Tous les piliers RTIS sont generes et valides. Consultez la Synthese pour la vue client.</p>
+              </div>
+            </div>
+          )}
+
+          {/* ADVE Recommendations (shows when recos exist, regardless of phase) */}
+          <ADVERecommendationsPanel strategyId={strategyId} onApplied={() => pillarsQuery.refetch()} />
         </div>
       </div>
-
-      {/* ── ADVE Recommendations Review ──────────────────────────────── */}
-      <ADVERecommendationsPanel strategyId={strategyId} onApplied={() => pillarsQuery.refetch()} />
 
       {/* ── Pillar Detail Panels ────────────────────────────────────── */}
       <div className="space-y-4">
@@ -410,8 +597,6 @@ export default function RTISPage() {
                   <span className="text-xs text-zinc-500">{meta.description}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-mono text-zinc-300">{(pillarData?.score ?? 0).toFixed(1)}/25</span>
-                  <span className="text-xs text-zinc-500">{pillarData?.completion ?? 0}%</span>
                   {isExpanded ? <ChevronUp className="h-4 w-4 text-zinc-500" /> : <ChevronDown className="h-4 w-4 text-zinc-500" />}
                 </div>
               </button>

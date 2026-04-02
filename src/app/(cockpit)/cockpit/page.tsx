@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { AdvertisRadar } from "@/components/shared/advertis-radar";
-import { ScoreBadge } from "@/components/shared/score-badge";
 import { DevotionLadder } from "@/components/shared/devotion-ladder";
 import { CultIndex } from "@/components/shared/cult-index";
 import { StatCard } from "@/components/shared/stat-card";
@@ -19,11 +18,14 @@ import {
   Activity,
   Rocket,
   AlertTriangle,
-  Coins,
   Eye,
   Fingerprint,
   Target,
   Lightbulb,
+  Users,
+  TrendingUp,
+  Crown,
+  Heart,
 } from "lucide-react";
 import { PILLAR_NAMES, type PillarKey } from "@/lib/types/advertis-vector";
 
@@ -75,6 +77,21 @@ export default function CockpitDashboard() {
 
   const campaignsQuery = trpc.campaign.list.useQuery(
     { strategyId: strategyId ?? undefined },
+    { enabled: !!strategyId },
+  );
+
+  const superfanCountQuery = trpc.superfan.count.useQuery(
+    { strategyId: strategyId! },
+    { enabled: !!strategyId },
+  );
+
+  const superfanVelocityQuery = trpc.superfan.velocity.useQuery(
+    { strategyId: strategyId!, days: 30 },
+    { enabled: !!strategyId },
+  );
+
+  const cultIndexQuery = trpc.cultIndex.trend.useQuery(
+    { strategyId: strategyId! },
     { enabled: !!strategyId },
   );
 
@@ -148,15 +165,64 @@ export default function CockpitDashboard() {
   });
   const cultTrend = scoreTrend.map((s) => Math.round(s / 2));
 
-  // Brand content from pillars
+  // Brand content from pillars (field names match Zod schemas: pillar-schemas.ts)
   const pillarContentMap = buildPillarContentMap(
     (strategy as Record<string, unknown> & { pillars?: Array<{ key: string; content: unknown }> })?.pillars,
   );
-  const visionContent = pillarContentMap["a"];
-  const distinctionContent = pillarContentMap["d"];
-  const valeurContent = pillarContentMap["v"];
+  const authContent = pillarContentMap["a"];   // A: noyauIdentitaire, prophecy, valeurs, archetype...
+  const distContent = pillarContentMap["d"];   // D: positionnement, promesseMaitre, tonDeVoix...
+  const valeurContent = pillarContentMap["v"]; // V: produitsCatalogue, unitEconomics...
+  const engageContent = pillarContentMap["e"]; // E: rituels, touchpoints, kpis...
 
-  // Find weakest pillar for strategic focus
+  // Extract key qualitative text per pillar — values, not scores
+  function getPillarHeadline(key: string): string {
+    const c = pillarContentMap[key.toLowerCase()];
+    if (!c) return "";
+    switch (key.toLowerCase()) {
+      case "a": return safeString(c.prophecy) || safeString(c.noyauIdentitaire) || "";
+      case "d": return safeString(c.promesseMaitre) || safeString(c.positionnement) || "";
+      case "v": {
+        const cat = c.produitsCatalogue;
+        if (Array.isArray(cat) && cat.length > 0) {
+          const first = cat[0] as Record<string, unknown>;
+          return safeString(first?.nom) || safeString(first?.categorie) || "";
+        }
+        return "";
+      }
+      case "e": {
+        const tp = c.touchpoints;
+        if (Array.isArray(tp) && tp.length > 0) {
+          const first = tp[0] as Record<string, unknown>;
+          return safeString(first?.canal) || safeString(first?.role) || "";
+        }
+        const rit = c.rituels;
+        if (Array.isArray(rit) && rit.length > 0) {
+          const first = rit[0] as Record<string, unknown>;
+          return safeString(first?.nom) || safeString(first?.description) || "";
+        }
+        return "";
+      }
+      case "r": {
+        const swot = c.globalSwot as Record<string, unknown> | undefined;
+        if (swot) {
+          const strengths = swot.strengths;
+          if (Array.isArray(strengths) && strengths.length > 0) return safeString(strengths[0]);
+        }
+        const miti = c.mitigationPriorities;
+        if (Array.isArray(miti) && miti.length > 0) return safeString((miti[0] as Record<string, unknown>)?.action) || "";
+        return "";
+      }
+      case "t": {
+        const tri = c.triangulation as Record<string, unknown> | undefined;
+        return safeString(tri?.trendAnalysis)?.substring(0, 120) || "";
+      }
+      case "i": return safeString(c.syntheseExecutive)?.substring(0, 120) || "";
+      case "s": return safeString(c.visionStrategique)?.substring(0, 120) || safeString(c.syntheseExecutive)?.substring(0, 120) || "";
+      default: return "";
+    }
+  }
+
+  // Find weakest/strongest RTIS pillars (ADVE is qualitative, focus scoring on RTIS)
   const pillarEntries = Object.entries(scores) as [PillarKey, number][];
   const weakestPillar = pillarEntries.reduce((min, [k, v]) => (v < min[1] ? [k, v] : min), pillarEntries[0]!);
   const strongestPillar = pillarEntries.reduce((max, [k, v]) => (v > max[1] ? [k, v] : max), pillarEntries[0]!);
@@ -198,39 +264,38 @@ export default function CockpitDashboard() {
 
       {/* Brand Story Hero */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Vision & Positionnement */}
+        {/* Identite & Positionnement */}
         <div className="lg:col-span-2 rounded-xl border border-violet-800/30 bg-gradient-to-br from-violet-950/30 to-zinc-900/80 p-6">
           <div className="mb-3 flex items-center gap-2">
             <Fingerprint className="h-4 w-4 text-violet-400" />
             <h3 className="text-xs font-semibold uppercase tracking-wider text-violet-400">Identite de marque</h3>
           </div>
-          {visionContent?.vision ? (
+          {authContent?.noyauIdentitaire || authContent?.prophecy ? (
             <p className="text-lg font-semibold leading-relaxed text-white">
-              {safeString(visionContent.vision)}
+              {safeString(authContent.noyauIdentitaire || authContent.prophecy)}
             </p>
           ) : (
-            <p className="text-sm text-zinc-500 italic">Vision non definie</p>
+            <p className="text-sm text-zinc-500 italic">Noyau identitaire non defini — remplissez le pilier A (Authenticite)</p>
           )}
-          {!!distinctionContent?.positioning && (
+          {!!distContent?.positionnement && (
             <p className="mt-2 text-sm text-zinc-300">
               <span className="text-zinc-500">Positionnement :</span>{" "}
-              {safeString(distinctionContent.positioning)}
+              {safeString(distContent.positionnement)}
             </p>
           )}
-          {!!visionContent?.values && Array.isArray(visionContent.values) && (
+          {!!distContent?.promesseMaitre && (
+            <p className="mt-2 text-sm font-medium text-violet-300 italic">
+              &ldquo;{safeString(distContent.promesseMaitre)}&rdquo;
+            </p>
+          )}
+          {!!authContent?.valeurs && Array.isArray(authContent.valeurs) && (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {(visionContent.values as string[]).map((v, i) => (
+              {(authContent.valeurs as Array<Record<string, unknown>>).slice(0, 6).map((v, i) => (
                 <span key={i} className="rounded-full bg-violet-500/10 px-2.5 py-0.5 text-xs font-medium text-violet-300">
-                  {safeString(v)}
+                  {safeString(v.customName || v.value || v)}
                 </span>
               ))}
             </div>
-          )}
-          {!!valeurContent?.promise && (
-            <p className="mt-3 text-xs text-zinc-400">
-              <span className="text-zinc-500">Promesse de valeur :</span>{" "}
-              {safeString(valeurContent.promise)}
-            </p>
           )}
         </div>
 
@@ -246,60 +311,125 @@ export default function CockpitDashboard() {
               <p className="mt-1 text-sm font-semibold text-emerald-400">
                 {strongestPillar[0].toUpperCase()} — {PILLAR_NAMES[strongestPillar[0]]}
               </p>
-              <p className="text-xs text-zinc-500">{strongestPillar[1].toFixed(1)}/25</p>
+              {getPillarHeadline(strongestPillar[0]) ? (
+                <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">{getPillarHeadline(strongestPillar[0])}</p>
+              ) : (
+                <p className="text-xs text-zinc-600">{strongestPillar[1].toFixed(1)}/25</p>
+              )}
             </div>
             <div>
               <p className="text-[10px] font-medium uppercase text-zinc-600">Priorite d'amelioration</p>
               <p className="mt-1 text-sm font-semibold text-amber-400">
                 {weakestPillar[0].toUpperCase()} — {PILLAR_NAMES[weakestPillar[0]]}
               </p>
-              <p className="text-xs text-zinc-500">{weakestPillar[1].toFixed(1)}/25</p>
+              {getPillarHeadline(weakestPillar[0]) ? (
+                <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">{getPillarHeadline(weakestPillar[0])}</p>
+              ) : (
+                <p className="text-xs text-zinc-600 italic">Contenu a remplir</p>
+              )}
             </div>
             <div className="flex items-start gap-2 rounded-lg bg-amber-950/20 p-3">
               <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
               <p className="text-xs text-zinc-300">
-                Renforcer {PILLAR_NAMES[weakestPillar[0]]} pour equilibrer votre profil de marque et debloquer le prochain palier.
+                Renforcer {PILLAR_NAMES[weakestPillar[0]]} pour convertir plus de superfans et debloquer le prochain palier.
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* KPI Row */}
+      {/* NORTHSTAR: Active Superfans Hero */}
       {showSection("kpi") && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-foreground-muted">Score ADVE-RTIS</p>
-              <Sparkline data={scoreTrend} width={60} height={20} />
+        <>
+          <div className="rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-950/40 via-fuchsia-950/20 to-zinc-900/80 p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/20 ring-1 ring-violet-500/30">
+                  <Crown className="h-7 w-7 text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400/80">Northstar</p>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-4xl font-black tabular-nums text-white">
+                      {superfanCountQuery.data?.active ?? "—"}
+                    </span>
+                    <span className="text-sm font-medium text-zinc-400">superfans actifs</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-4 sm:gap-6">
+                <div className="text-right">
+                  <p className="text-[10px] font-medium uppercase text-zinc-500">Evangelistes</p>
+                  <p className="text-lg font-bold text-fuchsia-400">{superfanCountQuery.data?.evangelistes ?? 0}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-medium uppercase text-zinc-500">Ratio superfan</p>
+                  <p className="text-lg font-bold text-violet-300">{superfanCountQuery.data?.ratio ?? 0}%</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-medium uppercase text-zinc-500">Velocite /30j</p>
+                  <div className="flex items-center justify-end gap-1">
+                    {superfanVelocityQuery.data?.trend === "up" && <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />}
+                    {superfanVelocityQuery.data?.trend === "down" && <TrendingUp className="h-3.5 w-3.5 rotate-180 text-red-400" />}
+                    <span className={`text-lg font-bold ${
+                      superfanVelocityQuery.data?.trend === "up" ? "text-emerald-400" :
+                      superfanVelocityQuery.data?.trend === "down" ? "text-red-400" : "text-zinc-400"
+                    }`}>
+                      {superfanVelocityQuery.data?.delta != null
+                        ? `${superfanVelocityQuery.data.delta > 0 ? "+" : ""}${superfanVelocityQuery.data.delta}`
+                        : "—"}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-medium uppercase text-zinc-500">Total profiles</p>
+                  <p className="text-lg font-bold text-zinc-300">{superfanCountQuery.data?.total ?? 0}</p>
+                </div>
+              </div>
             </div>
-            <ScoreBadge score={composite} size="md" delta={8} showRing={false} className="mt-2" />
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-foreground-muted">Cult Index</p>
-              <Sparkline data={cultTrend} width={60} height={20} />
+          {/* Secondary KPIs */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-foreground-muted">Cult Index</p>
+                <Sparkline data={cultTrend} width={60} height={20} />
+              </div>
+              <CultIndex
+                score={cultIndexQuery.data?.current ?? cultIndex}
+                trend={(cultIndexQuery.data?.trend?.toLowerCase() as "up" | "down" | "stable") ?? "stable"}
+                trendValue={Math.abs(cultIndexQuery.data?.delta ?? 0)}
+                variant="compact"
+                className="mt-2"
+              />
             </div>
-            <CultIndex score={cultIndex} trend="up" trendValue={5} variant="compact" className="mt-2" />
+
+            <StatCard
+              title="Missions actives"
+              value={activeMissions.length}
+              trend={activeMissions.length > 0 ? "up" : "flat"}
+              trendValue={`${activeCampaigns.length} campagne${activeCampaigns.length > 1 ? "s" : ""}`}
+              icon={Rocket}
+            />
+
+            <StatCard
+              title="Alertes"
+              value={alertSignals.length}
+              trend={alertSignals.length > 3 ? "up" : "flat"}
+              trendValue={`${alertSignals.length} prescription${alertSignals.length > 1 ? "s" : ""}`}
+              icon={AlertTriangle}
+            />
+
+            <div className="rounded-xl border border-border bg-card p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-foreground-muted">Score ADVE-RTIS</p>
+                <Sparkline data={scoreTrend} width={60} height={20} />
+              </div>
+              <p className="mt-2 text-lg font-semibold tabular-nums text-foreground">{Math.round(composite)}<span className="text-xs text-foreground-muted">/200</span></p>
+            </div>
           </div>
-
-          <StatCard
-            title="Missions actives"
-            value={activeMissions.length}
-            trend={activeMissions.length > 0 ? "up" : "flat"}
-            trendValue={`${activeCampaigns.length} campagne${activeCampaigns.length > 1 ? "s" : ""}`}
-            icon={Rocket}
-          />
-
-          <StatCard
-            title="Alertes"
-            value={alertSignals.length}
-            trend={alertSignals.length > 3 ? "up" : "flat"}
-            trendValue={`${alertSignals.length} prescription${alertSignals.length > 1 ? "s" : ""}`}
-            icon={AlertTriangle}
-          />
-        </div>
+        </>
       )}
 
       {/* Radar + Devotion Ladder */}
@@ -317,14 +447,20 @@ export default function CockpitDashboard() {
                 />
               </div>
               <p className="mt-3 text-center text-xs text-foreground-muted">
-                Score composite : <span className="font-semibold text-foreground">{composite}/200</span>
+                Equilibre identitaire (ADVE) + operationnel (RTIS)
               </p>
             </div>
           )}
 
           {showSection("devotion") && (
             <div className="rounded-xl border border-border bg-card p-6">
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Devotion Ladder</h3>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Devotion Ladder</h3>
+                <div className="flex items-center gap-1.5 text-xs text-foreground-muted">
+                  <Heart className="h-3 w-3 text-violet-400" />
+                  <span>{superfanCountQuery.data?.active ?? 0} superfans actifs</span>
+                </div>
+              </div>
               {devotionQuery.isLoading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 6 }).map((_, i) => (

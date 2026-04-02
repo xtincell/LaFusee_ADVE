@@ -65,7 +65,7 @@ export const pillarRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const pillars = await ctx.db.pillar.findMany({ where: { strategyId: input.strategyId } });
 
-      const map: Record<string, { content: unknown; completion: number; score: number; errors: number }> = {};
+      const map: Record<string, { content: unknown; commentary: unknown; completion: number; score: number; errors: number; validationStatus: string }> = {};
       for (const key of ["A", "D", "V", "E", "R", "T", "I", "S"]) {
         const pillar = pillars.find((p) => p.key.toUpperCase() === key);
         if (pillar) {
@@ -73,12 +73,14 @@ export const pillarRouter = createTRPCRouter({
           const semanticScore = scorePillarSemantic(key as PillarKey, pillar.content);
           map[key] = {
             content: pillar.content,
+            commentary: pillar.commentary,
             completion: validation.completionPercentage,
             score: semanticScore.score,
             errors: validation.errors?.length ?? 0,
+            validationStatus: pillar.validationStatus ?? "DRAFT",
           };
         } else {
-          map[key] = { content: null, completion: 0, score: 0, errors: 0 };
+          map[key] = { content: null, commentary: null, completion: 0, score: 0, errors: 0, validationStatus: "DRAFT" };
         }
       }
 
@@ -594,6 +596,40 @@ export const pillarRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       await clearRecommendations(input.strategyId, input.key);
       return { success: true };
+    }),
+
+  /** Update operator commentary for a pillar (qualitative justification per field) */
+  updateCommentary: protectedProcedure
+    .input(z.object({
+      strategyId: z.string(),
+      key: pillarKeyEnum,
+      commentary: z.record(z.string()),  // { fieldName: "commentary text" }
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.pillar.findUnique({
+        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
+      });
+
+      const merged = { ...(existing?.commentary as Record<string, string> ?? {}), ...input.commentary };
+
+      await ctx.db.pillar.upsert({
+        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
+        update: { commentary: merged as Prisma.InputJsonValue },
+        create: { strategyId: input.strategyId, key: input.key.toLowerCase(), commentary: merged as Prisma.InputJsonValue },
+      });
+
+      return { success: true, commentary: merged };
+    }),
+
+  /** Get commentary for a pillar */
+  getCommentary: protectedProcedure
+    .input(z.object({ strategyId: z.string(), key: pillarKeyEnum }))
+    .query(async ({ ctx, input }) => {
+      const pillar = await ctx.db.pillar.findUnique({
+        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
+        select: { commentary: true },
+      });
+      return (pillar?.commentary as Record<string, string> | null) ?? {};
     }),
 });
 
