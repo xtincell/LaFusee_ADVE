@@ -9,6 +9,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { snapshotAllStrategies } from "@/server/services/advertis-scorer";
+import { schedulerAutoTrigger, checkPipelineContention } from "@/server/services/pipeline-orchestrator";
 
 // Verify cron secret to prevent unauthorized access
 function verifyCronSecret(request: Request): boolean {
@@ -31,6 +32,9 @@ export async function GET(request: Request) {
     intakesExpired: 0,
     scoreSnapshotsCreated: 0,
     scoreSnapshotsExpired: 0,
+    pipelineAutoTriggered: 0,
+    daemonsRescheduled: 0,
+    contentionBottlenecks: 0,
     errors: [] as string[],
   };
 
@@ -215,6 +219,41 @@ export async function GET(request: Request) {
       } catch {
         // Ignore duplicate signal errors
       }
+    }
+
+    // 8. Pipeline auto-trigger (M36 REQ-6) — execute pending processes with real actions
+    try {
+      const autoResult = await schedulerAutoTrigger();
+      results.pipelineAutoTriggered = autoResult.triggered;
+      results.daemonsRescheduled = autoResult.daemonsRescheduled;
+      for (const err of autoResult.errors) {
+        results.errors.push(`Pipeline auto-trigger: ${err}`);
+      }
+    } catch (error) {
+      results.errors.push(`Pipeline auto-trigger: ${error instanceof Error ? error.message : "unknown"}`);
+    }
+
+    // 9. Contention check (M36 REQ-8) — detect resource conflicts
+    try {
+      const contention = await checkPipelineContention();
+      results.contentionBottlenecks = contention.bottlenecks.length;
+      if (contention.bottlenecks.length > 0) {
+        // Create a signal for each strategy that has contention
+        for (const conflict of contention.conflictingDrivers) {
+          const driver = await db.driver.findUnique({ where: { id: conflict.driverId }, select: { strategyId: true } });
+          if (driver?.strategyId) {
+            await db.signal.create({
+              data: {
+                strategyId: driver.strategyId,
+                type: "PIPELINE_CONTENTION",
+                data: { driverId: conflict.driverId, processCount: conflict.processCount, processNames: conflict.processNames, severity: "medium" },
+              },
+            }).catch(() => { /* ignore if signal type not supported */ });
+          }
+        }
+      }
+    } catch (error) {
+      results.errors.push(`Contention check: ${error instanceof Error ? error.message : "unknown"}`);
     }
 
     return NextResponse.json({
