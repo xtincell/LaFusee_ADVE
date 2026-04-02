@@ -8,6 +8,7 @@
 
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { snapshotAllStrategies } from "@/server/services/advertis-scorer";
 
 // Verify cron secret to prevent unauthorized access
 function verifyCronSecret(request: Request): boolean {
@@ -28,6 +29,8 @@ export async function GET(request: Request) {
     cultIndexUpdated: 0,
     commissionsProcessed: 0,
     intakesExpired: 0,
+    scoreSnapshotsCreated: 0,
+    scoreSnapshotsExpired: 0,
     errors: [] as string[],
   };
 
@@ -125,7 +128,27 @@ export async function GET(request: Request) {
       results.errors.push(`Intake expiry: ${error instanceof Error ? error.message : "unknown"}`);
     }
 
-    // 5. Check for stale strategies and generate feedback loop signals
+    // 5. Periodic score snapshots (every 6h) + 90-day retention
+    try {
+      const lastPeriodicSnapshot = await db.scoreSnapshot.findFirst({
+        where: { trigger: "periodic_cron" },
+        orderBy: { measuredAt: "desc" },
+        select: { measuredAt: true },
+      });
+      const sixHoursMs = 6 * 60 * 60 * 1000;
+      const shouldSnapshot = !lastPeriodicSnapshot ||
+        (Date.now() - lastPeriodicSnapshot.measuredAt.getTime()) > sixHoursMs;
+
+      if (shouldSnapshot) {
+        const snapResult = await snapshotAllStrategies();
+        results.scoreSnapshotsCreated = snapResult.snapshotsCreated;
+        results.scoreSnapshotsExpired = snapResult.expiredDeleted;
+      }
+    } catch (error) {
+      results.errors.push(`Score snapshots: ${error instanceof Error ? error.message : "unknown"}`);
+    }
+
+    // 6. Check for stale strategies and generate feedback loop signals
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const staleStrategies = await db.strategy.findMany({
       where: {
@@ -161,7 +184,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // 5. Check SLA breaches
+    // 7. Check SLA breaches
     const missionsWithSLA = await db.mission.findMany({
       where: {
         status: "IN_PROGRESS",

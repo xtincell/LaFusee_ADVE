@@ -167,15 +167,16 @@ export async function executeFirstValueProtocol(strategyId: string): Promise<voi
 export async function handlePostScoring(strategyId: string, newScore: number, previousScore: number): Promise<void> {
   const delta = newScore - previousScore;
 
-  // Create ScoreSnapshot
+  // Create ScoreSnapshot with actual confidence from the vector
   const strategy = await db.strategy.findUniqueOrThrow({ where: { id: strategyId } });
+  const vec = strategy.advertis_vector as Record<string, number> | null;
   await db.scoreSnapshot.create({
     data: {
       strategyId,
       advertis_vector: strategy.advertis_vector ?? {},
       classification: getClassification(newScore),
-      confidence: 0.7,
-      trigger: "scoring_update",
+      confidence: vec?.confidence ?? 0.7,
+      trigger: "pipeline_orchestrator",
     },
   });
 
