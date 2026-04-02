@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc/client";
 import { useCurrentStrategyId } from "@/components/cockpit/strategy-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { SkeletonPage } from "@/components/shared/loading-skeleton";
+import { AiBadge } from "@/components/shared/ai-badge";
 import {
   Shield, Crosshair, Rocket, Brain, RefreshCw, Check, X,
   AlertTriangle, ChevronDown, ChevronUp, Zap, BarChart3,
@@ -419,7 +420,7 @@ export default function RTISPage() {
   if (!strategyId) {
     return (
       <div className="p-8">
-        <PageHeader title="RTIS — Risk, Track, Implementation, Synthese" />
+        <PageHeader title="RTIS — Risk, Track, Implementation, Synthese" badge={<AiBadge />} />
         <p className="mt-4 text-sm text-zinc-500">Aucune strategie selectionnee.</p>
       </div>
     );
@@ -439,7 +440,7 @@ export default function RTISPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <PageHeader title="RTIS — Risk, Track, Implementation, Synthese" />
+      <PageHeader title="RTIS — Risk, Track, Implementation, Synthese" badge={<AiBadge />} />
 
       {/* ── Pillar Status Row (content-first, scores tertiary) ──────── */}
       <div className="flex flex-wrap gap-2">

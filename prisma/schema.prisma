@@ -390,6 +390,8 @@ model User {
   image          String?
   role           String    @default("USER")
   operatorId    String?
+  resetToken     String?   @unique
+  resetTokenExpiry DateTime?
 
   operator       Operator?       @relation(fields: [operatorId], references: [id])
   accounts       Account[]

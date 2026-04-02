@@ -13,6 +13,7 @@ import {
   Globe, Upload, FileUp, File, X, ArrowLeft, AlertCircle,
   CheckCircle, Link2, Instagram, Facebook, Linkedin,
 } from "lucide-react";
+import { AiBadge } from "@/components/shared/ai-badge";
 
 const ACCEPTED_EXTENSIONS = ".pdf,.doc,.docx,.ppt,.pptx,.txt";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -142,8 +143,8 @@ export default function IngestPlusIntakePage({ params }: { params: Promise<{ tok
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-subtle">
             <Globe className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-            Import + Scan en ligne
+          <h1 className="flex items-center justify-center gap-2 text-2xl font-bold text-foreground sm:text-3xl">
+            Import + Scan en ligne <AiBadge />
           </h1>
           <p className="mt-2 text-sm text-foreground-secondary">
             Documents + site web + reseaux sociaux pour un diagnostic complet de <span className="font-semibold text-primary">{intake.companyName}</span>.

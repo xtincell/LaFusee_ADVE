@@ -5,6 +5,7 @@ import { AdvertisRadar } from "@/components/shared/advertis-radar";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { SkeletonPage } from "@/components/shared/loading-skeleton";
+import { AiBadge } from "@/components/shared/ai-badge";
 import { PILLAR_KEYS, PILLAR_NAMES, type PillarKey } from "@/lib/types/advertis-vector";
 import { useCurrentStrategyId } from "@/components/cockpit/strategy-context";
 import {
@@ -111,6 +112,7 @@ export default function DiagnosticsPage() {
       <PageHeader
         title="Diagnostics ADVE"
         description="Analyse pilier par pilier du vecteur ADVE-RTIS"
+        badge={<AiBadge />}
         breadcrumbs={[
           { label: "Cockpit", href: "/cockpit" },
           { label: "Insights" },

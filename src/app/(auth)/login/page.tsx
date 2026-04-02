@@ -103,12 +103,17 @@ function LoginForm() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="mb-1.5 block text-sm font-medium text-zinc-300"
-            >
-              Mot de passe
-            </label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-zinc-300"
+              >
+                Mot de passe
+              </label>
+              <Link href="/forgot-password" className="text-xs text-violet-400 hover:text-violet-300">
+                Mot de passe oublie ?
+              </Link>
+            </div>
             <input
               id="password"
               name="password"
@@ -132,24 +137,12 @@ function LoginForm() {
         </form>
       </div>
 
-      {/* Portal links */}
+      {/* Register link */}
       <div className="mt-6 text-center">
-        <p className="text-xs text-zinc-600">
-          Portails:{" "}
-          <Link href="/cockpit" className="text-zinc-400 hover:text-violet-400">
-            Cockpit
-          </Link>
-          {" | "}
-          <Link href="/creator" className="text-zinc-400 hover:text-violet-400">
-            Creator
-          </Link>
-          {" | "}
-          <Link href="/console" className="text-zinc-400 hover:text-violet-400">
-            Console
-          </Link>
-          {" | "}
-          <Link href="/intake" className="text-zinc-400 hover:text-violet-400">
-            Quick Intake
+        <p className="text-sm text-zinc-400">
+          Pas encore de compte ?{" "}
+          <Link href="/register" className="font-medium text-violet-400 hover:text-violet-300">
+            Creer un compte
           </Link>
         </p>
       </div>

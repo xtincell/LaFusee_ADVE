@@ -29,6 +29,7 @@ import {
   ClipboardList, FileText, Upload, Globe,
   ArrowLeft, HelpCircle, ChevronRight,
 } from "lucide-react";
+import { AiBadge } from "@/components/shared/ai-badge";
 
 type Step = "contact" | "method";
 type IntakeMethod = "LONG" | "SHORT" | "INGEST" | "INGEST_PLUS";
@@ -407,7 +408,10 @@ export default function IntakeLanding() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="font-semibold text-foreground">{method.title}</p>
+                          <p className="flex items-center gap-1.5 font-semibold text-foreground">
+                            {method.title}
+                            <AiBadge />
+                          </p>
                           <span className="ml-2 text-xs text-foreground-muted">{method.duration}</span>
                         </div>
                         <p className="mt-0.5 text-xs font-medium text-primary">{method.subtitle}</p>

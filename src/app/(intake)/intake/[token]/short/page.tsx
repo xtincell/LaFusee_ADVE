@@ -10,6 +10,7 @@ import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { FileText, Rocket, ArrowLeft, Sparkles, AlertCircle } from "lucide-react";
+import { AiBadge } from "@/components/shared/ai-badge";
 
 const PLACEHOLDER_TEXT = `Exemple : Notre entreprise SARL XYZ a ete fondee en 2018 par Marie Ndongo a Douala. Nous vendons des produits cosmetiques bio fabriques localement. Notre positionnement est premium, cible les femmes de 25-45 ans urbaines. Nous avons une communaute Instagram de 15k abonnes tres engages. Notre chiffre d'affaires est de 50M FCFA/an avec un taux de fidelisation de 40%. Nos principaux concurrents sont ABC Cosmetiques et Beaute Plus. Notre vision est de devenir la marque de reference en cosmetique naturelle en Afrique centrale d'ici 2028...`;
 
@@ -88,8 +89,8 @@ export default function ShortIntakePage({ params }: { params: Promise<{ token: s
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-subtle">
             <FileText className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-            Analyse de texte
+          <h1 className="flex items-center justify-center gap-2 text-2xl font-bold text-foreground sm:text-3xl">
+            Analyse de texte <AiBadge />
           </h1>
           <p className="mt-2 text-sm text-foreground-secondary">
             Collez un texte qui decrit <span className="font-semibold text-primary">{intake.companyName}</span> et l'IA extraira les informations ADVE-RTIS.

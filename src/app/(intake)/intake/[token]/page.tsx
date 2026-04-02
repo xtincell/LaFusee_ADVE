@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { PILLAR_NAMES, type PillarKey } from "@/lib/types/advertis-vector";
 import { HelpCircle, Save, X, ArrowLeft } from "lucide-react";
+import { AiBadge } from "@/components/shared/ai-badge";
 
 // Phase order: business context first, then 8 ADVE pillars
 const PHASE_ORDER = ["biz", "a", "d", "v", "e", "r", "t", "i", "s"] as const;
@@ -498,8 +499,8 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
               ? "Contexte Business"
               : `${currentPhase.toUpperCase()} — ${PHASE_LABEL[currentPhase]}`}
           </span>
-          <h1 className="mt-3 text-xl font-bold text-foreground sm:text-2xl">
-            {PHASE_HEADLINE[currentPhase]}
+          <h1 className="mt-3 flex items-center justify-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
+            {PHASE_HEADLINE[currentPhase]} <AiBadge />
           </h1>
           {currentPhase === "biz" && (
             <p className="mt-2 text-sm text-foreground-muted">

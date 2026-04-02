@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Modal } from "@/components/shared/modal";
 import { EmptyState } from "@/components/shared/empty-state";
+import { AiBadge } from "@/components/shared/ai-badge";
 import { SkeletonPage } from "@/components/shared/loading-skeleton";
 import { PILLAR_KEYS, PILLAR_NAMES, type PillarKey } from "@/lib/types/advertis-vector";
 import { useCurrentStrategyId } from "@/components/cockpit/strategy-context";
@@ -143,6 +144,7 @@ export default function ReportsPage() {
       <PageHeader
         title="Rapports de Valeur"
         description="Rapports mensuels d'impact et de ROI de votre marque"
+        badge={<AiBadge />}
         breadcrumbs={[
           { label: "Cockpit", href: "/cockpit" },
           { label: "Insights" },

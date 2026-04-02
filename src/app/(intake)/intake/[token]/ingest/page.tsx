@@ -10,6 +10,7 @@ import { useState, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { Upload, FileUp, File, X, ArrowLeft, AlertCircle, CheckCircle } from "lucide-react";
+import { AiBadge } from "@/components/shared/ai-badge";
 
 const ACCEPTED_TYPES = [
   "application/pdf",
@@ -143,8 +144,8 @@ export default function IngestIntakePage({ params }: { params: Promise<{ token: 
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-subtle">
             <Upload className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-            Import de documents
+          <h1 className="flex items-center justify-center gap-2 text-2xl font-bold text-foreground sm:text-3xl">
+            Import de documents <AiBadge />
           </h1>
           <p className="mt-2 text-sm text-foreground-secondary">
             Envoyez vos documents existants pour <span className="font-semibold text-primary">{intake.companyName}</span>. L'IA les analysera automatiquement.

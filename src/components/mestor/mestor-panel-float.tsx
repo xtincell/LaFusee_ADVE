@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Brain, X, Send, Sparkles, ArrowRight } from "lucide-react";
+import { AiBadge } from "@/components/shared/ai-badge";
 
 interface MestorMessage {
   id: string;
@@ -139,7 +140,7 @@ export function MestorPanelFloat({
                 <Brain className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">Mestor AI</p>
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">Mestor AI <AiBadge /></p>
                 <p className="text-[10px] text-foreground-muted">{contextLabels[portalContext]}</p>
               </div>
             </div>

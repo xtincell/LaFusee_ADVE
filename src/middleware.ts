@@ -60,6 +60,7 @@ const PROTECTED_ROUTES: Array<{
   { prefix: "/cockpit", roles: ["ADMIN", "CLIENT_RETAINER", "CLIENT_STATIC"] },
   { prefix: "/creator", roles: ["ADMIN", "FREELANCE"] },
   { prefix: "/console", roles: ["ADMIN"] },
+  { prefix: "/agency", roles: ["ADMIN", "CLIENT_RETAINER", "CLIENT_STATIC"] },
 ];
 
 export async function middleware(request: NextRequest) {
@@ -128,5 +129,6 @@ export const config = {
     "/cockpit/:path*",
     "/creator/:path*",
     "/console/:path*",
+    "/agency/:path*",
   ],
 };

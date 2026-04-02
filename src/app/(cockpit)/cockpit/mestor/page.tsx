@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { SkeletonPage } from "@/components/shared/loading-skeleton";
+import { AiBadge } from "@/components/shared/ai-badge";
 import { useCurrentStrategyId } from "@/components/cockpit/strategy-context";
 import {
   Bot,
@@ -200,6 +201,7 @@ export default function MestorPage() {
       <PageHeader
         title="Mestor AI"
         description="Votre assistant Brand OS intelligent."
+        badge={<AiBadge />}
         breadcrumbs={[
           { label: "Cockpit", href: "/cockpit" },
           { label: "Mestor" },

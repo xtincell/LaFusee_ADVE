@@ -53,6 +53,7 @@ import { superfanRouter } from "./routers/superfan";
 import { marketIntelligenceRouter } from "./routers/market-intelligence";
 import { implementationGeneratorRouter } from "./routers/implementation-generator";
 import { clientRouter } from "./routers/client";
+import { authRouter } from "./routers/auth";
 
 export const appRouter = createTRPCRouter({
   // Existing routers
@@ -110,6 +111,7 @@ export const appRouter = createTRPCRouter({
   marketIntelligence: marketIntelligenceRouter,
   implementationGenerator: implementationGeneratorRouter,
   brandClient: clientRouter,
+  auth: authRouter,
 });
 
 export type AppRouter = typeof appRouter;

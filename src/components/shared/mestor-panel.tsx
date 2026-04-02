@@ -5,6 +5,7 @@ import { useRef, useEffect, useCallback } from "react";
 import { Send, Bot, User, Sparkles, Minimize2, Maximize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { AiBadge } from "@/components/shared/ai-badge";
 
 interface MestorPanelProps {
   context: "cockpit" | "creator" | "console" | "intake";
@@ -74,6 +75,7 @@ export function MestorPanel({ context, strategyId, className }: MestorPanelProps
       >
         <Sparkles className="h-4 w-4 text-violet-400" />
         <span className="text-sm font-medium text-white">Mestor AI</span>
+        <AiBadge />
         <Maximize2 className="h-3.5 w-3.5 text-zinc-500" />
       </button>
     );

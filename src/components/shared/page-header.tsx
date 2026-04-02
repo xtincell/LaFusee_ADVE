@@ -12,6 +12,7 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   breadcrumbs?: Breadcrumb[];
+  badge?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
 }
@@ -20,6 +21,7 @@ export function PageHeader({
   title,
   description,
   breadcrumbs,
+  badge,
   children,
   className,
 }: PageHeaderProps) {
@@ -47,8 +49,9 @@ export function PageHeader({
 
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight text-white">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white">
             {title}
+            {badge}
           </h1>
           {description && (
             <p className="text-sm text-zinc-400">{description}</p>
