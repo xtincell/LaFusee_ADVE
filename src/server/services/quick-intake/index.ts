@@ -35,6 +35,8 @@ import * as auditTrail from "@/server/services/audit-trail";
 import type { BusinessContext, BusinessModelKey, EconomicModelKey, PositioningArchetypeKey, SalesChannel, PremiumScope } from "@/lib/types/business-context";
 import { POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
 
+export type IntakeMethodType = "LONG" | "SHORT" | "INGEST" | "INGEST_PLUS";
+
 export interface QuickIntakeStartInput {
   contactName: string;
   contactEmail: string;
@@ -46,6 +48,7 @@ export interface QuickIntakeStartInput {
   economicModel?: string;
   positioning?: string;
   source?: string;
+  method?: IntakeMethodType;
 }
 
 export interface QuickIntakeAdvanceInput {
@@ -66,6 +69,7 @@ export async function start(input: QuickIntakeStartInput) {
       economicModel: input.economicModel,
       positioning: input.positioning,
       source: input.source,
+      method: input.method ?? "LONG",
       responses: {} as Prisma.InputJsonValue,
       status: "IN_PROGRESS",
     },

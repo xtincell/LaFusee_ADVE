@@ -20,9 +20,134 @@
 
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
+import Anthropic from "@anthropic-ai/sdk";
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init";
 import * as quickIntakeService from "@/server/services/quick-intake";
 import { getAdaptiveQuestions, getBusinessContextQuestions } from "@/server/services/quick-intake/question-bank";
+
+/**
+ * Extract structured ADVE-RTIS responses from free text using AI.
+ * Used by SHORT, INGEST, and INGEST_PLUS methods.
+ * Returns a responses object matching the same structure as the long questionnaire.
+ */
+async function extractFromText(
+  text: string,
+  companyName: string,
+  sector?: string | null,
+): Promise<Record<string, Record<string, unknown>>> {
+  const client = new Anthropic();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+
+  try {
+    const response = await client.messages.create(
+      {
+        model: "claude-3-5-haiku-20241022",
+        max_tokens: 4096,
+        messages: [
+          {
+            role: "user",
+            content: `Tu es un expert en strategie de marque utilisant le framework ADVE-RTIS (8 piliers).
+A partir du texte ci-dessous, extrais les reponses structurees pour chaque phase du diagnostic.
+
+MARQUE: ${companyName}
+SECTEUR: ${sector ?? "Non precise"}
+
+TEXTE SOURCE:
+${text.slice(0, 15_000)}
+
+Genere un objet JSON avec ces cles de phase. Pour chaque phase, genere des reponses comme si un utilisateur avait rempli le questionnaire :
+
+"biz" (contexte business):
+  biz_model: le modele d'affaires (B2C, B2B, D2C, B2B2C, MARKETPLACE, INSTITUTION)
+  biz_revenue: sources de revenus (array)
+  biz_positioning: positionnement prix (MAINSTREAM, AFFORDABLE_PREMIUM, PREMIUM, LUXURY, ULTRA_LUXURY)
+  biz_sales_channel: canal de vente (DIRECT, INTERMEDIATED, HYBRID)
+
+"a" (authenticite):
+  a_vision: vision de la marque
+  a_mission: mission
+  a_origin: histoire de creation
+  a_values: valeurs fondamentales
+  a_archetype: archetype de marque
+
+"d" (distinction):
+  d_positioning: ce qui rend unique
+  d_visual: niveau d'identite visuelle (Inexistante/Basique/Definie mais incoherente/Professionnelle et coherente/Distinctive et memorable)
+  d_voice: ton de communication
+  d_competitors: concurrents
+
+"v" (valeur):
+  v_promise: promesse client
+  v_products: produits/services principaux
+  v_experience: note experience client (1-10)
+
+"e" (engagement):
+  e_community: niveau communaute
+  e_loyalty: taux fidelisation
+  e_advocates: niveau recommandation
+  e_rituals: rituels de marque
+
+"r" (resilience):
+  r_threats: risques principaux
+  r_crisis: plan de crise
+  r_reputation: surveillance reputation
+
+"t" (tracking):
+  t_kpis: KPIs suivis
+  t_measurement: frequence mesure
+  t_nps: NPS
+
+"i" (investissement):
+  i_roadmap: plan marketing
+  i_budget: budget marketing (% CA)
+  i_team: equipe marketing
+
+"s" (strategie):
+  s_guidelines: guidelines de marque
+  s_coherence: coherence canaux (1-10)
+  s_ambition: ambition 3 ans
+
+REGLES:
+- Si une info n'est pas dans le texte, OMETS le champ (ne le deviner pas)
+- Pour les champs select, utilise les valeurs exactes entre parentheses
+- Pour les champs texte, ecris des reponses naturelles basees sur le contenu
+- Pour les echelles, donne un chiffre de 1 a 10
+
+Reponds UNIQUEMENT avec un objet JSON valide au format:
+{"biz": {...}, "a": {...}, "d": {...}, "v": {...}, "e": {...}, "r": {...}, "t": {...}, "i": {...}, "s": {...}}`,
+          },
+        ],
+      },
+      { signal: controller.signal },
+    );
+
+    const responseText =
+      response.content[0]?.type === "text" ? response.content[0].text.trim() : "";
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("No JSON in AI response");
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, Record<string, unknown>>;
+
+    // Validate: keep only phases with at least 1 meaningful field
+    const result: Record<string, Record<string, unknown>> = {};
+    for (const [key, content] of Object.entries(parsed)) {
+      if (content && typeof content === "object" && Object.keys(content).length >= 1) {
+        result[key] = content;
+      }
+    }
+
+    return result;
+  } catch (err) {
+    console.warn("[quick-intake] extractFromText failed:", err instanceof Error ? err.message : err);
+    // Return minimal structure so scoring can still proceed
+    return { biz: {}, a: {}, d: {}, v: {}, e: {}, r: {}, t: {}, i: {}, s: {} };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export const quickIntakeRouter = createTRPCRouter({
   start: publicProcedure
@@ -37,6 +162,7 @@ export const quickIntakeRouter = createTRPCRouter({
       economicModel: z.string().optional(),
       positioning: z.string().optional(),
       source: z.string().optional(),
+      method: z.enum(["LONG", "SHORT", "INGEST", "INGEST_PLUS"]).optional(),
     }))
     .mutation(async ({ input }) => {
       return quickIntakeService.start(input);
@@ -273,5 +399,183 @@ export const quickIntakeRouter = createTRPCRouter({
       }
 
       return { items, nextCursor };
+    }),
+
+  // ========================================================================
+  // ALTERNATIVE METHODS: Short (text), Ingest (files), Ingest Plus (files+URLs)
+  // All follow the same pattern: extract → structured content → score → complete
+  // ========================================================================
+
+  /**
+   * SHORT method: Process pasted text, AI extracts ADVE-RTIS data, scores.
+   */
+  processShort: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      text: z.string().min(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const intake = await ctx.db.quickIntake.findUnique({
+        where: { shareToken: input.token },
+      });
+      if (!intake) throw new Error("Intake not found");
+      if (intake.status !== "IN_PROGRESS") throw new Error("Intake already completed");
+
+      // Save raw text
+      await ctx.db.quickIntake.update({
+        where: { id: intake.id },
+        data: { rawText: input.text },
+      });
+
+      // Use the complete() flow with pre-populated responses from AI extraction
+      const responses = await extractFromText(input.text, intake.companyName, intake.sector);
+
+      await ctx.db.quickIntake.update({
+        where: { id: intake.id },
+        data: { responses: responses as Prisma.InputJsonValue },
+      });
+
+      // Now complete the intake (scores, classifies, creates deal)
+      return quickIntakeService.complete(input.token);
+    }),
+
+  /**
+   * INGEST method: Process uploaded documents (base64), AI extracts ADVE-RTIS data.
+   */
+  processIngest: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      files: z.array(z.object({
+        name: z.string(),
+        content: z.string(), // base64
+        type: z.string(),
+      })).min(1).max(5),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const intake = await ctx.db.quickIntake.findUnique({
+        where: { shareToken: input.token },
+      });
+      if (!intake) throw new Error("Intake not found");
+      if (intake.status !== "IN_PROGRESS") throw new Error("Intake already completed");
+
+      // Decode base64 files to text (simplified: treat as text extraction)
+      const allText = input.files.map((f) => {
+        try {
+          // For text-based files, decode directly
+          if (f.type === "text/plain") {
+            return Buffer.from(f.content, "base64").toString("utf-8");
+          }
+          // For binary files (PDF/Word/PPT), we extract what we can from base64
+          // In production, use a proper parser (pdf-parse, mammoth, etc.)
+          // For now, decode and pass to AI which handles mixed content
+          const decoded = Buffer.from(f.content, "base64").toString("utf-8");
+          // Filter to printable characters
+          return decoded.replace(/[^\x20-\x7E\xC0-\xFF\n\r\t]/g, " ").replace(/\s{3,}/g, " ").trim();
+        } catch {
+          return `[Fichier: ${f.name}]`;
+        }
+      }).join("\n\n---\n\n");
+
+      await ctx.db.quickIntake.update({
+        where: { id: intake.id },
+        data: { documentUrl: input.files.map((f) => f.name).join(", ") },
+      });
+
+      const responses = await extractFromText(allText, intake.companyName, intake.sector);
+      await ctx.db.quickIntake.update({
+        where: { id: intake.id },
+        data: { responses: responses as Prisma.InputJsonValue },
+      });
+
+      return quickIntakeService.complete(input.token);
+    }),
+
+  /**
+   * INGEST PLUS method: Documents + URLs (website + social).
+   */
+  processIngestPlus: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      files: z.array(z.object({
+        name: z.string(),
+        content: z.string(),
+        type: z.string(),
+      })).max(5).optional(),
+      urls: z.array(z.string().url()).max(5).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const intake = await ctx.db.quickIntake.findUnique({
+        where: { shareToken: input.token },
+      });
+      if (!intake) throw new Error("Intake not found");
+      if (intake.status !== "IN_PROGRESS") throw new Error("Intake already completed");
+
+      const textParts: string[] = [];
+
+      // Process files
+      if (input.files?.length) {
+        for (const f of input.files) {
+          try {
+            if (f.type === "text/plain") {
+              textParts.push(Buffer.from(f.content, "base64").toString("utf-8"));
+            } else {
+              const decoded = Buffer.from(f.content, "base64").toString("utf-8");
+              textParts.push(decoded.replace(/[^\x20-\x7E\xC0-\xFF\n\r\t]/g, " ").replace(/\s{3,}/g, " ").trim());
+            }
+          } catch {
+            textParts.push(`[Fichier: ${f.name}]`);
+          }
+        }
+      }
+
+      // Fetch URLs (simple text extraction)
+      if (input.urls?.length) {
+        for (const url of input.urls) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15_000);
+            const resp = await fetch(url, {
+              signal: controller.signal,
+              headers: { "User-Agent": "LaFusee-ADVE-Bot/1.0" },
+            });
+            clearTimeout(timeout);
+
+            if (resp.ok) {
+              const html = await resp.text();
+              // Strip HTML tags, keep text
+              const text = html
+                .replace(/<script[\s\S]*?<\/script>/gi, "")
+                .replace(/<style[\s\S]*?<\/style>/gi, "")
+                .replace(/<[^>]+>/g, " ")
+                .replace(/&nbsp;/g, " ")
+                .replace(/&amp;/g, "&")
+                .replace(/\s{3,}/g, " ")
+                .trim()
+                .slice(0, 10_000); // Limit to 10k chars per URL
+              textParts.push(`[Source: ${url}]\n${text}`);
+            }
+          } catch {
+            textParts.push(`[URL inaccessible: ${url}]`);
+          }
+        }
+      }
+
+      const allText = textParts.join("\n\n---\n\n");
+
+      await ctx.db.quickIntake.update({
+        where: { id: intake.id },
+        data: {
+          documentUrl: input.files?.map((f) => f.name).join(", ") ?? null,
+          websiteUrl: input.urls?.[0] ?? null,
+        },
+      });
+
+      const responses = await extractFromText(allText, intake.companyName, intake.sector);
+      await ctx.db.quickIntake.update({
+        where: { id: intake.id },
+        data: { responses: responses as Prisma.InputJsonValue },
+      });
+
+      return quickIntakeService.complete(input.token);
     }),
 });

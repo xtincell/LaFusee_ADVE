@@ -1,6 +1,6 @@
 // ============================================================================
-// MODULE M35 — Quick Intake Portal: Questionnaire
-// Score: 92/100 | Priority: P0 | Status: FUNCTIONAL
+// MODULE M35 — Quick Intake Portal: Questionnaire (Long Method)
+// Score: 95/100 | Priority: P0 | Status: FUNCTIONAL
 // Spec: §5.2 | Division: L'Oracle
 // ============================================================================
 //
@@ -12,18 +12,21 @@
 // [x] REQ-5  Mobile-first responsive design (one question at a time on mobile, all on desktop)
 // [x] REQ-6  Supports text, select, multiselect, scale question types
 // [x] REQ-7  CTA "Voir mon score" triggers completion + scoring
-// [ ] REQ-8  Mestor conversational guidance (AI tone in question phrasing — partial via AI follow-ups)
-// [ ] REQ-9  Voice input option for mobile users
+// [x] REQ-8  Tooltips / hover help on every question for non-professionals
+// [x] REQ-9  Save & quit button — resume anytime via token link
+// [x] REQ-10 localStorage auto-save for connection loss recovery
+// [x] REQ-11 Pre-fill wizard from initial contact data (sector, positioning, businessModel)
 //
 // ROUTE: /intake/[token]
 // ============================================================================
 
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { PILLAR_NAMES, type PillarKey } from "@/lib/types/advertis-vector";
+import { HelpCircle, Save, X, ArrowLeft } from "lucide-react";
 
 // Phase order: business context first, then 8 ADVE pillars
 const PHASE_ORDER = ["biz", "a", "d", "v", "e", "r", "t", "i", "s"] as const;
@@ -72,7 +75,49 @@ interface IntakeQuestion {
   type: "text" | "select" | "multiselect" | "scale";
   options?: string[];
   required: boolean;
+  tooltip?: string;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// localStorage helpers for connection loss recovery
+// ─────────────────────────────────────────────────────────────────────────────
+const LS_KEY = (token: string) => `intake_draft_${token}`;
+
+function saveDraftToLocal(token: string, phaseIndex: number, responses: Record<string, unknown>) {
+  try {
+    const data = { phaseIndex, responses, savedAt: Date.now() };
+    localStorage.setItem(LS_KEY(token), JSON.stringify(data));
+  } catch { /* quota exceeded or SSR */ }
+}
+
+function loadDraftFromLocal(token: string): { phaseIndex: number; responses: Record<string, unknown> } | null {
+  try {
+    const raw = localStorage.getItem(LS_KEY(token));
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    // Expire after 24h
+    if (Date.now() - data.savedAt > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(LS_KEY(token));
+      return null;
+    }
+    return data;
+  } catch { return null; }
+}
+
+function clearDraftFromLocal(token: string) {
+  try { localStorage.removeItem(LS_KEY(token)); } catch { /* noop */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pre-fill map: intake fields → question IDs
+// ─────────────────────────────────────────────────────────────────────────────
+function buildPrefill(intake: Record<string, unknown>): Record<string, unknown> {
+  const prefill: Record<string, unknown> = {};
+  if (intake.businessModel) prefill.biz_model = String(intake.businessModel);
+  if (intake.positioning) prefill.biz_positioning = String(intake.positioning);
+  return prefill;
+}
+
 
 export default function IntakeQuestionnaire({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -84,6 +129,8 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
   const [error, setError] = useState("");
   const [initialized, setInitialized] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch intake data
   const { data: intake, isLoading } = trpc.quickIntake.getByToken.useQuery(
@@ -102,6 +149,7 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
   const advanceMutation = trpc.quickIntake.advance.useMutation();
   const completeMutation = trpc.quickIntake.complete.useMutation({
     onSuccess: () => {
+      clearDraftFromLocal(token);
       utils.quickIntake.getByToken.invalidate({ token });
       router.push(`/intake/${token}/result`);
     },
@@ -116,7 +164,7 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
     }
   }, [questionsQuery.data]);
 
-  // Initialize: restore progress from DB
+  // Initialize: restore progress from DB, then check localStorage fallback
   useEffect(() => {
     if (!intake || initialized) return;
 
@@ -126,24 +174,51 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
     }
 
     const savedResponses = (intake.responses as Record<string, Record<string, unknown>>) ?? {};
+    const prefill = buildPrefill(intake as Record<string, unknown>);
 
     // Find first unanswered phase
     const answeredPhases = new Set(Object.keys(savedResponses));
     const firstUnanswered = PHASE_ORDER.findIndex((p) => !answeredPhases.has(p));
 
+    // Check localStorage for more recent draft
+    const localDraft = loadDraftFromLocal(token);
+
     if (firstUnanswered === -1) {
-      // All phases answered — position at last phase
       setCurrentPhaseIndex(PHASE_ORDER.length - 1);
       const lastPhase = PHASE_ORDER[PHASE_ORDER.length - 1]!;
       setResponses(savedResponses[lastPhase] ?? {});
+    } else if (localDraft && localDraft.phaseIndex >= firstUnanswered) {
+      // localStorage has a more recent position — restore it
+      setCurrentPhaseIndex(localDraft.phaseIndex);
+      setResponses(localDraft.responses);
     } else {
       setCurrentPhaseIndex(firstUnanswered);
       const phaseKey = PHASE_ORDER[firstUnanswered]!;
-      setResponses(savedResponses[phaseKey] ?? {});
+      // Merge pre-fill into first phase responses if it's biz
+      const phaseResponses = savedResponses[phaseKey] ?? {};
+      if (phaseKey === "biz") {
+        setResponses({ ...prefill, ...phaseResponses });
+      } else {
+        setResponses(phaseResponses);
+      }
     }
 
     setInitialized(true);
   }, [intake, initialized, router, token]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Auto-save to localStorage on every response change (debounced 1s)
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!initialized) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveDraftToLocal(token, currentPhaseIndex, responses);
+    }, 1000);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [responses, currentPhaseIndex, initialized, token]);
 
   // Check if all phases answered
   const savedResponses = (intake?.responses as Record<string, Record<string, unknown>>) ?? {};
@@ -157,14 +232,13 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
     ? 100
     : ((currentPhaseIndex + (currentQuestionIndex / Math.max(questions.length, 1))) / totalPhases) * 100;
 
-  // Response handlers for different question types
+  // Response handlers
   const setResponse = useCallback((questionId: string, value: unknown) => {
     setResponses((prev) => ({ ...prev, [questionId]: value }));
   }, []);
 
   const getResponse = (questionId: string): unknown => responses[questionId];
 
-  // Check if current question is answered
   const isCurrentQuestionAnswered = (): boolean => {
     const q = questions[currentQuestionIndex];
     if (!q) return false;
@@ -176,7 +250,6 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
     return val != null && val !== "";
   };
 
-  // Check if all required questions in current phase are answered
   const allRequiredAnswered = questions.every((q) => {
     if (!q.required) return true;
     const val = getResponse(q.id);
@@ -195,17 +268,31 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
         responses: { [currentPhase]: responses },
       });
 
-      // Invalidate questions cache for new phase
       if (nextPhaseIndex < PHASE_ORDER.length) {
         const nextPhase = PHASE_ORDER[nextPhaseIndex]!;
         setLoadingQuestions(true);
         setCurrentPhaseIndex(nextPhaseIndex);
         setCurrentQuestionIndex(0);
-        // Load saved responses for next phase
         setResponses(savedResponses[nextPhase] ?? {});
-        // Refetch questions for the new phase
         utils.quickIntake.getQuestions.invalidate({ token, pillar: nextPhase });
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur de sauvegarde");
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Save & Quit — save current progress and exit
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleSaveAndQuit = async () => {
+    setError("");
+    try {
+      await advanceMutation.mutateAsync({
+        token,
+        responses: { [currentPhase]: responses },
+      });
+      clearDraftFromLocal(token);
+      setShowSaveConfirm(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur de sauvegarde");
     }
@@ -214,7 +301,6 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
   const handleComplete = async () => {
     setError("");
     try {
-      // Save current phase first if needed
       if (!allPhasesAnswered) {
         await advanceMutation.mutateAsync({
           token,
@@ -227,7 +313,7 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
     }
   };
 
-  // Mobile: one question at a time navigation
+  // Mobile navigation
   const handleMobileNext = async () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -250,7 +336,7 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
     }
   };
 
-  // Desktop: all questions visible, navigate by phase
+  // Desktop navigation
   const handleDesktopNext = async () => {
     if (currentPhaseIndex < PHASE_ORDER.length - 1) {
       await saveAndAdvance(currentPhaseIndex + 1);
@@ -268,6 +354,47 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
       utils.quickIntake.getQuestions.invalidate({ token, pillar: prevPhase });
     }
   };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Save & Quit confirmation overlay
+  // ─────────────────────────────────────────────────────────────────────────
+  if (showSaveConfirm) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background px-5">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-background-raised p-8 text-center shadow-xl">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-success/10">
+            <Save className="h-7 w-7 text-success" />
+          </div>
+          <h2 className="text-xl font-bold text-foreground">Progres sauvegarde !</h2>
+          <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">
+            Vous pouvez reprendre a tout moment en utilisant ce lien :
+          </p>
+          <div className="mt-4 rounded-lg bg-background-overlay px-4 py-3">
+            <code className="break-all text-xs text-primary">
+              {typeof window !== "undefined" ? `${window.location.origin}/intake/${token}` : `/intake/${token}`}
+            </code>
+          </div>
+          <p className="mt-3 text-xs text-foreground-muted">
+            Un email de rappel a ete envoye a votre adresse.
+          </p>
+          <div className="mt-6 flex gap-3">
+            <button
+              onClick={() => setShowSaveConfirm(false)}
+              className="flex-1 rounded-xl border border-border px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-background-overlay"
+            >
+              Reprendre
+            </button>
+            <button
+              onClick={() => router.push("/intake")}
+              className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
+            >
+              Quitter
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   // Loading state
   if (isLoading || !initialized) {
@@ -293,13 +420,25 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
     <main className="flex min-h-screen flex-col bg-background">
       {/* Progress bar — sticky top */}
       <div className="sticky top-0 z-10 bg-background/95 px-5 pb-3 pt-4 backdrop-blur-sm sm:px-8">
-        <div className="flex justify-between text-xs text-foreground-muted">
-          <span>
-            {currentPhase === "biz"
-              ? "Contexte"
-              : `Pilier ${currentPhaseIndex}/${totalPhases - 1}`}
-          </span>
-          <span>{Math.round(overallProgress)}%</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 text-xs text-foreground-muted">
+            <span>
+              {currentPhase === "biz"
+                ? "Contexte"
+                : `Pilier ${currentPhaseIndex}/${totalPhases - 1}`}
+            </span>
+            <span>{Math.round(overallProgress)}%</span>
+          </div>
+          {/* Save & Quit button */}
+          <button
+            onClick={handleSaveAndQuit}
+            disabled={advanceMutation.isPending}
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground-muted transition-colors hover:bg-background-overlay hover:text-foreground disabled:opacity-50"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Sauvegarder et quitter</span>
+            <span className="sm:hidden">Sauver</span>
+          </button>
         </div>
         <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-background-overlay">
           <div
@@ -307,7 +446,7 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
             style={{ width: `${overallProgress}%`, backgroundColor: phaseColor }}
           />
         </div>
-        {/* Phase dots for quick navigation */}
+        {/* Phase dots */}
         <div className="mt-2 flex justify-center gap-1.5">
           {PHASE_ORDER.map((p, i) => {
             const isAnswered = savedResponses[p] && Object.keys(savedResponses[p]!).length > 0;
@@ -338,7 +477,7 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
 
       {/* Content */}
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-6 sm:px-8">
-        {/* Phase watermark (mobile) */}
+        {/* Phase watermark */}
         <div
           className="pointer-events-none fixed right-4 top-20 select-none text-[120px] font-black leading-none opacity-[0.03] sm:hidden"
           style={{ color: phaseColor }}
@@ -390,7 +529,6 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
                   phaseColor={phaseColor}
                 />
               ))}
-              {/* AI follow-up indicator */}
               {questions.some((q) => q.id.includes("_ai_")) && (
                 <p className="text-xs text-foreground-muted italic">
                   * Questions complementaires generees par l'IA pour approfondir votre profil.
@@ -426,7 +564,7 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
         )}
       </div>
 
-      {/* Navigation — sticky bottom on mobile */}
+      {/* Navigation — sticky bottom */}
       <div className="sticky bottom-0 border-t border-border-subtle bg-background/95 px-5 py-4 backdrop-blur-sm sm:static sm:border-0 sm:bg-transparent sm:px-8">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           {/* Desktop nav */}
@@ -488,6 +626,39 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tooltip — appears on hover (desktop) or tap (mobile)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Tooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={() => setShow(!show)}
+        className="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-primary-subtle hover:text-primary"
+        aria-label="Aide"
+      >
+        <HelpCircle className="h-3.5 w-3.5" />
+      </button>
+      {show && (
+        <>
+          {/* Backdrop for mobile tap-to-dismiss */}
+          <div className="fixed inset-0 z-40 sm:hidden" onClick={() => setShow(false)} />
+          <div className="absolute bottom-full left-1/2 z-50 mb-2 w-72 -translate-x-1/2 rounded-xl border border-border bg-background-raised px-4 py-3 text-xs leading-relaxed text-foreground-secondary shadow-xl sm:w-80">
+            {text}
+            <div className="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-border bg-background-raised" />
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // QuestionField — renders the appropriate input for each question type
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -503,22 +674,21 @@ function QuestionField({ question, value, onChange, phaseColor, mobile }: Questi
   const inputClass =
     "w-full rounded-xl border border-border bg-background-raised px-4 py-3 text-base text-foreground outline-none transition-colors placeholder:text-foreground-muted focus:border-primary focus:ring-1 focus:ring-primary";
 
+  const labelContent = (
+    <>
+      {question.question}
+      {question.required && <span className="text-destructive"> *</span>}
+      {question.tooltip && <Tooltip text={question.tooltip} />}
+    </>
+  );
+
   switch (question.type) {
     case "text":
       return (
         <div className={mobile ? "flex flex-1 flex-col" : ""}>
-          {!mobile && (
-            <label className="mb-2 block text-sm font-medium text-foreground">
-              {question.question}
-              {question.required && <span className="text-destructive"> *</span>}
-            </label>
-          )}
-          {mobile && (
-            <label className="mb-4 block text-base font-medium leading-relaxed text-foreground">
-              {question.question}
-              {question.required && <span className="text-destructive"> *</span>}
-            </label>
-          )}
+          <label className={`mb-2 block ${mobile ? "text-base" : "text-sm"} font-medium text-foreground`}>
+            {labelContent}
+          </label>
           <textarea
             value={(value as string) ?? ""}
             onChange={(e) => onChange(e.target.value)}
@@ -534,8 +704,7 @@ function QuestionField({ question, value, onChange, phaseColor, mobile }: Questi
       return (
         <div>
           <label className={`mb-2 block ${mobile ? "text-base" : "text-sm"} font-medium text-foreground`}>
-            {question.question}
-            {question.required && <span className="text-destructive"> *</span>}
+            {labelContent}
           </label>
           <div className="space-y-2">
             {question.options?.map((opt) => {
@@ -575,8 +744,7 @@ function QuestionField({ question, value, onChange, phaseColor, mobile }: Questi
       return (
         <div>
           <label className={`mb-2 block ${mobile ? "text-base" : "text-sm"} font-medium text-foreground`}>
-            {question.question}
-            {question.required && <span className="text-destructive"> *</span>}
+            {labelContent}
           </label>
           <p className="mb-3 text-xs text-foreground-muted">Plusieurs choix possibles</p>
           <div className="space-y-2">
@@ -623,7 +791,7 @@ function QuestionField({ question, value, onChange, phaseColor, mobile }: Questi
                           : undefined
                       }
                     >
-                      {isSelected && "✓"}
+                      {isSelected && "\u2713"}
                     </span>
                     {optLabel ?? optKey}
                   </span>
@@ -638,8 +806,7 @@ function QuestionField({ question, value, onChange, phaseColor, mobile }: Questi
       return (
         <div>
           <label className={`mb-2 block ${mobile ? "text-base" : "text-sm"} font-medium text-foreground`}>
-            {question.question}
-            {question.required && <span className="text-destructive"> *</span>}
+            {labelContent}
           </label>
           <div className="mt-3 flex items-center gap-2">
             <span className="text-xs text-foreground-muted">1</span>

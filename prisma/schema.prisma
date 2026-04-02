@@ -127,6 +127,13 @@ enum QuickIntakeStatus {
   EXPIRED
 }
 
+enum IntakeMethod {
+  LONG         // Full 9-phase questionnaire
+  SHORT        // Paste text, AI extracts
+  INGEST       // Upload PDF/Word/etc
+  INGEST_PLUS  // Upload + online scan
+}
+
 // --- Campaign Manager 360 ---
 
 enum CampaignState {
@@ -1013,7 +1020,11 @@ model QuickIntake {
   businessModel   String?
   economicModel   String?
   positioning     String?
+  method          IntakeMethod      @default(LONG)
   responses       Json
+  rawText         String?           // SHORT method: pasted text
+  documentUrl     String?           // INGEST: uploaded file URL
+  websiteUrl      String?           // INGEST_PLUS: URL to scan
   advertis_vector Json?
   classification  String?
   diagnostic      Json?
