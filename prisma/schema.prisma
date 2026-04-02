@@ -630,6 +630,7 @@ model Pillar {
   validationStatus String    @default("DRAFT") // DRAFT, AI_PROPOSED, VALIDATED, LOCKED
   staleAt          DateTime?                   // Set when pillar is marked stale; cleared on content update
   sources          Json?                       // [{ sourceId, sourceType, field, confidence }]
+  pendingRecos     Json?                       // [{ field, currentValue, proposedValue, justification, source: "R"|"T"|"R+T", accepted?: boolean }]
 
   currentVersion Int       @default(1)
 

@@ -232,7 +232,47 @@ Tu dois:
 - Retourner le pilier complet en JSON`,
 };
 
+// ── ADVE Recommendation Prompt ─────────────────────────────────────────────
+
+const RECO_PROMPT = `${SYSTEM_BASE}
+
+Tu analyses les piliers R (Risk) et T (Track) pour produire des recommandations concrètes
+destinées à enrichir un pilier ADVE spécifique.
+
+Pour CHAQUE champ du pilier que tu peux améliorer grâce aux insights R et/ou T, produis une recommandation.
+
+Retourne un JSON array:
+[
+  {
+    "field": "nomDuChamp",
+    "currentSummary": "résumé court de la valeur actuelle (20 mots max)",
+    "proposedValue": <la nouvelle valeur complète pour ce champ — même type que l'actuel>,
+    "justification": "Pourquoi cette modification ? Quelle insight R ou T la motive ? (2-3 phrases)",
+    "source": "R" | "T" | "R+T",
+    "impact": "LOW" | "MEDIUM" | "HIGH"
+  }
+]
+
+Règles:
+- Ne propose QUE des modifications justifiées par des données R ou T concrètes
+- CONSERVE le type de données de chaque champ (string→string, array→array, object→object)
+- Pour les arrays, propose la version COMPLÈTE du tableau (items existants + ajouts)
+- Pour les strings, propose le texte COMPLET de remplacement
+- Si un champ est déjà excellent et R/T ne l'améliorent pas, NE le mentionne PAS
+- Sois spécifique dans tes justifications — cite les données R/T qui motivent le changement
+- 5 à 15 recommandations par pilier, triées par impact décroissant`;
+
 // ── Public API ──────────────────────────────────────────────────────────────
+
+export interface FieldRecommendation {
+  field: string;
+  currentSummary: string;
+  proposedValue: unknown;
+  justification: string;
+  source: "R" | "T" | "R+T";
+  impact: "LOW" | "MEDIUM" | "HIGH";
+  accepted?: boolean;
+}
 
 export type ActualizeResult = {
   pillarKey: string;
@@ -357,10 +397,122 @@ Retourne le pilier ${pillarKey} complet en JSON.`;
 }
 
 /**
+ * Generate per-field recommendations for an ADVE pillar from R+T insights.
+ * Does NOT modify the pillar — stores proposals in pendingRecos for operator review.
+ */
+export async function generateADVERecommendations(
+  strategyId: string,
+  pillarKey: "A" | "D" | "V" | "E",
+): Promise<{ pillarKey: string; recommendations: FieldRecommendation[]; error?: string }> {
+  try {
+    const pillars = await loadPillars(strategyId);
+    const currentContent = (pillars[pillarKey] ?? {}) as Record<string, unknown>;
+    const rContent = pillars["R"] as Record<string, unknown> | undefined;
+    const tContent = pillars["T"] as Record<string, unknown> | undefined;
+
+    if (!rContent && !tContent) {
+      return { pillarKey, recommendations: [], error: "R et T sont vides — lancez d'abord la cascade R→T." };
+    }
+
+    const prompt = `Voici le pilier ${pillarKey} actuel:
+${JSON.stringify(currentContent, null, 2)}
+
+Voici le pilier R (Risk):
+${rContent ? JSON.stringify(rContent, null, 2) : "Non disponible"}
+
+Voici le pilier T (Track):
+${tContent ? JSON.stringify(tContent, null, 2) : "Non disponible"}
+
+Produis les recommandations d'enrichissement pour le pilier ${pillarKey}.`;
+
+    const response = await callLLM(RECO_PROMPT, prompt, strategyId);
+    const parsed = extractJSON(response);
+
+    // The response should be an array
+    const recos: FieldRecommendation[] = Array.isArray(parsed)
+      ? parsed as FieldRecommendation[]
+      : (parsed as Record<string, unknown>).recommendations
+        ? (parsed as Record<string, unknown>).recommendations as FieldRecommendation[]
+        : [];
+
+    // Store in DB as pendingRecos
+    await db.pillar.update({
+      where: { strategyId_key: { strategyId, key: pillarKey.toLowerCase() } },
+      data: { pendingRecos: recos as unknown as Prisma.InputJsonValue },
+    });
+
+    return { pillarKey, recommendations: recos };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { pillarKey, recommendations: [], error: msg };
+  }
+}
+
+/**
+ * Apply accepted recommendations to an ADVE pillar.
+ * Only applies recos where accepted === true.
+ */
+export async function applyAcceptedRecommendations(
+  strategyId: string,
+  pillarKey: "A" | "D" | "V" | "E",
+  acceptedFields: string[],
+): Promise<{ applied: number; error?: string }> {
+  try {
+    const pillar = await db.pillar.findUnique({
+      where: { strategyId_key: { strategyId, key: pillarKey.toLowerCase() } },
+    });
+    if (!pillar) return { applied: 0, error: "Pillar not found" };
+
+    const recos = (pillar.pendingRecos ?? []) as unknown as FieldRecommendation[];
+    const content = (pillar.content ?? {}) as Record<string, unknown>;
+
+    let applied = 0;
+    for (const reco of recos) {
+      if (acceptedFields.includes(reco.field)) {
+        content[reco.field] = reco.proposedValue;
+        reco.accepted = true;
+        applied++;
+      }
+    }
+
+    // Save updated content + mark recos as processed
+    await db.pillar.update({
+      where: { id: pillar.id },
+      data: {
+        content: content as Prisma.InputJsonValue,
+        pendingRecos: recos as unknown as Prisma.InputJsonValue,
+        confidence: Math.min((pillar.confidence ?? 0.5) + 0.05 * applied, 0.95),
+        staleAt: null,
+      },
+    });
+
+    // Recalc scores
+    await recalcScores(strategyId);
+
+    return { applied };
+  } catch (err) {
+    return { applied: 0, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Clear pending recommendations for a pillar (reject all remaining).
+ */
+export async function clearRecommendations(
+  strategyId: string,
+  pillarKey: "A" | "D" | "V" | "E",
+): Promise<void> {
+  await db.pillar.update({
+    where: { strategyId_key: { strategyId, key: pillarKey.toLowerCase() } },
+    data: { pendingRecos: Prisma.DbNull },
+  });
+}
+
+/**
  * Run the full RTIS cascade:
  * 1. R = analyse(ADVE)
  * 2. T = analyse(ADVE + R)
- * 3. R+T → update ADVE (feedback loop, optional)
+ * 3. R+T → generate ADVE recommendations (proposals, not auto-merge)
  * 4. I = produit(ADVE, R, T)
  * 5. S = mise en forme(tout)
  */
@@ -385,11 +537,15 @@ export async function runRTISCascade(
     // T peut échouer sans bloquer la cascade — R seul suffit pour les recos
   }
 
-  // Step 3 (optional): R(+T) → update ADVE feedback loop
+  // Step 3 (optional): R(+T) → generate ADVE recommendations (proposals for operator review)
   if (options.updateADVE) {
-    for (const key of ["A", "D", "V", "E"] as PillarKey[]) {
-      const adveResult = await actualizePillar(strategyId, key);
-      results.push(adveResult);
+    for (const key of ["A", "D", "V", "E"] as ("A" | "D" | "V" | "E")[]) {
+      const recoResult = await generateADVERecommendations(strategyId, key);
+      results.push({
+        pillarKey: key,
+        updated: recoResult.recommendations.length > 0,
+        error: recoResult.error,
+      });
     }
   }
 

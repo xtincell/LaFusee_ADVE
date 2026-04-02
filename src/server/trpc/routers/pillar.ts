@@ -33,9 +33,14 @@ import { PILLAR_SCHEMAS, validatePillarContent, validatePillarPartial, type Pill
 import { validateCrossReferences, getCrossRefSummary } from "@/server/services/cross-validator";
 import { scorePillarSemantic, scoreAllPillarsSemantic } from "@/server/services/advertis-scorer/semantic";
 import { propagateFromPillar } from "@/server/services/staleness-propagator";
-import { actualizePillar, runRTISCascade } from "@/server/services/mestor/rtis-cascade";
+import {
+  actualizePillar, runRTISCascade,
+  generateADVERecommendations, applyAcceptedRecommendations, clearRecommendations,
+  type FieldRecommendation,
+} from "@/server/services/mestor/rtis-cascade";
 
 const pillarKeyEnum = z.enum(["A", "D", "V", "E", "R", "T", "I", "S"]);
+const adveKeyEnum = z.enum(["A", "D", "V", "E"]);
 
 export const pillarRouter = createTRPCRouter({
   /** Get a single pillar with validation status and semantic score */
@@ -554,6 +559,41 @@ export const pillarRouter = createTRPCRouter({
     .input(z.object({ strategyId: z.string(), updateADVE: z.boolean().optional(), skipT: z.boolean().optional() }))
     .mutation(async ({ input }) => {
       return runRTISCascade(input.strategyId, { updateADVE: input.updateADVE, skipT: input.skipT });
+    }),
+
+  // ── ADVE Recommendation Review (R+T → proposals) ─────────────────────
+
+  /** Generate per-field recommendations for an ADVE pillar from R+T insights */
+  generateRecos: protectedProcedure
+    .input(z.object({ strategyId: z.string(), key: adveKeyEnum }))
+    .mutation(async ({ input }) => {
+      return generateADVERecommendations(input.strategyId, input.key);
+    }),
+
+  /** Get pending recommendations for an ADVE pillar */
+  getRecos: protectedProcedure
+    .input(z.object({ strategyId: z.string(), key: adveKeyEnum }))
+    .query(async ({ ctx, input }) => {
+      const pillar = await ctx.db.pillar.findUnique({
+        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
+        select: { pendingRecos: true },
+      });
+      return (pillar?.pendingRecos ?? []) as unknown as FieldRecommendation[];
+    }),
+
+  /** Accept selected recommendations — apply their proposed values to the pillar */
+  acceptRecos: operatorProcedure
+    .input(z.object({ strategyId: z.string(), key: adveKeyEnum, fields: z.array(z.string()) }))
+    .mutation(async ({ input }) => {
+      return applyAcceptedRecommendations(input.strategyId, input.key, input.fields);
+    }),
+
+  /** Reject all remaining recommendations for a pillar */
+  rejectRecos: operatorProcedure
+    .input(z.object({ strategyId: z.string(), key: adveKeyEnum }))
+    .mutation(async ({ input }) => {
+      await clearRecommendations(input.strategyId, input.key);
+      return { success: true };
     }),
 });
 
