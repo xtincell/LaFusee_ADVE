@@ -79,6 +79,7 @@ export const cockpitNavGroups: NavGroup[] = [
     title: "Marque",
     items: [
       { href: "/cockpit/brand/identity", label: "Identite", icon: Fingerprint },
+      { href: "/cockpit/brand/rtis", label: "RTIS", icon: Shield },
       { href: "/cockpit/brand/guidelines", label: "Guidelines", icon: BookOpen },
       { href: "/cockpit/brand/assets", label: "Assets", icon: Image },
     ],

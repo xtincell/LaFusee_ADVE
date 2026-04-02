@@ -12,7 +12,7 @@
 // [x] REQ-5  Propagation de staleness inter-piliers (un pilier modifié impacte les suivants)
 // [x] REQ-6  Versioning des contenus de pilier
 // [x] REQ-7  RBAC: opérateur ne modifie que ses propres stratégies
-// [ ] REQ-8  Cycle de génération cascade complet (ADVE→RTIS auto: chaque pilier consomme les précédents)
+// [x] REQ-8  Cycle de génération cascade complet (ADVE→RTIS auto: chaque pilier consomme les précédents)
 // [x] REQ-9  Pipeline orchestrator side-effects post-génération (phase advance, score recalc, variable extraction)
 // [ ] REQ-10 Phases: fiche → audit → implementation → cockpit → complete (machine 5 états)
 //
@@ -446,13 +446,18 @@ export const pillarRouter = createTRPCRouter({
         });
         const allValidated = advePillars.length === 4 && advePillars.every((p) => p.validationStatus === "VALIDATED");
         if (allValidated) {
-          // Create a signal to trigger RTIS generation
+          // Create a signal for audit trail
           await ctx.db.signal.create({
             data: {
               strategyId: input.strategyId,
               type: "ADVE_VALIDATED",
               data: { trigger: "all_4_adve_pillars_validated", validatedAt: new Date().toISOString() },
             },
+          });
+
+          // Auto-trigger RTIS cascade with feedback loop (R+T → update ADVE)
+          runRTISCascade(input.strategyId, { updateADVE: true }).catch((err) => {
+            console.error("[pillar] RTIS cascade auto-trigger failed:", err instanceof Error ? err.message : err);
           });
         }
       }
