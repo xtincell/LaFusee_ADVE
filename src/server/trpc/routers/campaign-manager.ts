@@ -1,6 +1,6 @@
 // ============================================================================
 // MODULE M04 — Campaign Manager 360
-// Score: 92/100 | Priority: P0 | Status: FUNCTIONAL
+// Score: 95/100 | Priority: P0 | Status: FUNCTIONAL
 // Spec: Annexe C + §6.3 | Division: La Fusée (BOOST)
 // ============================================================================
 //
@@ -20,8 +20,8 @@
 // [x] REQ-13 Field Operations terrain (team + ambassadors)
 // [x] REQ-14 Dependencies 4 types (BLOCKS/REQUIRES/FOLLOWS/PARALLEL)
 // [x] REQ-15 Operator isolation (enforceStrategyAccess + enforceCampaignAccess)
-// [ ] REQ-16 Connexion scoring: campaign advertis_vector cible vs réel
-// [ ] REQ-17 devotionObjective sur Campaign (CdC §3.2)
+// [x] REQ-16 Connexion scoring: campaign advertis_vector cible vs réel (getAdvertisVectorAlignment)
+// [x] REQ-17 devotionObjective sur Campaign (getDevotionProgression, setDevotionObjective)
 //
 // SUB-ROUTERS: crud, state, actions, executions, amplifications, team,
 //   milestones, budget, approvals, assets, briefs, reports, links,
@@ -29,7 +29,7 @@
 // ============================================================================
 
 /**
- * Campaign Manager 360 — 19 sub-routers, 92 procedures
+ * Campaign Manager 360 — 21 sub-routers, 97 procedures
  * Full spec implementation: CRUD, state machine, actions, executions,
  * amplifications, team, milestones, budget, approvals, assets, briefs,
  * reports, links, dependencies, templates, field ops, field reports,
@@ -1236,5 +1236,37 @@ export const campaignManagerRouter = createTRPCRouter({
       if (!action) return { score: 0, reason: "Action type inconnue" };
       const score = cm.scoreAction(action, { funnelStage: input.funnelStage, budget: input.budget, sector: input.sector });
       return { score, action: action.name };
+    }),
+
+  // ==========================================================================
+  // C.3.20 — ADVE Vector Alignment (REQ-16) — 1 procedure
+  // ==========================================================================
+
+  getAdvertisVectorAlignment: protectedProcedure
+    .input(z.object({ campaignId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      await enforceCampaignAccess(ctx, input.campaignId);
+      return cm.getAdvertisVectorAlignment(input.campaignId);
+    }),
+
+  // ==========================================================================
+  // C.3.21 — Devotion Objective (REQ-17) — 3 procedures
+  // ==========================================================================
+
+  getDevotionProgression: protectedProcedure
+    .input(z.object({ campaignId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      await enforceCampaignAccess(ctx, input.campaignId);
+      return cm.getDevotionProgression(input.campaignId);
+    }),
+
+  setDevotionObjective: protectedProcedure
+    .input(z.object({
+      campaignId: z.string(),
+      objective: z.record(z.unknown()),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await enforceCampaignAccess(ctx, input.campaignId);
+      return cm.setDevotionObjective(input.campaignId, input.objective);
     }),
 });

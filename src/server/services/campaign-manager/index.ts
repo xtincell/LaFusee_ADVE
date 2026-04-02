@@ -5,6 +5,7 @@
  */
 
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { canTransition, requiresApproval, getAvailableTransitions, validateGates, type CampaignState } from "./state-machine";
 import { ACTION_TYPES, getActionType, getActionsByCategory, type ActionCategory } from "./action-types";
 
@@ -1633,4 +1634,150 @@ export function getRecommendationsForFunnel(
     .sort((a, b) => b.score - a.score)
     .filter((a) => a.score > 0)
     .slice(0, 20);
+}
+
+// ============================================================================
+// REQ-16 — ADVERTIS_VECTOR ALIGNMENT (target vs realized)
+// ============================================================================
+
+/**
+ * Compare campaign advertis_vector (target set at creation) against the
+ * strategy's current advertis_vector (realized via scoring).
+ * Returns per-pillar delta + overall alignment score (0-100).
+ */
+export async function getAdvertisVectorAlignment(campaignId: string): Promise<{
+  targetVector: Record<string, number>;
+  realizedVector: Record<string, number>;
+  pillarDeltas: Array<{ pillar: string; target: number; realized: number; delta: number; pct: number }>;
+  alignmentScore: number;
+  classification: { target: string; realized: string };
+}> {
+  const campaign = await db.campaign.findUniqueOrThrow({
+    where: { id: campaignId },
+    select: { advertis_vector: true, strategyId: true },
+  });
+
+  const strategy = await db.strategy.findUniqueOrThrow({
+    where: { id: campaign.strategyId },
+    select: { advertis_vector: true },
+  });
+
+  const PILLARS = ["a", "d", "v", "e", "r", "t", "i", "s"];
+  const targetVec = (campaign.advertis_vector ?? {}) as Record<string, number>;
+  const realizedVec = (strategy.advertis_vector ?? {}) as Record<string, number>;
+
+  const pillarDeltas = PILLARS.map((p) => {
+    const target = targetVec[p] ?? 0;
+    const realized = realizedVec[p] ?? 0;
+    const delta = realized - target;
+    const pct = target > 0 ? Math.round((delta / target) * 10000) / 100 : 0;
+    return { pillar: p, target, realized, delta: Math.round(delta * 100) / 100, pct };
+  });
+
+  // Alignment = 100 - average absolute % deviation across pillars (capped)
+  const avgDeviation = pillarDeltas.reduce((sum, d) => sum + Math.abs(d.pct), 0) / PILLARS.length;
+  const alignmentScore = Math.max(0, Math.round(100 - avgDeviation));
+
+  const classify = (composite: number) =>
+    composite <= 80 ? "ZOMBIE" : composite <= 120 ? "ORDINAIRE" : composite <= 160 ? "FORTE" : composite <= 180 ? "CULTE" : "ICONE";
+
+  return {
+    targetVector: targetVec,
+    realizedVector: realizedVec,
+    pillarDeltas,
+    alignmentScore,
+    classification: {
+      target: classify(targetVec.composite ?? 0),
+      realized: classify(realizedVec.composite ?? 0),
+    },
+  };
+}
+
+// ============================================================================
+// REQ-17 — DEVOTION OBJECTIVE TRACKING
+// ============================================================================
+
+/**
+ * Track devotion ladder progression for a campaign.
+ * Compares devotionObjective (target: e.g. +5% Engagé→Ambassadeur)
+ * against actual AARRR E-pillar metrics (Engagement data).
+ */
+export async function getDevotionProgression(campaignId: string): Promise<{
+  objective: Record<string, unknown>;
+  stages: Array<{
+    stage: string;
+    baseline: number;
+    target: number;
+    actual: number;
+    progressPct: number;
+    onTrack: boolean;
+  }>;
+  overallProgress: number;
+}> {
+  const campaign = await db.campaign.findUniqueOrThrow({
+    where: { id: campaignId },
+    select: { devotionObjective: true, aarrTargets: true },
+  });
+
+  const objective = (campaign.devotionObjective ?? {}) as Record<string, unknown>;
+  const aarrTargets = (campaign.aarrTargets ?? {}) as Record<string, number>;
+
+  // Fetch actual AARRR metrics for this campaign
+  const metrics = await db.campaignAARRMetric.findMany({
+    where: { campaignId },
+    select: { stage: true, metric: true, value: true, target: true },
+  });
+
+  // Define the 5 devotion ladder stages mapped from AARRR
+  const DEVOTION_STAGES = [
+    { stage: "Awareness", aarrStage: "ACQUISITION", key: "awareness" },
+    { stage: "Interest", aarrStage: "ACTIVATION", key: "interest" },
+    { stage: "Engaged", aarrStage: "RETENTION", key: "engaged" },
+    { stage: "Ambassadeur", aarrStage: "REFERRAL", key: "ambassador" },
+    { stage: "Revenue", aarrStage: "REVENUE", key: "revenue" },
+  ];
+
+  const stages = DEVOTION_STAGES.map((ds) => {
+    const stageMetrics = metrics.filter((m) => m.stage === ds.aarrStage);
+    const actualTotal = stageMetrics.reduce((sum, m) => sum + (m.value ?? 0), 0);
+    const targetTotal = stageMetrics.reduce((sum, m) => sum + (m.target ?? 0), 0)
+      || (aarrTargets[ds.key] ?? 0);
+    const baseline = (objective[`${ds.key}_baseline`] as number) ?? 0;
+    const target = targetTotal || ((objective[`${ds.key}_target`] as number) ?? 0);
+
+    const progressPct = target > 0 ? Math.round((actualTotal / target) * 100) : 0;
+
+    return {
+      stage: ds.stage,
+      baseline,
+      target,
+      actual: actualTotal,
+      progressPct: Math.min(progressPct, 200), // cap at 200% to allow overperformance
+      onTrack: progressPct >= 70, // 70%+ = on track
+    };
+  });
+
+  const overallProgress = stages.length > 0
+    ? Math.round(stages.reduce((sum, s) => sum + s.progressPct, 0) / stages.length)
+    : 0;
+
+  return { objective, stages, overallProgress };
+}
+
+/**
+ * Set or update the devotion objective for a campaign.
+ */
+export async function setDevotionObjective(
+  campaignId: string,
+  objective: Record<string, unknown>,
+): Promise<{ campaignId: string; devotionObjective: Record<string, unknown> }> {
+  const updated = await db.campaign.update({
+    where: { id: campaignId },
+    data: { devotionObjective: objective as Prisma.InputJsonValue },
+    select: { id: true, devotionObjective: true },
+  });
+  return {
+    campaignId: updated.id,
+    devotionObjective: (updated.devotionObjective ?? {}) as Record<string, unknown>,
+  };
 }
