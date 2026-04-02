@@ -171,6 +171,54 @@ export const creatorNavGroups: NavGroup[] = [
   },
 ];
 
+export const agencyNavGroups: NavGroup[] = [
+  {
+    title: "",
+    items: [
+      { href: "/agency", label: "Dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: "Clients",
+    divisionColor: "var(--color-division-oracle)",
+    items: [
+      { href: "/agency/clients", label: "Clients", icon: Building },
+      { href: "/agency/intake", label: "Pipeline Intake", icon: Filter },
+    ],
+  },
+  {
+    title: "Operations",
+    divisionColor: "var(--color-division-fusee)",
+    items: [
+      { href: "/agency/campaigns", label: "Campagnes", icon: Megaphone },
+      { href: "/agency/missions", label: "Missions", icon: Target },
+    ],
+  },
+  {
+    title: "Intelligence",
+    divisionColor: "var(--color-division-signal)",
+    items: [
+      { href: "/agency/signals", label: "Signaux", icon: Radio },
+      { href: "/agency/knowledge", label: "Knowledge Graph", icon: Network },
+    ],
+  },
+  {
+    title: "Financier",
+    divisionColor: "var(--color-division-socle)",
+    items: [
+      { href: "/agency/revenue", label: "Revenus", icon: DollarSign },
+      { href: "/agency/commissions", label: "Commissions", icon: Coins },
+      { href: "/agency/contracts", label: "Contrats", icon: FileSignature },
+    ],
+  },
+  {
+    title: "",
+    items: [
+      { href: "/agency/messages", label: "Messages", icon: MessageSquare },
+    ],
+  },
+];
+
 export const consoleNavGroups: NavGroup[] = [
   {
     title: "",

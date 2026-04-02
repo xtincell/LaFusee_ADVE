@@ -13,7 +13,7 @@ export interface NavGroup {
   divisionColor?: string;
 }
 
-export type PortalId = "cockpit" | "creator" | "console";
+export type PortalId = "cockpit" | "creator" | "console" | "agency";
 
 export interface PortalConfig {
   id: PortalId;

@@ -54,12 +54,46 @@ export function scopeToOperator<T extends Record<string, unknown>>(
 }
 
 /**
- * Scope strategies to operator
+ * Scope strategies to operator (via Client chain or legacy direct operatorId)
  */
 export function scopeStrategies(ctx: OperatorContext): Prisma.StrategyWhereInput {
   if (ctx.role === "ADMIN") return {};
-  if (ctx.operatorId) return { operatorId: ctx.operatorId };
+  if (ctx.operatorId) return {
+    OR: [
+      { client: { operatorId: ctx.operatorId } },
+      { operatorId: ctx.operatorId },
+    ],
+  };
   return { userId: ctx.userId };
+}
+
+/**
+ * Scope clients to operator
+ */
+export function scopeClients(ctx: OperatorContext): Prisma.ClientWhereInput {
+  if (ctx.role === "ADMIN") return {};
+  if (ctx.operatorId) return { operatorId: ctx.operatorId };
+  return { strategies: { some: { userId: ctx.userId } } };
+}
+
+/**
+ * Verify a user has access to a specific client
+ */
+export async function canAccessClient(
+  clientId: string,
+  ctx: OperatorContext,
+): Promise<boolean> {
+  if (ctx.role === "ADMIN") return true;
+
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { operatorId: true },
+  });
+
+  if (!client) return false;
+  if (ctx.operatorId && client.operatorId === ctx.operatorId) return true;
+
+  return false;
 }
 
 /**

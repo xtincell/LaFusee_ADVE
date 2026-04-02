@@ -50,6 +50,9 @@ import { pillarRouter } from "./routers/pillar";
 import { systemConfigRouter } from "./routers/system-config";
 import { ingestionRouter } from "./routers/ingestion";
 import { superfanRouter } from "./routers/superfan";
+import { marketIntelligenceRouter } from "./routers/market-intelligence";
+import { implementationGeneratorRouter } from "./routers/implementation-generator";
+import { clientRouter } from "./routers/client";
 
 export const appRouter = createTRPCRouter({
   // Existing routers
@@ -104,6 +107,9 @@ export const appRouter = createTRPCRouter({
   systemConfig: systemConfigRouter,
   ingestion: ingestionRouter,
   superfan: superfanRouter,
+  marketIntelligence: marketIntelligenceRouter,
+  implementationGenerator: implementationGeneratorRouter,
+  brandClient: clientRouter,
 });
 
 export type AppRouter = typeof appRouter;

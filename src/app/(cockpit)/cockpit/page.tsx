@@ -242,7 +242,7 @@ export default function CockpitDashboard() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Cult Dashboard"
-          description={`Strategie : ${strategy?.name ?? "..."}`}
+          description={`Marque : ${strategy?.name ?? "..."}`}
           breadcrumbs={[{ label: "Cockpit", href: "/cockpit" }, { label: "Dashboard" }]}
         />
         <div className="flex gap-1 rounded-lg bg-background-overlay p-1">

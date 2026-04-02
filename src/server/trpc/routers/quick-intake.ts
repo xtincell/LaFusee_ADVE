@@ -115,7 +115,11 @@ export const quickIntakeRouter = createTRPCRouter({
     }),
 
   convert: adminProcedure
-    .input(z.object({ intakeId: z.string(), userId: z.string() }))
+    .input(z.object({
+      intakeId: z.string(),
+      userId: z.string(),
+      clientId: z.string().optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const intake = await ctx.db.quickIntake.findUniqueOrThrow({
         where: { id: input.intakeId },
@@ -134,13 +138,42 @@ export const quickIntakeRouter = createTRPCRouter({
         businessContext = tempStrategy?.businessContext ?? undefined;
       }
 
+      const user = await ctx.db.user.findUniqueOrThrow({ where: { id: input.userId } });
+      const operatorId = user.operatorId;
+
+      // Create or reuse Client
+      let clientId = input.clientId;
+      if (!clientId && operatorId) {
+        // Check if a client with same name+operator already exists
+        const existing = await ctx.db.client.findFirst({
+          where: { name: intake.companyName, operatorId },
+        });
+        if (existing) {
+          clientId = existing.id;
+        } else {
+          const newClient = await ctx.db.client.create({
+            data: {
+              name: intake.companyName,
+              contactName: intake.contactName,
+              contactEmail: intake.contactEmail,
+              contactPhone: intake.contactPhone ?? undefined,
+              sector: intake.sector,
+              country: intake.country,
+              operatorId,
+            },
+          });
+          clientId = newClient.id;
+        }
+      }
+
       // Create Strategy (Brand Instance) from intake data
       const strategy = await ctx.db.strategy.create({
         data: {
           name: intake.companyName,
           description: `Converti depuis Quick Intake le ${new Date().toLocaleDateString("fr-FR")}`,
           userId: input.userId,
-          operatorId: (await ctx.db.user.findUniqueOrThrow({ where: { id: input.userId } })).operatorId,
+          operatorId,
+          clientId: clientId ?? undefined,
           status: "ACTIVE",
           advertis_vector: intake.advertis_vector ?? undefined,
           businessContext: businessContext ?? undefined,

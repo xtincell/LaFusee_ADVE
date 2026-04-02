@@ -574,6 +574,39 @@ export const PillarRSchema = z.object({
 // PILIER T — TRACK
 // ============================================================================
 
+/** Weak Signal with causal chain (Market Intelligence Engine) */
+const WeakSignalSchema = z.object({
+  id: z.string().optional(),
+  thesis: z.string().min(1),
+  rawEvent: z.string().min(1),
+  causalChain: z.array(z.object({
+    from: z.string().min(1),
+    to: z.string().min(1),
+    mechanism: z.string().min(1),
+    confidence: z.number().min(0).max(1),
+  })).min(1),
+  impactCategory: z.enum(["SUPPLY_CHAIN", "PRICING", "DEMAND", "REGULATORY", "COMPETITIVE", "TECHNOLOGICAL", "SOCIAL"]),
+  brandImpact: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  urgency: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+  relatedPillars: z.array(z.string()).optional(),
+  supportingSignals: z.array(z.object({
+    title: z.string().min(1),
+    content: z.string().min(1),
+    addedConfidence: z.number().min(0).max(0.3),
+    link: z.string().min(1),
+  })).optional(),
+  recommendedAction: z.string().min(1).optional(),
+});
+
+/** Market data source metadata */
+const MarketDataSourceSchema = z.object({
+  sourceType: z.string(),
+  title: z.string(),
+  collectedAt: z.string().optional(),
+  reliability: z.number().min(0).max(1).optional(),
+});
+
 export const PillarTSchema = z.object({
   // Triangulation marché (4 méthodes)
   triangulation: z.object({
@@ -606,6 +639,19 @@ export const PillarTSchema = z.object({
 
   // Brand-Market Fit Score (0-100)
   brandMarketFitScore: z.number().min(0).max(100).optional(),
+
+  // ── Market Intelligence Engine extensions ──────────────────────────────
+  // Weak signals with causal chains and supporting signals
+  weakSignalAnalysis: z.array(WeakSignalSchema).optional(),
+
+  // Sources de données marché utilisées
+  marketDataSources: z.array(MarketDataSourceSchema).optional(),
+
+  // Horodatage dernière actualisation données marché
+  lastMarketDataRefresh: z.string().optional(),
+
+  // True si données sectorielles réutilisées (cross-brand sharing)
+  sectorKnowledgeReused: z.boolean().optional(),
 });
 
 // ============================================================================
@@ -678,12 +724,37 @@ export const PillarISchema = z.object({
   copyStrategy: z.object({
     promise: textShort.optional(),
     rtb: textShort.optional(), // Reason to believe
+    tonOfVoice: textShort.optional(),
+    keyMessages: z.array(textShort).optional(),
+    doNot: z.array(textShort).optional(),
   }).optional(),
   bigIdea: z.object({
     concept: textShort.optional(),
     mechanism: textShort.optional(),
     insight: textShort.optional(),
     adaptations: z.array(textShort).optional(),
+  }).optional(),
+
+  // ── Havas-level premium extensions ─────────────────────────────────────
+  // Media Plan structuré
+  mediaPlan: z.object({
+    totalBudget: currency.optional(),
+    channels: z.array(z.object({
+      channel: textShort,
+      budget: currency.optional(),
+      percentage: z.number().min(0).max(100).optional(),
+      objective: textShort.optional(),
+      kpi: textShort.optional(),
+    })).optional(),
+  }).optional(),
+
+  // Generation metadata (GLORY tools, quality score, passes)
+  generationMeta: z.object({
+    gloryToolsUsed: z.array(z.string()).optional(),
+    qualityScore: z.number().min(0).max(100).optional(),
+    qualityAssessment: z.record(z.unknown()).optional(),
+    generatedAt: z.string().optional(),
+    passes: z.number().optional(),
   }).optional(),
 });
 

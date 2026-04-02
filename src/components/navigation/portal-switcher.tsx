@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Sparkles, Shield, Terminal, ChevronDown } from "lucide-react";
+import { Sparkles, Shield, Terminal, Building2, ChevronDown } from "lucide-react";
 import type { PortalId } from "./types";
 
 interface PortalOption {
@@ -12,13 +12,15 @@ interface PortalOption {
   href: string;
   icon: React.ElementType;
   accentColor: string;
+  /** When set, portal only shows if predicate returns true */
+  visible?: (user: { role?: string; operatorId?: string | null }) => boolean;
 }
 
-const PORTALS: PortalOption[] = [
+const ALL_PORTALS: PortalOption[] = [
   {
     id: "cockpit",
     label: "Brand OS",
-    sublabel: "Cockpit strategie",
+    sublabel: "Cockpit marque",
     href: "/cockpit",
     icon: Sparkles,
     accentColor: "var(--color-portal-cockpit)",
@@ -32,12 +34,22 @@ const PORTALS: PortalOption[] = [
     accentColor: "var(--color-portal-creator)",
   },
   {
+    id: "agency",
+    label: "Console Agence",
+    sublabel: "Gestion clients",
+    href: "/agency",
+    icon: Building2,
+    accentColor: "var(--color-portal-agency, #8b5cf6)",
+    visible: (user) => !!user.operatorId && user.role !== "ADMIN",
+  },
+  {
     id: "console",
-    label: "Console",
+    label: "Console Industry",
     sublabel: "Fixer ecosysteme",
     href: "/console",
     icon: Terminal,
     accentColor: "var(--color-portal-console)",
+    visible: (user) => user.role === "ADMIN",
   },
 ];
 
@@ -47,7 +59,11 @@ interface PortalSwitcherProps {
 
 export function PortalSwitcher({ currentPortal }: PortalSwitcherProps) {
   const [open, setOpen] = useState(false);
-  const current = PORTALS.find((p) => p.id === currentPortal) ?? PORTALS[0]!;
+
+  // Show all portals — visibility is enforced by route guards, not the switcher.
+  // The current portal (derived from the active route) always appears highlighted.
+  const visiblePortals = ALL_PORTALS;
+  const current = visiblePortals.find((p) => p.id === currentPortal) ?? visiblePortals[0]!;
   const Icon = current.icon;
 
   useEffect(() => {
@@ -81,7 +97,7 @@ export function PortalSwitcher({ currentPortal }: PortalSwitcherProps) {
 
       {open && (
         <div className="absolute left-0 top-full z-[var(--z-dropdown)] mt-1 w-56 rounded-lg border border-border bg-background-raised p-1.5 shadow-lg animate-[scale-in_150ms_ease-out]">
-          {PORTALS.map((portal) => {
+          {visiblePortals.map((portal) => {
             const PortalIcon = portal.icon;
             const isActive = portal.id === currentPortal;
             return (

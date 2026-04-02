@@ -10,6 +10,8 @@ import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { snapshotAllStrategies } from "@/server/services/advertis-scorer";
 import { schedulerAutoTrigger, checkPipelineContention } from "@/server/services/pipeline-orchestrator";
+import { collectMarketSignals, type CollectionStrategy } from "@/server/services/market-intelligence/signal-collector";
+import { analyzeWeakSignals, buildSearchContext } from "@/server/services/market-intelligence/weak-signal-analyzer";
 
 // Verify cron secret to prevent unauthorized access
 function verifyCronSecret(request: Request): boolean {
@@ -35,6 +37,8 @@ export async function GET(request: Request) {
     pipelineAutoTriggered: 0,
     daemonsRescheduled: 0,
     contentionBottlenecks: 0,
+    marketSignalsCollected: 0,
+    weakSignalsDetected: 0,
     errors: [] as string[],
   };
 
@@ -77,6 +81,32 @@ export async function GET(request: Request) {
       try {
         const frequency = daemon.frequency ?? "daily";
         const nextRun = computeNextRun(frequency);
+
+        // Dispatch market signal collection DAEMONs
+        const playbook = daemon.playbook as Record<string, unknown> | null;
+        if (playbook?.type === "market_signal_collection" && daemon.strategyId) {
+          try {
+            const config: CollectionStrategy = {
+              strategyId: daemon.strategyId,
+              sector: String(playbook.sector ?? ""),
+              market: playbook.market ? String(playbook.market) : undefined,
+              keywords: Array.isArray(playbook.keywords) ? playbook.keywords as string[] : [],
+              competitors: Array.isArray(playbook.competitors) ? playbook.competitors as string[] : [],
+              frequency: (playbook.frequency as CollectionStrategy["frequency"]) ?? "DAILY",
+            };
+            const signals = await collectMarketSignals(config);
+            results.marketSignalsCollected += signals.length;
+
+            // Analyze weak signals from collected data
+            if (signals.length > 0) {
+              const searchContext = await buildSearchContext(daemon.strategyId);
+              const weakSignals = await analyzeWeakSignals(signals, searchContext, daemon.strategyId);
+              results.weakSignalsDetected += weakSignals.length;
+            }
+          } catch (err) {
+            results.errors.push(`Market collector ${daemon.id}: ${err instanceof Error ? err.message : "unknown"}`);
+          }
+        }
 
         await db.process.update({
           where: { id: daemon.id },

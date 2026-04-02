@@ -13,17 +13,19 @@ export const strategyRouter = createTRPCRouter({
       name: z.string().min(1),
       description: z.string().optional(),
       operatorId: z.string().optional(),
+      clientId: z.string().optional(),
       sector: z.string().optional(),
       country: z.string().optional(),
       businessContext: z.record(z.unknown()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const { sector, country, businessContext, ...rest } = input;
+      const { sector, country, businessContext, clientId, ...rest } = input;
       const strategy = await ctx.db.strategy.create({
         data: {
           ...rest,
           userId: ctx.session.user.id,
           operatorId: input.operatorId ?? (ctx.session.user as unknown as Record<string, unknown>).operatorId as string | undefined,
+          clientId: clientId ?? undefined,
           businessContext: businessContext as Prisma.InputJsonValue,
         },
       });
@@ -159,6 +161,7 @@ export const strategyRouter = createTRPCRouter({
           campaigns: true,
           devotionSnapshots: { orderBy: { measuredAt: "desc" }, take: 1 },
           brandAssets: { take: 10 },
+          client: { select: { id: true, name: true, sector: true, country: true } },
         },
       });
     }),
@@ -166,6 +169,7 @@ export const strategyRouter = createTRPCRouter({
   list: protectedProcedure
     .input(z.object({
       operatorId: z.string().optional(),
+      clientId: z.string().optional(),
       status: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
@@ -178,9 +182,13 @@ export const strategyRouter = createTRPCRouter({
         where: {
           ...operatorScope,
           ...(input.operatorId && userRole === "ADMIN" ? { operatorId: input.operatorId } : {}),
+          ...(input.clientId ? { clientId: input.clientId } : {}),
           ...(input.status ? { status: input.status } : {}),
         },
-        include: { pillars: true },
+        include: {
+          pillars: true,
+          client: { select: { id: true, name: true } },
+        },
         orderBy: { updatedAt: "desc" },
       });
     }),
@@ -210,7 +218,7 @@ export const strategyRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const strategy = await ctx.db.strategy.findUniqueOrThrow({
         where: { id: input.id },
-        include: { pillars: true },
+        include: { pillars: true, client: { select: { id: true, name: true } } },
       });
       const vector = strategy.advertis_vector as Record<string, number> | null;
       const composite = vector

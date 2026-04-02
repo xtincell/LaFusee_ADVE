@@ -11,35 +11,17 @@ import { DataTable } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SkeletonTable } from "@/components/shared/loading-skeleton";
-import { Building, Building2, TrendingUp, ClipboardList, Plus } from "lucide-react";
+import { Building, Building2, Plus, TrendingUp } from "lucide-react";
 import { PILLAR_KEYS } from "@/lib/types/advertis-vector";
 
-export default function ClientsPage() {
+export default function AgencyClientsPage() {
   const router = useRouter();
   const { data: clients, isLoading } = trpc.brandClient.list.useQuery({});
-  const { data: intakes } = trpc.quickIntake.listAll.useQuery({ limit: 100 });
   const [search, setSearch] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
 
   const allClients = clients?.items ?? [];
-  const pendingIntakes = (intakes?.items ?? []).filter((i) => i.status === "IN_PROGRESS").length;
 
-  // Compute totals
-  const totalBrands = allClients.reduce((sum, c) => sum + (c._count?.strategies ?? 0), 0);
-  let totalScore = 0;
-  let brandCount = 0;
-  for (const client of allClients) {
-    for (const s of client.strategies) {
-      const v = s.advertis_vector as Record<string, number> | null;
-      if (v) {
-        totalScore += PILLAR_KEYS.reduce((sum, k) => sum + (v[k] ?? 0), 0);
-        brandCount++;
-      }
-    }
-  }
-  const avgScore = brandCount > 0 ? (totalScore / brandCount).toFixed(0) : "0";
-
-  // Filter
   const filtered = allClients.filter((c) => {
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterValues.status && c.status !== filterValues.status) return false;
@@ -47,23 +29,22 @@ export default function ClientsPage() {
   });
 
   const tableData = filtered.map((c) => {
-    const brandsCt = c._count?.strategies ?? 0;
-    let clientAvg = 0;
+    const brandCount = c._count?.strategies ?? 0;
+    let avgScore = 0;
     if (c.strategies.length > 0) {
       const total = c.strategies.reduce((sum, s) => {
         const v = s.advertis_vector as Record<string, number> | null;
         return sum + (v ? PILLAR_KEYS.reduce((acc, k) => acc + (v[k] ?? 0), 0) : 0);
       }, 0);
-      clientAvg = total / c.strategies.length;
+      avgScore = total / c.strategies.length;
     }
     return {
       id: c.id,
       name: c.name,
       contactName: c.contactName ?? "-",
       sector: c.sector ?? "-",
-      operator: c.operator?.name ?? "-",
-      brandCount: brandsCt,
-      avgScore: clientAvg,
+      brandCount,
+      avgScore,
       status: c.status,
       createdAt: c.createdAt,
     };
@@ -85,13 +66,6 @@ export default function ClientsPage() {
       header: "Secteur",
       render: (item: (typeof tableData)[0]) => (
         <span className="text-sm text-zinc-300">{item.sector}</span>
-      ),
-    },
-    {
-      key: "operator",
-      header: "Operateur",
-      render: (item: (typeof tableData)[0]) => (
-        <span className="text-sm text-zinc-300">{item.operator}</span>
       ),
     },
     {
@@ -133,7 +107,7 @@ export default function ClientsPage() {
       <div className="space-y-6">
         <PageHeader
           title="Clients"
-          breadcrumbs={[{ label: "Console", href: "/console" }, { label: "Oracle" }, { label: "Clients" }]}
+          breadcrumbs={[{ label: "Agence", href: "/agency" }, { label: "Clients" }]}
         />
         <SkeletonTable rows={6} />
       </div>
@@ -145,8 +119,8 @@ export default function ClientsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           title="Clients"
-          description={`${allClients.length} clients — ${totalBrands} marques dans l'ecosysteme`}
-          breadcrumbs={[{ label: "Console", href: "/console" }, { label: "Oracle" }, { label: "Clients" }]}
+          description={`${allClients.length} clients dans votre portefeuille`}
+          breadcrumbs={[{ label: "Agence", href: "/agency" }, { label: "Clients" }]}
         />
         <Link
           href="/intake"
@@ -157,12 +131,14 @@ export default function ClientsPage() {
         </Link>
       </div>
 
-      {/* KPI Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard title="Total clients" value={allClients.length} icon={Building} />
-        <StatCard title="Total marques" value={totalBrands} icon={Building2} />
-        <StatCard title="Score ADVE moyen" value={`${avgScore}/200`} icon={TrendingUp} />
-        <StatCard title="Intakes en attente" value={pendingIntakes} icon={ClipboardList} />
+        <StatCard
+          title="Total marques"
+          value={allClients.reduce((sum, c) => sum + (c._count?.strategies ?? 0), 0)}
+          icon={Building2}
+        />
+        <StatCard title="Score ADVE moyen" value={`${tableData.length > 0 ? (tableData.reduce((s, c) => s + c.avgScore, 0) / tableData.length).toFixed(0) : 0}/200`} icon={TrendingUp} />
       </div>
 
       <SearchFilter
@@ -188,14 +164,14 @@ export default function ClientsPage() {
         <EmptyState
           icon={Building}
           title="Aucun client"
-          description="Les clients apparaitront ici une fois les Quick Intakes convertis."
+          description="Creez votre premier client via l'intake."
         />
       ) : (
         <DataTable
           data={tableData}
           columns={columns}
           pageSize={10}
-          onRowClick={(item) => router.push(`/console/oracle/clients/${item.id}`)}
+          onRowClick={(item) => router.push(`/agency/clients/${item.id}`)}
         />
       )}
     </div>

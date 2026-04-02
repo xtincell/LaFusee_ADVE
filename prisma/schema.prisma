@@ -414,9 +414,33 @@ model Operator {
 
   users      User[]
   strategies Strategy[]
+  clients    Client[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id           String   @id @default(cuid())
+  name         String
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  sector       String?
+  country      String?
+  notes        String?
+  billingInfo  Json?
+  operatorId   String
+  status       String   @default("ACTIVE")
+
+  operator   Operator   @relation(fields: [operatorId], references: [id])
+  strategies Strategy[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([operatorId])
+  @@index([contactEmail])
 }
 
 model Strategy {
@@ -425,12 +449,14 @@ model Strategy {
   description     String?
   userId          String
   operatorId      String?
+  clientId        String?
   advertis_vector Json?
   businessContext  Json?
   status          String  @default("ACTIVE")
 
   user              User               @relation(fields: [userId], references: [id])
   operator          Operator?          @relation(fields: [operatorId], references: [id])
+  client            Client?            @relation(fields: [clientId], references: [id])
   drivers           Driver[]
   devotionSnapshots DevotionSnapshot[]
   processes         Process[]
@@ -462,6 +488,8 @@ model Strategy {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([clientId])
 }
 
 model Campaign {

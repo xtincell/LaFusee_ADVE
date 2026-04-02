@@ -1,7 +1,6 @@
 "use client";
 
-import { use } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
 import { PageHeader } from "@/components/shared/page-header";
@@ -9,14 +8,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ScoreBadge } from "@/components/shared/score-badge";
 import { SkeletonPage } from "@/components/shared/loading-skeleton";
-import {
-  ArrowLeft,
-  Building,
-  Layers,
-  TrendingUp,
-  ExternalLink,
-  AlertTriangle,
-} from "lucide-react";
+import { Building, Layers, TrendingUp, ExternalLink } from "lucide-react";
 import { PILLAR_KEYS, classifyBrand } from "@/lib/types/advertis-vector";
 
 const CLASSIFICATION_MAP: Record<string, string> = {
@@ -27,60 +19,25 @@ const CLASSIFICATION_MAP: Record<string, string> = {
   ICONE: "bg-amber-400/15 text-amber-400 ring-amber-400/30",
 };
 
-export default function ClientDetailPage({
-  params,
-}: {
-  params: Promise<{ strategyId: string }>;
-}) {
-  // Note: param is named strategyId for route compat, but it's actually a clientId
-  const { strategyId: clientId } = use(params);
+export default function AgencyClientDetailPage() {
+  const params = useParams();
   const router = useRouter();
-  const { data: client, isLoading, error } = trpc.brandClient.get.useQuery({ id: clientId });
+  const clientId = params.clientId as string;
+  const { data: client, isLoading } = trpc.brandClient.get.useQuery({ id: clientId });
 
   if (isLoading) {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Chargement..."
-          breadcrumbs={[
-            { label: "Console", href: "/console" },
-            { label: "Oracle" },
-            { label: "Clients", href: "/console/oracle/clients" },
-            { label: "..." },
-          ]}
+          title="Client"
+          breadcrumbs={[{ label: "Agence", href: "/agency" }, { label: "Clients", href: "/agency/clients" }, { label: "..." }]}
         />
         <SkeletonPage />
       </div>
     );
   }
 
-  if (error || !client) {
-    return (
-      <div className="space-y-6">
-        <PageHeader
-          title="Erreur"
-          breadcrumbs={[
-            { label: "Console", href: "/console" },
-            { label: "Oracle" },
-            { label: "Clients", href: "/console/oracle/clients" },
-          ]}
-        />
-        <div className="rounded-xl border border-red-800/50 bg-red-950/20 p-6 text-center">
-          <AlertTriangle className="mx-auto h-8 w-8 text-red-400" />
-          <p className="mt-2 text-sm text-red-300">
-            Impossible de charger ce client.
-          </p>
-          <Link
-            href="/console/oracle/clients"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm text-zinc-400 transition-colors hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour aux clients
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  if (!client) return null;
 
   const brands = client.strategies ?? [];
   const brandScores = brands.map((s) => {
@@ -92,36 +49,18 @@ export default function ClientDetailPage({
     : "0";
 
   return (
-    <div className="space-y-8">
-      <Link
-        href="/console/oracle/clients"
-        className="inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-white"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Retour aux clients
-      </Link>
-
+    <div className="space-y-6">
       <PageHeader
         title={client.name}
-        description={[client.sector, client.country].filter(Boolean).join(" - ") || undefined}
+        description={[client.sector, client.country].filter(Boolean).join(" - ") || "Client"}
         breadcrumbs={[
-          { label: "Console", href: "/console" },
-          { label: "Oracle" },
-          { label: "Clients", href: "/console/oracle/clients" },
+          { label: "Agence", href: "/agency" },
+          { label: "Clients", href: "/agency/clients" },
           { label: client.name },
         ]}
-      >
-        <div className="flex items-center gap-3">
-          <StatusBadge status={client.status} />
-          {client.operator && (
-            <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-300">
-              {client.operator.name}
-            </span>
-          )}
-        </div>
-      </PageHeader>
+      />
 
-      {/* KPIs */}
+      {/* Client info */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Marques" value={brands.length} icon={Layers} />
         <StatCard title="Score ADVE moyen" value={`${avgScore}/200`} icon={TrendingUp} />
@@ -157,8 +96,8 @@ export default function ClientDetailPage({
       )}
 
       {/* Brands list */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-white">Marques ({brands.length})</h2>
+      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+        <h2 className="mb-4 text-lg font-semibold text-white">Marques ({brands.length})</h2>
         {brands.length === 0 ? (
           <p className="text-sm text-zinc-500">Aucune marque associee a ce client.</p>
         ) : (
@@ -170,7 +109,7 @@ export default function ClientDetailPage({
               return (
                 <div
                   key={brand.id}
-                  onClick={() => router.push(`/console/oracle/brands/${brand.id}`)}
+                  onClick={() => router.push(`/cockpit?strategy=${brand.id}`)}
                   className="flex cursor-pointer items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/80 px-4 py-3 transition-colors hover:border-zinc-700"
                 >
                   <div className="flex items-center gap-3">
@@ -190,30 +129,7 @@ export default function ClientDetailPage({
             })}
           </div>
         )}
-      </section>
-
-      {/* Notes */}
-      {client.notes && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-zinc-400">Notes</h3>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <p className="text-sm text-zinc-300 whitespace-pre-wrap">{client.notes}</p>
-          </div>
-        </section>
-      )}
-
-      {/* Meta */}
-      <section className="border-t border-zinc-800 pt-4">
-        <div className="flex flex-wrap items-center gap-6 text-xs text-zinc-600">
-          <span>Marques: {brands.length}</span>
-          {client.createdAt && (
-            <span>Cree le {new Date(client.createdAt).toLocaleDateString("fr-FR")}</span>
-          )}
-          {client.updatedAt && (
-            <span>Mis a jour le {new Date(client.updatedAt).toLocaleDateString("fr-FR")}</span>
-          )}
-        </div>
-      </section>
+      </div>
     </div>
   );
 }

@@ -19,6 +19,8 @@ import { db } from "@/lib/db";
 import { PILLAR_SCHEMAS, type PillarKey } from "@/lib/types/pillar-schemas";
 import { scoreAllPillarsSemantic } from "@/server/services/advertis-scorer/semantic";
 import { Prisma } from "@prisma/client";
+import { runMarketIntelligence } from "@/server/services/market-intelligence";
+import { generateImplementation } from "@/server/services/implementation-generator";
 
 const MODEL = "claude-sonnet-4-20250514";
 
@@ -349,32 +351,50 @@ export async function actualizePillar(
       confidence = 0.75;
 
     } else if (pillarKey === "T") {
-      // T = analyse(ADVE + R)
-      const context = ["A", "D", "V", "E", "R"]
-        .map((k) => serializePillar(k, pillars[k]))
-        .join("\n\n");
-
-      const response = await callLLM(
-        RTIS_PROMPTS.T,
-        `Voici les données ADVE + R actuelles:\n\n${context}\n\nProduis le pilier T (Track) en JSON.`,
-        strategyId,
-      );
-      newContent = extractJSON(response);
-      confidence = 0.75;
+      // T = Market Intelligence Engine (data-first, not pure LLM)
+      try {
+        const miResult = await runMarketIntelligence(strategyId);
+        newContent = miResult.pillarContent;
+        confidence = miResult.confidence;
+      } catch (err) {
+        // Fallback: pure LLM if market intelligence fails
+        console.warn("[rtis-cascade] Market intelligence failed, falling back to LLM:", err instanceof Error ? err.message : err);
+        const context = ["A", "D", "V", "E", "R"]
+          .map((k) => serializePillar(k, pillars[k]))
+          .join("\n\n");
+        const response = await callLLM(
+          RTIS_PROMPTS.T,
+          `Voici les données ADVE + R actuelles:\n\n${context}\n\nProduis le pilier T (Track) en JSON.`,
+          strategyId,
+        );
+        newContent = extractJSON(response);
+        confidence = 0.65;
+      }
 
     } else if (pillarKey === "I") {
-      // I = produit(ADVE, R, T)
-      const context = ["A", "D", "V", "E", "R", "T"]
-        .map((k) => serializePillar(k, pillars[k]))
-        .join("\n\n");
-
-      const response = await callLLM(
-        RTIS_PROMPTS.I,
-        `Voici les données ADVE + R + T actuelles:\n\n${context}\n\nProduis le pilier I (Implementation) en JSON.`,
-        strategyId,
-      );
-      newContent = extractJSON(response);
-      confidence = 0.70;
+      // I = Havas-level premium deliverable (GLORY tools + multi-pass LLM)
+      try {
+        const implResult = await generateImplementation({
+          strategyId,
+          autoCreateCampaignDrafts: false,
+          autoGenerateS: false,
+        });
+        newContent = implResult.pillarContent;
+        confidence = Math.min(0.85, implResult.qualityScore / 100);
+      } catch (err) {
+        // Fallback: pure LLM if implementation generator fails
+        console.warn("[rtis-cascade] Implementation generator failed, falling back to LLM:", err instanceof Error ? err.message : err);
+        const context = ["A", "D", "V", "E", "R", "T"]
+          .map((k) => serializePillar(k, pillars[k]))
+          .join("\n\n");
+        const response = await callLLM(
+          RTIS_PROMPTS.I,
+          `Voici les données ADVE + R + T actuelles:\n\n${context}\n\nProduis le pilier I (Implementation) en JSON.`,
+          strategyId,
+        );
+        newContent = extractJSON(response);
+        confidence = 0.60;
+      }
 
     } else if (pillarKey === "S") {
       // S = mise en forme(tout)
