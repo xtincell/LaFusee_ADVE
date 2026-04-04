@@ -20,7 +20,10 @@
 
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@ai-sdk/anthropic";
+import { generateText } from "ai";
+import * as mestor from "@/server/services/mestor";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init";
 import * as quickIntakeService from "@/server/services/quick-intake";
 import { getAdaptiveQuestions, getBusinessContextQuestions } from "@/server/services/quick-intake/question-bank";
@@ -30,25 +33,19 @@ import { getAdaptiveQuestions, getBusinessContextQuestions } from "@/server/serv
  * Used by SHORT, INGEST, and INGEST_PLUS methods.
  * Returns a responses object matching the same structure as the long questionnaire.
  */
+const MODEL = "claude-sonnet-4-20250514";
+
 async function extractFromText(
   text: string,
   companyName: string,
   sector?: string | null,
 ): Promise<Record<string, Record<string, unknown>>> {
-  const client = new Anthropic();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60_000);
 
   try {
-    const response = await client.messages.create(
-      {
-        model: "claude-3-5-haiku-20241022",
-        max_tokens: 4096,
-        messages: [
-          {
-            role: "user",
-            content: `Tu es un expert en strategie de marque utilisant le framework ADVE-RTIS (8 piliers).
-A partir du texte ci-dessous, extrais les reponses structurees pour chaque phase du diagnostic.
+    const system = mestor.getSystemPrompt("intake");
+    const prompt = `A partir du texte suivant, extrait les reponses structurees pour chaque pilier ADVE en suivant la spec du quick-intake.
 
 MARQUE: ${companyName}
 SECTEUR: ${sector ?? "Non precise"}
@@ -56,74 +53,16 @@ SECTEUR: ${sector ?? "Non precise"}
 TEXTE SOURCE:
 ${text.slice(0, 15_000)}
 
-Genere un objet JSON avec ces cles de phase. Pour chaque phase, genere des reponses comme si un utilisateur avait rempli le questionnaire :
+Reponds uniquement par un objet JSON avec les clefs: biz,a,d,v,e,r,t,i,s.`;
 
-"biz" (contexte business):
-  biz_model: le modele d'affaires (B2C, B2B, D2C, B2B2C, MARKETPLACE, INSTITUTION)
-  biz_revenue: sources de revenus (array)
-  biz_positioning: positionnement prix (MAINSTREAM, AFFORDABLE_PREMIUM, PREMIUM, LUXURY, ULTRA_LUXURY)
-  biz_sales_channel: canal de vente (DIRECT, INTERMEDIATED, HYBRID)
+    const { text: out } = await generateText({
+      model: anthropic(MODEL),
+      system,
+      prompt,
+      maxTokens: 4096,
+    }, { signal: controller.signal });
 
-"a" (authenticite):
-  a_vision: vision de la marque
-  a_mission: mission
-  a_origin: histoire de creation
-  a_values: valeurs fondamentales
-  a_archetype: archetype de marque
-
-"d" (distinction):
-  d_positioning: ce qui rend unique
-  d_visual: niveau d'identite visuelle (Inexistante/Basique/Definie mais incoherente/Professionnelle et coherente/Distinctive et memorable)
-  d_voice: ton de communication
-  d_competitors: concurrents
-
-"v" (valeur):
-  v_promise: promesse client
-  v_products: produits/services principaux
-  v_experience: note experience client (1-10)
-
-"e" (engagement):
-  e_community: niveau communaute
-  e_loyalty: taux fidelisation
-  e_advocates: niveau recommandation
-  e_rituals: rituels de marque
-
-"r" (resilience):
-  r_threats: risques principaux
-  r_crisis: plan de crise
-  r_reputation: surveillance reputation
-
-"t" (tracking):
-  t_kpis: KPIs suivis
-  t_measurement: frequence mesure
-  t_nps: NPS
-
-"i" (investissement):
-  i_roadmap: plan marketing
-  i_budget: budget marketing (% CA)
-  i_team: equipe marketing
-
-"s" (strategie):
-  s_guidelines: guidelines de marque
-  s_coherence: coherence canaux (1-10)
-  s_ambition: ambition 3 ans
-
-REGLES:
-- Si une info n'est pas dans le texte, OMETS le champ (ne le deviner pas)
-- Pour les champs select, utilise les valeurs exactes entre parentheses
-- Pour les champs texte, ecris des reponses naturelles basees sur le contenu
-- Pour les echelles, donne un chiffre de 1 a 10
-
-Reponds UNIQUEMENT avec un objet JSON valide au format:
-{"biz": {...}, "a": {...}, "d": {...}, "v": {...}, "e": {...}, "r": {...}, "t": {...}, "i": {...}, "s": {...}}`,
-          },
-        ],
-      },
-      { signal: controller.signal },
-    );
-
-    const responseText =
-      response.content[0]?.type === "text" ? response.content[0].text.trim() : "";
+    const responseText = (typeof out === "string" ? out.trim() : "");
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("No JSON in AI response");
@@ -142,7 +81,6 @@ Reponds UNIQUEMENT avec un objet JSON valide au format:
     return result;
   } catch (err) {
     console.warn("[quick-intake] extractFromText failed:", err instanceof Error ? err.message : err);
-    // Return minimal structure so scoring can still proceed
     return { biz: {}, a: {}, d: {}, v: {}, e: {}, r: {}, t: {}, i: {}, s: {} };
   } finally {
     clearTimeout(timeout);
@@ -264,7 +202,8 @@ export const quickIntakeRouter = createTRPCRouter({
         businessContext = tempStrategy?.businessContext ?? undefined;
       }
 
-      const user = await ctx.db.user.findUniqueOrThrow({ where: { id: input.userId } });
+      const user = await ctx.db.user.findUnique({ where: { id: input.userId } });
+      if (!user) throw new TRPCError({ code: "BAD_REQUEST", message: "Utilisateur introuvable" });
       const operatorId = user.operatorId;
 
       // Create or reuse Client

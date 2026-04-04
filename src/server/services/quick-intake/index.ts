@@ -27,7 +27,9 @@
 
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
-import Anthropic from "@anthropic-ai/sdk";
+import { anthropic } from "@ai-sdk/anthropic";
+import { generateText } from "ai";
+import * as mestor from "@/server/services/mestor";
 import { scoreObject } from "@/server/services/advertis-scorer";
 import { classifyBrand } from "@/lib/types/advertis-vector";
 import { getAdaptiveQuestions, getBusinessContextQuestions } from "./question-bank";
@@ -297,9 +299,9 @@ async function extractStructuredPillarContent(
   sector?: string | null,
 ): Promise<Record<string, Record<string, unknown>>> {
   try {
-    const client = new Anthropic();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
+    const MODEL = "claude-sonnet-4-20250514";
 
     // Build a summary of all responses for context
     const responseSummary = Object.entries(responses)
@@ -320,15 +322,8 @@ async function extractStructuredPillarContent(
       : "Non fourni";
 
     try {
-      const response = await client.messages.create(
-        {
-          model: "claude-3-5-haiku-20241022",
-          max_tokens: 4096,
-          messages: [
-            {
-              role: "user",
-              content: `Tu es un expert en strategie de marque utilisant le framework ADVE-RTIS.
-A partir des reponses brutes d'un diagnostic rapide, extrais du contenu structure pour chaque pilier.
+      const system = mestor.getSystemPrompt("intake");
+      const prompt = `A partir des reponses brutes d'un diagnostic rapide, extrais du contenu structure pour chaque pilier ADVE.
 
 MARQUE: ${companyName}
 SECTEUR: ${sector ?? "Non precis"}
@@ -337,42 +332,18 @@ CONTEXTE BUSINESS: ${bizContext}
 REPONSES BRUTES:
 ${responseSummary}
 
-Pour chaque pilier, extrais les champs structures suivants en JSON:
+Pour chaque pilier, reponds par un objet JSON clef->objet (a,d,v,e,r,t,i,s) contenant champs structures.`;
 
-PILIER A (Authenticite): archetype, citationFondatrice, noyauIdentitaire, vision, mission, valeurs (array of {value, customName, justification}), timelineNarrative ({origine, present, futur})
-
-PILIER D (Distinction): positionnement, promesseMaitre, sousPromesses (array), tonDeVoix ({personnalite: array, onDit: array, onNeditPas: array}), identiteVisuelle, concurrents (array of {name, avantagesCompetitifs: array})
-
-PILIER V (Valeur): promesseClient, produitsPhares (array of {nom, description}), experienceClient, propositionDeValeur, beneficesClients (array)
-
-PILIER E (Engagement): niveauCommunaute, canauxEngagement (array), rituels (array), tauxFidelite, programmeAmbassadeur, strategieContenu
-
-PILIER R (Risk): risquesPrincipaux (array of {risque, probabilite, impact}), planCrise, gestionReputation, swot ({forces: array, faiblesses: array, opportunites: array, menaces: array})
-
-PILIER T (Track): kpisPrincipaux (array), frequenceMesure, outilsMesure (array), nps, validationMarche
-
-PILIER I (Implementation): planMarketing, budgetMarketing, equipeMarketing, roadmap, calendrierEditorial
-
-PILIER S (Strategie): guidelinesDocumentees, coherenceCanaux, ambition3Ans, syntheseStrategique, playbooks (array)
-
-REGLES:
-- Si une information n'est pas disponible dans les reponses, OMETS le champ (ne mets pas "non precise")
-- Extrais le maximum d'information depuis les reponses, meme implicite
-- Garde les reponses originales quand elles sont riches, reformule quand elles sont vagues
-- Pour les arrays, deduis des elements depuis le contexte quand possible
-
-Reponds UNIQUEMENT avec un objet JSON valide au format:
-{"a": {...}, "d": {...}, "v": {...}, "e": {...}, "r": {...}, "t": {...}, "i": {...}, "s": {...}}`,
-            },
-          ],
-        },
-        { signal: controller.signal },
-      );
+      const { text: out } = await generateText({
+        model: anthropic(MODEL),
+        system,
+        prompt,
+        maxTokens: 4096,
+      }, { signal: controller.signal });
 
       clearTimeout(timeout);
 
-      const text =
-        response.content[0]?.type === "text" ? response.content[0].text.trim() : "";
+      const text = (typeof out === "string" ? out.trim() : "");
 
       // Extract JSON from response
       const jsonMatch = text.match(/\{[\s\S]*\}/);

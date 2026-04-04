@@ -25,7 +25,6 @@
     "@anthropic-ai/sdk": "^0.80.0",
     "@auth/prisma-adapter": "^2.8.0",
     "@modelcontextprotocol/sdk": "^1.5.0",
-    "@next/swc-darwin-x64": "^16.2.1",
     "@prisma/client": "^6.4.0",
     "@tanstack/react-query": "^5.68.0",
     "@trpc/client": "^11.0.0",
