@@ -224,6 +224,11 @@ export async function complete(token: string) {
   const vector = await scoreObject("strategy", strategy.id);
   const classification = classifyBrand(vector.composite);
 
+  // Diagnostic logging: warn if scoring produced a zero composite or no pillar content
+  if ((vector.composite ?? 0) === 0) {
+    console.warn(`[quick-intake] scoring produced zero composite for strategy ${strategy.id} — possible empty pillar content or AI extraction failure`);
+  }
+
   // Generate diagnostic based on actual responses
   const diagnostic = generateDiagnostic(
     vector,

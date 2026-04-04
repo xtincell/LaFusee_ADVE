@@ -202,8 +202,22 @@ export const quickIntakeRouter = createTRPCRouter({
         businessContext = tempStrategy?.businessContext ?? undefined;
       }
 
-      const user = await ctx.db.user.findUnique({ where: { id: input.userId } });
-      if (!user) throw new TRPCError({ code: "BAD_REQUEST", message: "Utilisateur introuvable" });
+      // Resolve user: prefer explicit input.userId, fallback to session.email, otherwise use system user
+      let user = null as { id: string; operatorId?: string | null } | null;
+      if (input.userId) {
+        user = await ctx.db.user.findUnique({ where: { id: input.userId } });
+      }
+      if (!user && ctx.session?.user?.email) {
+        user = await ctx.db.user.findUnique({ where: { email: ctx.session.user.email } });
+      }
+      if (!user) {
+        // As a last resort, use or create the system user so conversion can proceed
+        user = await ctx.db.user.upsert({
+          where: { email: "system@lafusee.io" },
+          update: {},
+          create: { email: "system@lafusee.io", name: "System", role: "ADMIN" },
+        });
+      }
       const operatorId = user.operatorId;
 
       // Create or reuse Client
