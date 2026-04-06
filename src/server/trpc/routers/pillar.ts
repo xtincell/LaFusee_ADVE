@@ -417,14 +417,19 @@ export const pillarRouter = createTRPCRouter({
         }
       }
 
-      // Gate: VALIDATED requires cross-validation check
+      // Gate: VALIDATED requires cross-validation check (only rules involving THIS pillar)
       if (input.targetStatus === "VALIDATED") {
-        const crossRefSummary = await getCrossRefSummary(input.strategyId);
-        if (crossRefSummary.invalid > 0) {
+        const allRefs = await validateCrossReferences(input.strategyId);
+        const key = input.key.toUpperCase();
+        const relevantInvalid = allRefs.filter(
+          (r: { status: string; from: string; to: string }) =>
+            r.status === "INVALID" && (r.from.startsWith(`${key}.`) || r.to.startsWith(`${key}.`))
+        );
+        if (relevantInvalid.length > 0) {
           return {
             success: false,
-            error: `Impossible de valider: ${crossRefSummary.invalid} violation(s) cross-pilier detectee(s). Corrigez-les d'abord.`,
-            crossRefSummary,
+            error: `Impossible de valider ${key}: ${relevantInvalid.length} violation(s) cross-pilier. ${relevantInvalid.map((r: { rule: string }) => r.rule).join(", ")}`,
+            crossRefViolations: relevantInvalid,
           };
         }
       }
