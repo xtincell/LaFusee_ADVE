@@ -34,7 +34,7 @@ export default function PropositionPage() {
     { enabled: !!strategyId }
   );
 
-  const [enrichResult, setEnrichResult] = useState<{ enriched: number; message: string } | null>(null);
+  const [enrichResult, setEnrichResult] = useState<{ enriched: string[]; failed: string[]; total: number; message: string } | null>(null);
 
   const enrichMutation = trpc.strategyPresentation.enrichOracle.useMutation({
     onSuccess: (data) => {

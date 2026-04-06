@@ -22,7 +22,7 @@ export function ExecutiveSummary({ data }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <MetricCard label="Composite" value={`${data.vector.composite}/200`} />
-            <MetricCard label="Confiance" value={`${(data.vector.confidence * 100).toFixed(0)}%`} />
+            <MetricCard label="Confiance" value={`${(typeof data.vector.confidence === "number" && !isNaN(data.vector.confidence) ? (data.vector.confidence * 100).toFixed(0) : "—")}%`} />
             <MetricCard label="Cult Index" value={data.cultIndex?.score.toFixed(0) ?? "—"} subtitle={data.cultIndex?.tier ?? ""} />
             <MetricCard label="Superfans" value={data.superfanCount} />
           </div>
