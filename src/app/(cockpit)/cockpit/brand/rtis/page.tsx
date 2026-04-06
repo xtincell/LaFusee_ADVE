@@ -264,11 +264,11 @@ function ADVERecommendationsPanel({ strategyId, onApplied }: { strategyId: strin
 type WorkflowPhase = "R" | "T" | "RECOS" | "I" | "S" | "COMPLETE";
 
 const WORKFLOW_STEPS: { phase: WorkflowPhase; label: string; description: string; accent: string; border: string; bg: string; icon: React.ElementType }[] = [
-  { phase: "R", label: "1. Risk", description: "Generer puis valider l'analyse de risques", accent: "text-red-400", border: "border-red-800/40", bg: "bg-red-500/10", icon: Shield },
-  { phase: "T", label: "2. Track", description: "Generer puis valider la triangulation marche", accent: "text-sky-400", border: "border-sky-800/40", bg: "bg-sky-500/10", icon: Crosshair },
-  { phase: "RECOS", label: "3. Recos R+T", description: "Accepter ou rejeter les recommandations ADVE", accent: "text-violet-400", border: "border-violet-800/40", bg: "bg-violet-500/10", icon: Sparkles },
-  { phase: "I", label: "4. Implementation", description: "Generer puis valider le plan d'action", accent: "text-orange-400", border: "border-orange-800/40", bg: "bg-orange-500/10", icon: Rocket },
-  { phase: "S", label: "5. Synthese", description: "Generer puis presenter au client", accent: "text-pink-400", border: "border-pink-800/40", bg: "bg-pink-500/10", icon: Brain },
+  { phase: "R", label: "1. Risk", description: "SWOT interne — forces, faiblesses, menaces, opportunites", accent: "text-red-400", border: "border-red-800/40", bg: "bg-red-500/10", icon: Shield },
+  { phase: "T", label: "2. Track", description: "SWOT externe — marche, concurrence, validation terrain", accent: "text-sky-400", border: "border-sky-800/40", bg: "bg-sky-500/10", icon: Crosshair },
+  { phase: "RECOS", label: "3. Recos R+T", description: "R+T recalibrent ADVE — accepter ou rejeter", accent: "text-violet-400", border: "border-violet-800/40", bg: "bg-violet-500/10", icon: Sparkles },
+  { phase: "I", label: "4. Implementation", description: "Catalogue exhaustif — tout ce que la marque peut faire", accent: "text-orange-400", border: "border-orange-800/40", bg: "bg-orange-500/10", icon: Rocket },
+  { phase: "S", label: "5. Strategy", description: "Fenetre d'Overton — plan d'action + roadmap superfan", accent: "text-pink-400", border: "border-pink-800/40", bg: "bg-pink-500/10", icon: Brain },
 ];
 
 type PillarData = { content: unknown; score: number; completion: number; errors: number; validationStatus?: string } | undefined;
@@ -389,16 +389,26 @@ export default function RTISPage() {
 
   const utils = trpc.useUtils();
 
+  const [lastError, setLastError] = useState<string | null>(null);
+
   // Individual step mutations
   const actualizeMutation = trpc.pillar.actualize.useMutation({
-    onSuccess: () => { pillarsQuery.refetch(); setGeneratingStep(null); setActualizingKey(null); },
-    onError: () => { setGeneratingStep(null); setActualizingKey(null); },
+    onSuccess: () => { pillarsQuery.refetch(); setGeneratingStep(null); setActualizingKey(null); setLastError(null); },
+    onError: (err) => { setGeneratingStep(null); setActualizingKey(null); setLastError(err.message); },
   });
 
   const generateRecosMut = trpc.pillar.generateRecos.useMutation();
 
   const transitionMutation = trpc.pillar.transitionStatus.useMutation({
-    onSuccess: () => pillarsQuery.refetch(),
+    onSuccess: (result) => {
+      pillarsQuery.refetch();
+      if (result && typeof result === "object" && "error" in result) {
+        setLastError((result as { error: string }).error);
+      } else {
+        setLastError(null);
+      }
+    },
+    onError: (err) => setLastError(err.message),
   });
 
   // Generate recos for all 4 ADVE pillars sequentially
@@ -420,7 +430,7 @@ export default function RTISPage() {
   if (!strategyId) {
     return (
       <div className="p-8">
-        <PageHeader title="RTIS — Risk, Track, Implementation, Synthese" badge={<AiBadge />} />
+        <PageHeader title="RTIS — Risk, Track, Implementation, Strategy" badge={<AiBadge />} />
         <p className="mt-4 text-sm text-zinc-500">Aucune strategie selectionnee.</p>
       </div>
     );
@@ -440,7 +450,7 @@ export default function RTISPage() {
 
   return (
     <div className="p-8 space-y-6">
-      <PageHeader title="RTIS — Risk, Track, Implementation, Synthese" badge={<AiBadge />} />
+      <PageHeader title="RTIS — Risk, Track, Implementation, Strategy" badge={<AiBadge />} />
 
       {/* ── Pillar Status Row (content-first, scores tertiary) ──────── */}
       <div className="flex flex-wrap gap-2">
@@ -522,6 +532,12 @@ export default function RTISPage() {
                 {RTIS_META[currentPhase as RTISKey]?.description ?? ""}
                 {" — "}Generez le contenu puis validez-le pour passer a l&apos;etape suivante.
               </p>
+              {lastError && (
+                <div className="mt-3 rounded-lg border border-red-800/40 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+                  <p className="font-medium">Erreur de generation</p>
+                  <p className="mt-1 text-xs text-red-400">{lastError}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -566,7 +582,7 @@ export default function RTISPage() {
               <CheckCircle2 className="h-6 w-6 text-emerald-400" />
               <div>
                 <span className="font-semibold text-emerald-300">Cascade RTIS complete</span>
-                <p className="text-xs text-zinc-500">Tous les piliers RTIS sont generes et valides. Consultez la Synthese pour la vue client.</p>
+                <p className="text-xs text-zinc-500">Tous les piliers RTIS sont generes et valides. Consultez L'Oracle pour la proposition strategique.</p>
               </div>
             </div>
           )}
