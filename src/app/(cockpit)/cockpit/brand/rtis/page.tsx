@@ -899,116 +899,123 @@ function TrackContent({ content }: { content: Record<string, unknown> }) {
 // ── I — Implementation ─────────────────────────────────────────────────────
 
 function ImplementationContent({ content }: { content: Record<string, unknown> }) {
+  // New format: catalogue exhaustif
+  const catalogue = (content.catalogueParCanal ?? {}) as Record<string, unknown[]>;
+  const assets = safeArr(content.assetsProduisibles);
+  const activations = safeArr(content.activationsPossibles);
+  const formats = safeArr(content.formatsDisponibles);
+  const totalActions = safeNum(content.totalActions);
+  const canaux = Object.keys(catalogue);
+
+  // Legacy fallback: old sprint format
   const sprint = safeArr(content.sprint90Days);
-  const calendar = safeArr(content.annualCalendar);
-  const budget = safeNum(content.globalBudget);
-  const team = safeArr(content.teamStructure);
-  const platform = (content.brandPlatform ?? {}) as Record<string, unknown>;
+  const isNewFormat = canaux.length > 0 || assets.length > 0;
+
+  if (!isNewFormat && sprint.length > 0) {
+    // Legacy: show old sprint format with warning
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-amber-800/30 bg-amber-950/20 p-3">
+          <p className="text-xs text-amber-400">Ancien format (sprint). Cliquez "Generer Implementation" pour obtenir le catalogue exhaustif.</p>
+        </div>
+        <div className="space-y-2">
+          {sprint.map((s, i) => (
+            <div key={i} className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-[10px] font-bold text-orange-400">{i + 1}</span>
+              <p className="text-xs text-zinc-300">{safeStr(s.action)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
-      {/* Budget */}
-      <div className="flex items-center gap-4">
-        <DollarSign className="h-5 w-5 text-orange-400" />
-        <span className="text-sm text-zinc-400">Budget global:</span>
-        <span className="text-2xl font-bold text-white">{fmtCurrency(budget)} FCFA</span>
-      </div>
-
-      {/* Sprint 90 Days */}
-      {sprint.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Rocket className="h-4 w-4" /> Sprint 90 Jours ({sprint.length} actions)
-          </h4>
-          <div className="space-y-2">
-            {sprint.map((s, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
-                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${s.isRiskMitigation ? "bg-red-500/15 text-red-400" : "bg-orange-500/15 text-orange-400"}`}>
-                  {safeNum(s.priority, i + 1)}
-                </span>
-                <div className="flex-1">
-                  <p className="text-xs text-zinc-300">{safeStr(s.action)}</p>
-                  <div className="flex gap-4 mt-1 text-[10px] text-zinc-500">
-                    {safeStr(s.owner) && <span>Owner: {safeStr(s.owner)}</span>}
-                    {safeStr(s.kpi) && <span>KPI: {safeStr(s.kpi)}</span>}
-                    {Boolean(s.isRiskMitigation) && <span className="text-red-400">Mitigation risque</span>}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+      {totalActions > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="text-2xl font-bold text-orange-400">{totalActions}</span>
+          <span className="text-sm text-zinc-400">actions possibles identifiees</span>
         </div>
       )}
 
-      {/* Annual Calendar */}
-      {calendar.length > 0 && (
+      {/* Catalogue par canal */}
+      {canaux.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Calendar className="h-4 w-4" /> Calendrier Annuel
-          </h4>
-          <div className="grid grid-cols-4 gap-2">
-            {[1, 2, 3, 4].map((q) => {
-              const items = calendar.filter((c) => safeNum(c.quarter) === q);
-              return (
-                <div key={q} className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
-                  <span className="text-xs font-bold text-orange-400">Q{q}</span>
-                  {items.length === 0 && <p className="text-[10px] text-zinc-600 mt-1">-</p>}
-                  {items.map((c, i) => (
-                    <div key={i} className="mt-2">
-                      <p className="text-xs font-medium text-zinc-300">{safeStr(c.name)}</p>
-                      <p className="text-[10px] text-zinc-500">{safeStr(c.objective)}</p>
-                      {safeNum(c.budget) > 0 && <p className="text-[10px] text-zinc-500">{fmtCurrency(c.budget)} FCFA</p>}
+          <h4 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-3">Catalogue par canal</h4>
+          {canaux.map((canal) => {
+            const actions = safeArr(catalogue[canal]);
+            return (
+              <div key={canal} className="mb-4">
+                <p className="text-xs font-bold text-zinc-400 mb-2">{canal.replace(/_/g, " ")}</p>
+                <div className="space-y-1.5">
+                  {actions.map((a, i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
+                      <div className="flex-1">
+                        <p className="text-xs text-zinc-300">{safeStr(a.action)}</p>
+                        <div className="flex gap-3 mt-1 text-[10px] text-zinc-500">
+                          {safeStr(a.format) && <span>Format: {safeStr(a.format)}</span>}
+                          {safeStr(a.objectif) && <span>Objectif: {safeStr(a.objectif)}</span>}
+                          {safeStr(a.pilierImpact) && <span className="text-orange-400">Pilier {safeStr(a.pilierImpact)}</span>}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Assets produisibles */}
+      {assets.length > 0 && (
+        <div>
+          <h4 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-3">Assets produisibles ({assets.length})</h4>
+          <div className="flex flex-wrap gap-2">
+            {assets.map((a, i) => (
+              <span key={i} className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs text-zinc-300">
+                {safeStr(a.asset ?? a)} {safeStr(a.type) && <span className="text-zinc-600">({safeStr(a.type)})</span>}
+              </span>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Team */}
-      {team.length > 0 && (
+      {/* Activations */}
+      {activations.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Users className="h-4 w-4" /> Structure Equipe
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            {team.map((t, i) => (
+          <h4 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-3">Activations possibles ({activations.length})</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {activations.map((a, i) => (
               <div key={i} className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
-                <p className="text-xs font-medium text-zinc-200">{safeStr(t.name)}</p>
-                <p className="text-[10px] text-orange-400">{safeStr(t.title)}</p>
-                <p className="text-[10px] text-zinc-500 mt-0.5">{safeStr(t.responsibility)}</p>
+                <p className="text-xs font-medium text-zinc-200">{safeStr(a.activation)}</p>
+                <div className="flex gap-2 mt-1 text-[10px]">
+                  {safeStr(a.canal) && <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-500">{safeStr(a.canal)}</span>}
+                  {safeStr(a.cible) && <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-500">{safeStr(a.cible)}</span>}
+                  {safeStr(a.budgetEstime) && <span className="rounded bg-orange-500/10 px-1.5 py-0.5 text-orange-400">{safeStr(a.budgetEstime)}</span>}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Brand Platform */}
-      {safeStr(platform.name) && (
+      {/* Formats disponibles */}
+      {formats.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Plateforme de Marque
-          </h4>
-          <div className="rounded-lg border border-orange-800/40 bg-zinc-900/80 p-4 space-y-2">
-            {(["name", "benefit", "target", "competitiveAdvantage", "emotionalBenefit", "functionalBenefit", "supportedBy"] as const).map((field) => {
-              const labels: Record<string, string> = {
-                name: "Nom", benefit: "Benefice", target: "Cible",
-                competitiveAdvantage: "Avantage Concurrentiel",
-                emotionalBenefit: "Benefice Emotionnel",
-                functionalBenefit: "Benefice Fonctionnel",
-                supportedBy: "Supporte par",
-              };
-              return (
-                <div key={field} className="flex gap-2">
-                  <span className="text-[10px] font-bold text-orange-400 uppercase w-36 shrink-0">{labels[field]}</span>
-                  <span className="text-xs text-zinc-300">{safeStr(platform[field])}</span>
-                </div>
-              );
-            })}
+          <h4 className="text-sm font-semibold text-orange-400 uppercase tracking-wider mb-3">Formats disponibles</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {formats.map((f, i) => (
+              <span key={i} className="rounded bg-orange-500/10 px-2.5 py-1 text-xs text-orange-300">{safeStr(f)}</span>
+            ))}
           </div>
         </div>
+      )}
+
+      {/* Empty state */}
+      {!isNewFormat && sprint.length === 0 && (
+        <p className="text-sm text-zinc-500 italic">Aucun contenu. Cliquez "Generer Implementation" pour creer le catalogue exhaustif.</p>
       )}
     </div>
   );
