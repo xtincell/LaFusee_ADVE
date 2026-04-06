@@ -25,6 +25,15 @@ import type {
   StrategyPresentationDocument,
   CompletenessReport,
   SectionCompleteness,
+  PropositionValeurSection,
+  ExperienceEngagementSection,
+  SwotInterneSection,
+  SwotExterneSection,
+  SignauxOpportunitesSection,
+  CatalogueActionsSection,
+  FenetreOvertonSection,
+  ProfilSuperfanSection,
+  CroissanceEvolutionSection,
 } from "./types";
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -616,4 +625,183 @@ export function checkSectionCompleteness(doc: StrategyPresentationDocument): Com
     "equipe": check(!!s.equipe.operator, s.equipe.teamMembers.length > 0),
     "conditions-etapes": check(!!s.conditionsEtapes.client, s.conditionsEtapes.contracts.length > 0),
   };
+}
+
+// ─── NEW SECTION MAPPERS (v3 Oracle enrichment) ─────────────────────────────
+
+export function mapPropositionValeur(strategy: any): PropositionValeurSection {
+  const vContent = getPillarContent(strategy, "v") as any;
+  return {
+    pricing: vContent?.pricing ?? vContent?.pricingStrategy ? {
+      strategy: str(vContent.pricingStrategy ?? vContent.pricing),
+      ladderDescription: str(vContent.pricingLadder ?? ""),
+      competitorComparison: str(vContent.competitorPricing) || null,
+    } : null,
+    proofPoints: arr(vContent?.proofPoints ?? vContent?.preuves).map(str),
+    guarantees: arr(vContent?.guarantees ?? vContent?.garanties).map(str),
+    innovationPipeline: arr(vContent?.innovation ?? vContent?.innovationPipeline).map(str),
+    unitEconomics: vContent?.unitEconomics ? {
+      cac: vContent.unitEconomics.cac ?? null,
+      ltv: vContent.unitEconomics.ltv ?? null,
+      ltvCacRatio: vContent.unitEconomics.ltvCacRatio ?? null,
+    } : null,
+  };
+}
+
+export function mapExperienceEngagement(strategy: any): ExperienceEngagementSection {
+  const eContent = getPillarContent(strategy, "e") as any;
+  return {
+    touchpoints: arr(eContent?.touchpoints).map((t: any) => ({
+      nom: str(t.nom ?? t.name), canal: str(t.canal ?? t.channel),
+      qualite: str(t.qualite ?? "standard"), stadeAarrr: str(t.stadeAarrr ?? t.aarrStage ?? ""),
+    })),
+    rituels: arr(eContent?.rituels ?? eContent?.rituals).map((r: any) => ({
+      nom: str(r.nom ?? r.name), frequence: str(r.frequence ?? r.frequency),
+      description: str(r.description), adoptionScore: r.adoptionScore ?? null,
+    })),
+    devotionPathway: strategy.devotionSnapshots?.[0] ? {
+      currentDistribution: strategy.devotionSnapshots[0],
+      conversionTriggers: arr(eContent?.conversionTriggers),
+      barriers: arr(eContent?.barriers).map(str),
+    } : null,
+    communityStrategy: str(eContent?.communityStrategy ?? eContent?.community) || null,
+  };
+}
+
+export function mapSwotInterne(strategy: any): SwotInterneSection {
+  const rContent = getPillarContent(strategy, "r") as any;
+  const swot = (rContent?.globalSwot ?? {}) as any;
+  return {
+    forces: arr(swot.strengths ?? rContent?.forces).map(str),
+    faiblesses: arr(swot.weaknesses ?? rContent?.faiblesses).map(str),
+    menaces: arr(swot.threats ?? rContent?.menaces).map(str),
+    opportunites: arr(swot.opportunities ?? rContent?.opportunites).map(str),
+    mitigations: arr(rContent?.mitigationPriorities).map((m: any) => ({
+      risque: str(m.risk ?? m.risque), action: str(m.action), priorite: str(m.priority ?? m.priorite ?? "MEDIUM"),
+    })),
+    resilienceScore: rContent?.resilienceScore ?? null,
+    artemisResults: [],
+  };
+}
+
+export function mapSwotExterne(strategy: any): SwotExterneSection {
+  const tContent = getPillarContent(strategy, "t") as any;
+  const tri = (tContent?.triangulation ?? {}) as any;
+  return {
+    marche: {
+      tam: str(tri.tam ?? tContent?.tam) || null, sam: str(tri.sam ?? tContent?.sam) || null,
+      som: str(tri.som ?? tContent?.som) || null, growth: str(tri.growth ?? tContent?.marketGrowth) || null,
+    },
+    concurrents: arr(tContent?.competitors ?? tContent?.concurrents).map((c: any) => ({
+      nom: str(c.nom ?? c.name), forces: arr(c.forces ?? c.strengths).map(str),
+      faiblesses: arr(c.faiblesses ?? c.weaknesses).map(str), partDeMarche: str(c.partDeMarche ?? c.marketShare) || null,
+    })),
+    tendances: arr(tContent?.trends ?? tContent?.tendances).map(str),
+    brandMarketFit: tContent?.brandMarketFit ? {
+      score: tContent.brandMarketFit.score ?? null,
+      gaps: arr(tContent.brandMarketFit.gaps).map(str),
+      opportunities: arr(tContent.brandMarketFit.opportunities).map(str),
+    } : null,
+    validationTerrain: str(tContent?.validation ?? tContent?.validationTerrain) || null,
+  };
+}
+
+export function mapSignauxOpportunites(strategy: any): SignauxOpportunitesSection {
+  return {
+    signauxFaibles: [], // Populated by Seshat integration (P2b)
+    opportunitesPriseDeParole: [], // Populated by Mestor integration (P2b)
+    mestorInsights: [], // Populated by Mestor integration (P2b)
+    seshatReferences: [], // Populated by Seshat integration (P2b)
+  };
+}
+
+export function mapCatalogueActions(strategy: any): CatalogueActionsSection {
+  const iContent = getPillarContent(strategy, "i") as any;
+  const drivers = arr(strategy.drivers).map((d: any) => ({
+    name: str(d.name), channel: str(d.channel), status: str(d.status),
+  }));
+  return {
+    parCanal: {},  // Will be enriched when I pillar is fully implemented
+    parPilier: {}, // Will be enriched from ADVE-RTIS data
+    totalActions: drivers.length + arr(iContent?.actions).length,
+    drivers,
+  };
+}
+
+export function mapFenetreOverton(strategy: any): FenetreOvertonSection {
+  const sContent = getPillarContent(strategy, "s") as any;
+  return {
+    perceptionActuelle: str(sContent?.perceptionActuelle ?? sContent?.currentPerception) || null,
+    perceptionCible: str(sContent?.perceptionCible ?? sContent?.targetPerception ?? sContent?.ambition) || null,
+    ecart: str(sContent?.ecart ?? sContent?.gap) || null,
+    strategieDeplacment: arr(sContent?.overtonStrategy ?? sContent?.displacementStrategy).map((s: any) => ({
+      etape: str(s.etape ?? s.step), action: str(s.action),
+      canal: str(s.canal ?? s.channel ?? ""), horizon: str(s.horizon ?? s.timeline ?? ""),
+    })),
+    roadmap: arr(sContent?.roadmap).map((r: any) => ({
+      phase: str(r.phase), objectif: str(r.objectif ?? r.objective),
+      livrables: arr(r.livrables ?? r.deliverables).map(str),
+      budget: r.budget ?? null, duree: str(r.duree ?? r.duration ?? ""),
+    })),
+    jalons: arr(sContent?.jalons ?? sContent?.milestones).map((j: any) => ({
+      date: str(j.date), milestone: str(j.milestone ?? j.label), critereSucces: str(j.critere ?? j.criteria ?? ""),
+    })),
+  };
+}
+
+export function mapProfilSuperfan(strategy: any): ProfilSuperfanSection {
+  const eContent = getPillarContent(strategy, "e") as any;
+  const superfans = arr(strategy.superfanProfiles);
+  const cultSnap = strategy.cultIndexSnapshots?.[0];
+  return {
+    portrait: eContent?.superfanPortrait ?? eContent?.idealCustomer ? {
+      nom: str(eContent.superfanPortrait?.nom ?? eContent.idealCustomer?.name ?? "Superfan type"),
+      trancheAge: str(eContent.superfanPortrait?.age ?? eContent.idealCustomer?.age ?? ""),
+      description: str(eContent.superfanPortrait?.description ?? eContent.idealCustomer?.description ?? ""),
+      motivations: arr(eContent.superfanPortrait?.motivations ?? eContent.idealCustomer?.motivations).map(str),
+      freins: arr(eContent.superfanPortrait?.freins ?? eContent.idealCustomer?.barriers).map(str),
+    } : null,
+    parcoursDevotionCible: arr(eContent?.devotionJourney).map((p: any) => ({
+      palier: str(p.palier ?? p.tier), trigger: str(p.trigger), experience: str(p.experience ?? ""),
+    })),
+    metriquesSuperfan: {
+      actifs: superfans.filter((s: any) => s.engagementDepth >= 0.8).length,
+      evangelistes: superfans.filter((s: any) => s.segment === "evangeliste" || s.engagementDepth >= 0.95).length,
+      ratio: superfans.length > 0 ? Math.round((superfans.filter((s: any) => s.engagementDepth >= 0.8).length / superfans.length) * 100) : 0,
+      velocite: null,
+    },
+    cultIndex: cultSnap ? { score: cultSnap.compositeScore, tier: str(cultSnap.tier) } : null,
+  };
+}
+
+export function mapCroissanceEvolution(strategy: any): CroissanceEvolutionSection {
+  const iContent = getPillarContent(strategy, "i") as any;
+  const sContent = getPillarContent(strategy, "s") as any;
+  return {
+    bouclesCroissance: arr(sContent?.growthLoops ?? iContent?.growthLoops).map((b: any) => ({
+      nom: str(b.nom ?? b.name), type: str(b.type ?? "organique"),
+      potentielViral: b.viralPotential ?? null, plan: str(b.plan ?? b.description ?? ""),
+    })),
+    expansionStrategy: arr(sContent?.expansion).map((e: any) => ({
+      marche: str(e.marche ?? e.market), priorite: e.priorite ?? e.priority ?? 0,
+      planEntree: str(e.plan ?? e.entryPlan ?? ""),
+    })) || null,
+    evolutionMarque: sContent?.evolution ? {
+      trajectoire: str(sContent.evolution.trajectoire ?? sContent.evolution.trajectory ?? ""),
+      scenariosPivot: arr(sContent.evolution.pivotScenarios).map(str),
+      extensionsMarque: arr(sContent.evolution.brandExtensions).map(str),
+    } : null,
+    pipelineInnovation: arr(iContent?.innovationPipeline ?? sContent?.innovationPipeline).map((p: any) => ({
+      initiative: str(p.initiative ?? p.name), impact: str(p.impact ?? ""),
+      faisabilite: str(p.feasibility ?? p.faisabilite ?? ""), timeToMarket: str(p.ttm ?? p.timeToMarket ?? ""),
+    })),
+  };
+}
+
+// Aliases for new mappers (reuse existing helpers)
+function str(val: unknown): string {
+  return safeStr(val) ?? (typeof val === "number" ? String(val) : "");
+}
+function arr(val: unknown): any[] {
+  return safeArr(val) as any[];
 }

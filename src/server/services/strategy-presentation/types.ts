@@ -18,19 +18,32 @@ export interface SectionMeta {
 }
 
 export const SECTION_REGISTRY: SectionMeta[] = [
+  // ── Phase 1: ADVE — Identite ──────────────────────────────────────────────
   { id: "executive-summary", number: "01", title: "Executive Summary", personas: ["consultant", "client", "creative"] },
   { id: "contexte-defi", number: "02", title: "Contexte & Defi", personas: ["consultant", "client"] },
-  { id: "audit-diagnostic", number: "03", title: "Audit & Diagnostic", personas: ["consultant"] },
-  { id: "plateforme-strategique", number: "04", title: "Plateforme Strategique", personas: ["consultant", "client", "creative"] },
+  { id: "plateforme-strategique", number: "03", title: "Plateforme Strategique", personas: ["consultant", "client", "creative"] },
+  { id: "proposition-valeur", number: "04", title: "Proposition de Valeur", personas: ["consultant", "client"] },
   { id: "territoire-creatif", number: "05", title: "Territoire Creatif", personas: ["consultant", "client", "creative"] },
-  { id: "plan-activation", number: "06", title: "Plan d'Activation", personas: ["consultant", "client"] },
-  { id: "production-livrables", number: "07", title: "Production & Livrables", personas: ["consultant", "creative"] },
-  { id: "medias-distribution", number: "08", title: "Medias & Distribution", personas: ["consultant", "creative"] },
-  { id: "kpis-mesure", number: "09", title: "KPIs & Mesure de Performance", personas: ["consultant", "client"] },
-  { id: "budget", number: "10", title: "Budget", personas: ["consultant", "client"] },
-  { id: "timeline-gouvernance", number: "11", title: "Timeline & Gouvernance", personas: ["consultant", "client"] },
-  { id: "equipe", number: "12", title: "Equipe", personas: ["consultant"] },
-  { id: "conditions-etapes", number: "13", title: "Conditions & Prochaines Etapes", personas: ["consultant", "client"] },
+  { id: "experience-engagement", number: "06", title: "Experience & Engagement", personas: ["consultant", "client"] },
+  // ── Phase 2: R+T — Diagnostic ─────────────────────────────────────────────
+  { id: "swot-interne", number: "07", title: "SWOT Interne (Risk)", personas: ["consultant"] },
+  { id: "swot-externe", number: "08", title: "SWOT Externe (Track)", personas: ["consultant", "client"] },
+  { id: "signaux-opportunites", number: "09", title: "Signaux & Opportunites", personas: ["consultant", "client"] },
+  // ── Phase 3: I+S — Recommandations ────────────────────────────────────────
+  { id: "catalogue-actions", number: "10", title: "Catalogue d'Actions (Implementation)", personas: ["consultant", "client", "creative"] },
+  { id: "plan-activation", number: "11", title: "Plan d'Activation", personas: ["consultant", "client"] },
+  { id: "fenetre-overton", number: "12", title: "Fenetre d'Overton (Strategy)", personas: ["consultant", "client"] },
+  { id: "medias-distribution", number: "13", title: "Medias & Distribution", personas: ["consultant", "creative"] },
+  { id: "production-livrables", number: "14", title: "Production & Livrables", personas: ["consultant", "creative"] },
+  // ── Mesure & Superfan ─────────────────────────────────────────────────────
+  { id: "profil-superfan", number: "15", title: "Profil Superfan", personas: ["consultant", "client"] },
+  { id: "kpis-mesure", number: "16", title: "KPIs & Mesure de Performance", personas: ["consultant", "client"] },
+  { id: "croissance-evolution", number: "17", title: "Croissance & Evolution", personas: ["consultant", "client"] },
+  // ── Operationnel ──────────────────────────────────────────────────────────
+  { id: "budget", number: "18", title: "Budget", personas: ["consultant", "client"] },
+  { id: "timeline-gouvernance", number: "19", title: "Timeline & Gouvernance", personas: ["consultant", "client"] },
+  { id: "equipe", number: "20", title: "Equipe", personas: ["consultant"] },
+  { id: "conditions-etapes", number: "21", title: "Conditions & Prochaines Etapes", personas: ["consultant", "client"] },
 ];
 
 // ─── Section Data Types ──────────────────────────────────────────────────────
@@ -327,6 +340,86 @@ export interface ConditionsEtapesSection {
   strategyStatus: string;
 }
 
+// ─── NEW SECTIONS (v3 Oracle enrichment) ────────────────────────────────────
+
+export interface PropositionValeurSection {
+  pricing: { strategy: string; ladderDescription: string; competitorComparison: string | null } | null;
+  proofPoints: string[];
+  guarantees: string[];
+  innovationPipeline: string[];
+  unitEconomics: {
+    cac: number | null;
+    ltv: number | null;
+    ltvCacRatio: number | null;
+  } | null;
+}
+
+export interface ExperienceEngagementSection {
+  touchpoints: Array<{ nom: string; canal: string; qualite: string; stadeAarrr: string }>;
+  rituels: Array<{ nom: string; frequence: string; description: string; adoptionScore: number | null }>;
+  devotionPathway: {
+    currentDistribution: Record<string, number>;
+    conversionTriggers: Array<{ from: string; to: string; trigger: string }>;
+    barriers: string[];
+  } | null;
+  communityStrategy: string | null;
+}
+
+export interface SwotInterneSection {
+  forces: string[];
+  faiblesses: string[];
+  menaces: string[];
+  opportunites: string[];
+  mitigations: Array<{ risque: string; action: string; priorite: string }>;
+  resilienceScore: number | null;
+  artemisResults: Array<{ framework: string; score: number | null; prescriptions: string[] }>;
+}
+
+export interface SwotExterneSection {
+  marche: { tam: string | null; sam: string | null; som: string | null; growth: string | null };
+  concurrents: Array<{ nom: string; forces: string[]; faiblesses: string[]; partDeMarche: string | null }>;
+  tendances: string[];
+  brandMarketFit: { score: number | null; gaps: string[]; opportunities: string[] } | null;
+  validationTerrain: string | null;
+}
+
+export interface SignauxOpportunitesSection {
+  signauxFaibles: Array<{ signal: string; source: string; severity: string; detectedAt: string }>;
+  opportunitesPriseDeParole: Array<{ contexte: string; canal: string; timing: string; impact: string }>;
+  mestorInsights: Array<{ type: string; title: string; description: string; actionable: boolean }>;
+  seshatReferences: Array<{ title: string; type: string; relevance: number; excerpt: string }>;
+}
+
+export interface CatalogueActionsSection {
+  parCanal: Record<string, Array<{ action: string; format: string; cout: string | null; impact: string }>>;
+  parPilier: Record<string, Array<{ action: string; objectif: string }>>;
+  totalActions: number;
+  drivers: Array<{ name: string; channel: string; status: string }>;
+}
+
+export interface FenetreOvertonSection {
+  perceptionActuelle: string | null;
+  perceptionCible: string | null;
+  ecart: string | null;
+  strategieDeplacment: Array<{ etape: string; action: string; canal: string; horizon: string }>;
+  roadmap: Array<{ phase: string; objectif: string; livrables: string[]; budget: number | null; duree: string }>;
+  jalons: Array<{ date: string; milestone: string; critereSucces: string }>;
+}
+
+export interface ProfilSuperfanSection {
+  portrait: { nom: string; trancheAge: string; description: string; motivations: string[]; freins: string[] } | null;
+  parcoursDevotionCible: Array<{ palier: string; trigger: string; experience: string }>;
+  metriquesSuperfan: { actifs: number; evangelistes: number; ratio: number; velocite: number | null };
+  cultIndex: { score: number; tier: string } | null;
+}
+
+export interface CroissanceEvolutionSection {
+  bouclesCroissance: Array<{ nom: string; type: string; potentielViral: number | null; plan: string }>;
+  expansionStrategy: Array<{ marche: string; priorite: number; planEntree: string }> | null;
+  evolutionMarque: { trajectoire: string; scenariosPivot: string[]; extensionsMarque: string[] } | null;
+  pipelineInnovation: Array<{ initiative: string; impact: string; faisabilite: string; timeToMarket: string }>;
+}
+
 // ─── Complete Document ───────────────────────────────────────────────────────
 
 export interface StrategyPresentationDocument {
@@ -339,19 +432,34 @@ export interface StrategyPresentationDocument {
     classification: BrandClassification;
   };
   sections: {
+    // Phase 1: ADVE
     executiveSummary: ExecutiveSummarySection;
     contexteDefi: ContexteDefiSection;
-    auditDiagnostic: AuditDiagnosticSection;
     plateformeStrategique: PlateformeStrategiqueSection;
+    propositionValeur: PropositionValeurSection;
     territoireCreatif: TerritoireCreatifSection;
+    experienceEngagement: ExperienceEngagementSection;
+    // Phase 2: R+T
+    swotInterne: SwotInterneSection;
+    swotExterne: SwotExterneSection;
+    signaux: SignauxOpportunitesSection;
+    // Phase 3: I+S
+    catalogueActions: CatalogueActionsSection;
     planActivation: PlanActivationSection;
-    productionLivrables: ProductionLivrablesSection;
+    fenetreOverton: FenetreOvertonSection;
     mediasDistribution: MediasDistributionSection;
+    productionLivrables: ProductionLivrablesSection;
+    // Mesure & Superfan
+    profilSuperfan: ProfilSuperfanSection;
     kpisMesure: KpisMesureSection;
+    croissanceEvolution: CroissanceEvolutionSection;
+    // Operationnel
     budget: BudgetSection;
     timelineGouvernance: TimelineGouvernanceSection;
     equipe: EquipeSection;
     conditionsEtapes: ConditionsEtapesSection;
+    // Legacy compat (kept for existing queries)
+    auditDiagnostic: AuditDiagnosticSection;
   };
 }
 

@@ -22,6 +22,15 @@ import {
   mapTimelineGouvernance,
   mapEquipe,
   mapConditionsEtapes,
+  mapPropositionValeur,
+  mapExperienceEngagement,
+  mapSwotInterne,
+  mapSwotExterne,
+  mapSignauxOpportunites,
+  mapCatalogueActions,
+  mapFenetreOverton,
+  mapProfilSuperfan,
+  mapCroissanceEvolution,
   checkSectionCompleteness,
 } from "./section-mappers";
 import type { StrategyPresentationDocument, CompletenessReport } from "./types";
@@ -86,19 +95,34 @@ export async function assemblePresentation(strategyId: string): Promise<Strategy
       classification,
     },
     sections: {
+      // Phase 1: ADVE
       executiveSummary: mapExecutiveSummary(strategy, vector, classification),
       contexteDefi: mapContexteDefi(strategy),
-      auditDiagnostic: mapAuditDiagnostic(strategy),
       plateformeStrategique: mapPlateformeStrategique(strategy),
+      propositionValeur: mapPropositionValeur(strategy),
       territoireCreatif: mapTerritoireCreatif(strategy),
+      experienceEngagement: mapExperienceEngagement(strategy),
+      // Phase 2: R+T
+      swotInterne: mapSwotInterne(strategy),
+      swotExterne: mapSwotExterne(strategy),
+      signaux: mapSignauxOpportunites(strategy),
+      // Phase 3: I+S
+      catalogueActions: mapCatalogueActions(strategy),
       planActivation: mapPlanActivation(strategy),
-      productionLivrables: mapProductionLivrables(strategy),
+      fenetreOverton: mapFenetreOverton(strategy),
       mediasDistribution: mapMediasDistribution(strategy),
+      productionLivrables: mapProductionLivrables(strategy),
+      // Mesure & Superfan
+      profilSuperfan: mapProfilSuperfan(strategy),
       kpisMesure: mapKpisMesure(strategy),
+      croissanceEvolution: mapCroissanceEvolution(strategy),
+      // Operationnel
       budget: mapBudget(strategy),
       timelineGouvernance: mapTimelineGouvernance(strategy),
       equipe: mapEquipe(strategy),
       conditionsEtapes: mapConditionsEtapes(strategy),
+      // Legacy
+      auditDiagnostic: mapAuditDiagnostic(strategy),
     },
   };
 }
