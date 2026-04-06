@@ -344,7 +344,8 @@ Pour chaque pilier, reponds par un objet JSON clef->objet (a,d,v,e,r,t,i,s) cont
         system,
         prompt,
         maxTokens: 4096,
-      }, { signal: controller.signal });
+        abortSignal: controller.signal,
+      });
 
       clearTimeout(timeout);
 

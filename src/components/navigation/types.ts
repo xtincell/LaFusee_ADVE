@@ -5,6 +5,7 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   badge?: number;
+  minTier?: string;
 }
 
 export interface NavGroup {

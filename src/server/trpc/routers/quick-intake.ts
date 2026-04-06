@@ -60,7 +60,8 @@ Reponds uniquement par un objet JSON avec les clefs: biz,a,d,v,e,r,t,i,s.`;
       system,
       prompt,
       maxTokens: 4096,
-    }, { signal: controller.signal });
+      abortSignal: controller.signal,
+    });
 
     const responseText = (typeof out === "string" ? out.trim() : "");
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
