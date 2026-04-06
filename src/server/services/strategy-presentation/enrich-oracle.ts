@@ -25,6 +25,8 @@ interface SectionEnrichmentSpec {
   pillar: string;
   /** Extract fields from framework outputs → pillar fields */
   writeback: (outputs: Record<string, any>) => Record<string, unknown>;
+  /** If true, also creates Signal rows in DB (for signaux-opportunites) */
+  signalWriteback?: boolean;
 }
 
 const SECTION_ENRICHMENT: Record<string, SectionEnrichmentSpec> = {
@@ -115,13 +117,15 @@ const SECTION_ENRICHMENT: Record<string, SectionEnrichmentSpec> = {
   "signaux-opportunites": {
     frameworks: ["fw-10-attribution-model", "fw-17-cohort-analysis"],
     pillar: "t",
+    // Special: this section reads from strategy.signals table, not pillar T.
+    // signalWriteback creates Signal rows in DB.
+    signalWriteback: true,
     writeback: (outputs) => {
+      // Also enrich pillar T with attribution insights
       const attr = outputs["fw-10-attribution-model"] ?? {};
-      const cohort = outputs["fw-17-cohort-analysis"] ?? {};
       return {
-        ...(attr.optimization_recommendations ? { weakSignals: Array.isArray(attr.optimization_recommendations) ? attr.optimization_recommendations.map((r: any) => ({ signal: r, source: "attribution", force: "moyen" })) : [] } : {}),
-        ...(attr.channel_weights ? { opportunities: Array.isArray(attr.channel_weights) ? attr.channel_weights.map((w: any) => ({ opportunite: typeof w === "string" ? w : JSON.stringify(w), timing: "trimestre", effort: "moyen" })) : [] } : {}),
-        ...(cohort.insights ? { emergingTrends: Array.isArray(cohort.insights) ? cohort.insights.map((i: any) => ({ trend: typeof i === "string" ? i : JSON.stringify(i), relevance: "haute" })) : [] } : {}),
+        ...(attr.attribution_model ? { attributionModel: attr.attribution_model } : {}),
+        ...(attr.roi_by_channel ? { roiByChannel: attr.roi_by_channel } : {}),
       };
     },
   },
@@ -133,13 +137,24 @@ const SECTION_ENRICHMENT: Record<string, SectionEnrichmentSpec> = {
       const road = outputs["fw-13-90-day-roadmap"] ?? {};
       const camp = outputs["fw-14-campaign-architecture"] ?? {};
       const team = outputs["fw-15-team-blueprint"] ?? {};
+      // Mapper reads: parCanal (Record), totalActions, actions (array)
+      const actions: any[] = [];
+      if (Array.isArray(road.weekly_plan)) actions.push(...road.weekly_plan);
+      if (Array.isArray(camp.campaign_plan)) actions.push(...camp.campaign_plan);
+      const parCanal: Record<string, any[]> = {};
+      for (const a of actions) {
+        const canal = a.canal ?? a.channel ?? "DIGITAL";
+        if (!parCanal[canal]) parCanal[canal] = [];
+        parCanal[canal].push(a);
+      }
       return {
-        ...(road.weekly_plan ? { sprint90Days: road.weekly_plan } : {}),
-        ...(camp.content_calendar ? { annualCalendar: camp.content_calendar } : {}),
-        ...(camp.campaign_plan ? { catalogueActions: camp.campaign_plan } : {}),
-        ...(camp.channel_mix ? { channelMix: camp.channel_mix } : {}),
-        ...(camp.budget_allocation ? { budgetAllocation: camp.budget_allocation } : {}),
-        ...(team.team_structure ? { teamBlueprint: team.team_structure } : {}),
+        actions,
+        parCanal,
+        sprint90Days: road.weekly_plan ?? road.milestones ?? [],
+        annualCalendar: camp.content_calendar ?? [],
+        channelMix: camp.channel_mix ?? null,
+        budgetAllocation: camp.budget_allocation ?? null,
+        teamBlueprint: team.team_structure ?? null,
       };
     },
   },
@@ -167,12 +182,32 @@ const SECTION_ENRICHMENT: Record<string, SectionEnrichmentSpec> = {
     writeback: (outputs) => {
       const dev = outputs["fw-09-devotion-pathway"] ?? {};
       const persona = outputs["fw-02-persona-constellation"] ?? {};
-      return {
-        ...(dev.pathway_design ? { superfanPortrait: typeof dev.pathway_design === "string" ? dev.pathway_design : JSON.stringify(dev.pathway_design) } : {}),
-        ...(dev.conversion_triggers ? { devotionJourney: Array.isArray(dev.conversion_triggers) ? dev.conversion_triggers : [] } : {}),
-        ...(persona.segment_priorities ? { idealCustomer: typeof persona.segment_priorities === "string" ? persona.segment_priorities : JSON.stringify(persona.segment_priorities) } : {}),
-        ...(dev.acceleration_strategy ? { communityVision: typeof dev.acceleration_strategy === "string" ? dev.acceleration_strategy : JSON.stringify(dev.acceleration_strategy) } : {}),
+      // Mapper reads: superfanPortrait as {nom, age, description, motivations, freins}
+      // devotionJourney as [{palier, trigger, experience}]
+      const superfanPortrait = {
+        nom: "Superfan type",
+        age: "",
+        description: typeof dev.pathway_design === "string" ? dev.pathway_design : dev.analysis ?? "",
+        motivations: Array.isArray(dev.conversion_triggers) ? dev.conversion_triggers.map((t: any) => typeof t === "string" ? t : t.trigger ?? "") : [],
+        freins: Array.isArray(dev.barrier_analysis) ? dev.barrier_analysis.map((b: any) => typeof b === "string" ? b : b.barrier ?? "") : [],
       };
+      if (persona.persona_map) {
+        const first = Array.isArray(persona.persona_map) ? persona.persona_map[0] : null;
+        if (first) {
+          superfanPortrait.nom = first.nom ?? first.name ?? "Superfan type";
+          superfanPortrait.age = first.age ?? first.trancheAge ?? "";
+        }
+      }
+      const devotionJourney = dev.conversion_triggers
+        ? ["Spectateur", "Interesse", "Participant", "Engage", "Ambassadeur", "Evangeliste"].map((palier, i) => ({
+            palier,
+            trigger: Array.isArray(dev.conversion_triggers) && dev.conversion_triggers[i]
+              ? (typeof dev.conversion_triggers[i] === "string" ? dev.conversion_triggers[i] : dev.conversion_triggers[i].trigger ?? "")
+              : "",
+            experience: "",
+          }))
+        : [];
+      return { superfanPortrait, devotionJourney };
     },
   },
 
@@ -337,8 +372,37 @@ export async function enrichAllSections(strategyId: string): Promise<{
     }
 
     try {
+      // Special case: signaux-opportunites must create Signal rows in DB
+      if ((spec as any).signalWriteback && sectionId === "signaux-opportunites") {
+        const attr = sectionOutputs["fw-10-attribution-model"] ?? {};
+        const cohort = sectionOutputs["fw-17-cohort-analysis"] ?? {};
+        const signals: { type: string; data: any }[] = [];
+
+        // Create WEAK signals from attribution recommendations
+        const recos = Array.isArray(attr.optimization_recommendations) ? attr.optimization_recommendations : Array.isArray(attr.prescriptions) ? attr.prescriptions : [];
+        for (const r of recos.slice(0, 5)) {
+          signals.push({ type: "WEAK", data: { title: typeof r === "string" ? r : r.recommendation ?? JSON.stringify(r), source: "Artemis:attribution", severity: "MEDIUM", opportunity: typeof r === "string" ? r : r.recommendation ?? "" } });
+        }
+
+        // Create opportunity signals from cohort insights
+        const insights = Array.isArray(cohort.insights) ? cohort.insights : Array.isArray(cohort.prescriptions) ? cohort.prescriptions : [];
+        for (const i of insights.slice(0, 5)) {
+          signals.push({ type: "OPPORTUNITY", data: { title: typeof i === "string" ? i : i.insight ?? JSON.stringify(i), source: "Artemis:cohort", opportunity: typeof i === "string" ? i : i.insight ?? "", channel: "", timing: "trimestre", impact: "MEDIUM" } });
+        }
+
+        if (signals.length > 0) {
+          await db.signal.createMany({
+            data: signals.map((s) => ({ strategyId, type: s.type, data: s.data as never })),
+          });
+          enriched.push(sectionId);
+        } else {
+          skipped.push(sectionId);
+        }
+        // Still do pillar writeback for T enrichment (below)
+      }
+
       const newFields = spec.writeback(sectionOutputs);
-      if (Object.keys(newFields).length === 0) {
+      if (Object.keys(newFields).length === 0 && !enriched.includes(sectionId)) {
         skipped.push(sectionId);
         continue;
       }
