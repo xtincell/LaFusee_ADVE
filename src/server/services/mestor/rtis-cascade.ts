@@ -382,29 +382,17 @@ export async function actualizePillar(
       }
 
     } else if (pillarKey === "I") {
-      // I = Havas-level premium deliverable (GLORY tools + multi-pass LLM)
-      try {
-        const implResult = await generateImplementation({
-          strategyId,
-          autoCreateCampaignDrafts: false,
-          autoGenerateS: false,
-        });
-        newContent = implResult.pillarContent;
-        confidence = Math.min(0.85, implResult.qualityScore / 100);
-      } catch (err) {
-        // Fallback: pure LLM if implementation generator fails
-        console.warn("[rtis-cascade] Implementation generator failed, falling back to LLM:", err instanceof Error ? err.message : err);
-        const context = ["A", "D", "V", "E", "R", "T"]
-          .map((k) => serializePillar(k, pillars[k]))
-          .join("\n\n");
-        const response = await callLLM(
-          RTIS_PROMPTS.I,
-          `Voici les données ADVE + R + T actuelles:\n\n${context}\n\nProduis le pilier I (Implementation) en JSON.`,
-          strategyId,
-        );
-        newContent = extractJSON(response);
-        confidence = 0.60;
-      }
+      // I = Catalogue exhaustif (LLM prompt produces new format)
+      const context = ["A", "D", "V", "E", "R", "T"]
+        .map((k) => serializePillar(k, pillars[k]))
+        .join("\n\n");
+      const response = await callLLM(
+        RTIS_PROMPTS.I,
+        `Voici les données ADVE + R + T actuelles:\n\n${context}\n\nProduis le pilier I (Implementation — catalogue exhaustif) en JSON.`,
+        strategyId,
+      );
+      newContent = extractJSON(response);
+      confidence = 0.70;
 
     } else if (pillarKey === "S") {
       // S = mise en forme(tout)
