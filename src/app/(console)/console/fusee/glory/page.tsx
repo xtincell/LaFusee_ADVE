@@ -249,16 +249,18 @@ export default function GloryPage() {
                   // Client-side RUNNING detection: this specific sequence is being executed right now
                   const isThisRunning = executeMutation.isPending && executeMutation.variables?.sequenceKey === item.sequenceKey;
 
-                  // Border color based on readiness
-                  const borderColor = isDone
-                    ? "border-emerald-500/30"
-                    : isBlocked
-                      ? "border-red-500/20"
-                      : readiness >= 80
-                        ? "border-emerald-500/20"
-                        : readiness >= 40
-                          ? "border-amber-500/20"
-                          : "border-red-500/10";
+                  // Border color based on state
+                  const borderColor = isThisRunning
+                    ? "border-blue-500/50 animate-pulse"
+                    : isDone
+                      ? "border-emerald-500/30"
+                      : isBlocked
+                        ? "border-red-500/20"
+                        : readiness >= 80
+                          ? "border-emerald-500/20"
+                          : readiness >= 40
+                            ? "border-amber-500/20"
+                            : "border-red-500/10";
 
                   // Readiness bar color
                   const barColor = readiness >= 80 ? "bg-emerald-500" : readiness >= 40 ? "bg-amber-500" : "bg-red-500";
@@ -384,6 +386,35 @@ export default function GloryPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Expanded results panel (DONE sequences) */}
+                    {isDone && expandedSeq === item.sequenceKey && (
+                      <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                        <p className="mb-2 text-xs font-medium text-zinc-500">Outputs produits</p>
+                        {item.outputIds.length === 0 ? (
+                          <p className="text-[10px] text-zinc-600">Aucun output enregistre.</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {item.outputIds.slice(0, 10).map((id) => (
+                              <div key={id} className="flex items-center gap-2 rounded bg-zinc-900 px-2.5 py-1.5 text-[11px]">
+                                <CheckCircle className="h-3 w-3 text-emerald-500 shrink-0" />
+                                <span className="font-mono text-zinc-400 truncate">{id}</span>
+                              </div>
+                            ))}
+                            {item.outputIds.length > 10 && (
+                              <p className="text-[10px] text-zinc-600">+{item.outputIds.length - 10} autres outputs</p>
+                            )}
+                          </div>
+                        )}
+                        <a
+                          href="/cockpit/brand/deliverables"
+                          className="mt-2 inline-flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300"
+                        >
+                          Ouvrir dans Livrables →
+                        </a>
+                      </div>
+                    )}
+                  </div>
                   );
                 })}
               </div>
