@@ -87,15 +87,26 @@ export default function GloryPage() {
   const toolsQuery = trpc.glory.listAll.useQuery();
   const strategiesQuery = trpc.strategy.list.useQuery({});
 
-  // Queue for selected strategy (drill-down)
+  // Queue + scan for selected strategy (drill-down)
   const queueQuery = trpc.glory.queue.useQuery(
+    { strategyId: selectedStrategyId ?? "" },
+    { enabled: !!selectedStrategyId },
+  );
+  const scanQuery = trpc.glory.scanAll.useQuery(
+    { strategyId: selectedStrategyId ?? "" },
+    { enabled: !!selectedStrategyId },
+  );
+  const historyQuery2 = trpc.glory.history.useQuery(
     { strategyId: selectedStrategyId ?? "" },
     { enabled: !!selectedStrategyId },
   );
 
   const executeMutation = trpc.glory.executeSequence.useMutation({
-    onSuccess: () => { queueQuery.refetch(); },
+    onSuccess: () => { queueQuery.refetch(); scanQuery.refetch(); historyQuery2.refetch(); },
   });
+
+  // Index scan results by sequenceKey for fast lookup
+  const scanMap = new Map((scanQuery.data ?? []).map((s) => [s.sequenceKey, s]));
 
   const selectedToolQuery = trpc.glory.getBySlug.useQuery(
     { slug: selectedSlug ?? "" },
@@ -226,70 +237,119 @@ export default function GloryPage() {
                 })}
               </div>
 
-              {/* READY — launchable */}
-              {queueQuery.data.filter((q) => q.status === "READY").length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-xs font-semibold text-emerald-400 uppercase">Pretes a lancer</h4>
-                  <div className="space-y-2">
-                    {queueQuery.data.filter((q) => q.status === "READY").map((item) => (
-                      <div key={item.sequenceKey} className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-zinc-900/80 p-4">
-                        <div>
-                          <div className="flex items-center gap-2">
+              {/* ALL sequences — each with individual readiness + actions */}
+              <div className="space-y-2">
+                {queueQuery.data.map((item) => {
+                  const scan = scanMap.get(item.sequenceKey);
+                  const readiness = scan?.readiness ?? 0;
+                  const isDone = item.status === "DONE";
+                  const isBlocked = item.status === "BLOCKED";
+                  const isRunning = item.status === "RUNNING";
+
+                  // Border color based on readiness
+                  const borderColor = isDone
+                    ? "border-emerald-500/30"
+                    : isBlocked
+                      ? "border-red-500/20"
+                      : readiness >= 80
+                        ? "border-emerald-500/20"
+                        : readiness >= 40
+                          ? "border-amber-500/20"
+                          : "border-red-500/10";
+
+                  // Readiness bar color
+                  const barColor = readiness >= 80 ? "bg-emerald-500" : readiness >= 40 ? "bg-amber-500" : "bg-red-500";
+
+                  return (
+                    <div key={item.sequenceKey} className={`rounded-xl border ${borderColor} bg-zinc-900/80 p-4`}>
+                      <div className="flex items-start justify-between gap-4">
+                        {/* Left: info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {isDone && <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />}
                             <h4 className="text-sm font-semibold text-white">{item.name}</h4>
-                            <span className="text-[10px] font-mono text-zinc-500">{item.sequenceKey}</span>
+                            <span className="text-[10px] font-mono text-zinc-600">{item.sequenceKey}</span>
+                            <span className="text-[10px] text-zinc-600">{item.family}</span>
                           </div>
-                          <p className="mt-0.5 text-xs text-zinc-500">{item.reason}</p>
-                          <p className="text-[10px] text-zinc-600">{item.stepCount} steps ({item.aiSteps} AI)</p>
-                        </div>
-                        <button
-                          onClick={() => executeMutation.mutate({ strategyId: selectedStrategyId, sequenceKey: item.sequenceKey })}
-                          disabled={executeMutation.isPending}
-                          className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                        >
-                          {executeMutation.isPending ? "..." : "Lancer"}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* BLOCKED */}
-              {queueQuery.data.filter((q) => q.status === "BLOCKED").length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-xs font-semibold text-red-400 uppercase">Bloquees</h4>
-                  <div className="space-y-2">
-                    {queueQuery.data.filter((q) => q.status === "BLOCKED").map((item) => (
-                      <div key={item.sequenceKey} className="rounded-xl border border-red-500/20 bg-zinc-900/80 p-4 opacity-70">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm text-white">{item.name}</h4>
-                          <span className="text-[10px] text-red-400">Bloque par: {item.blockedBy.join(", ")}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                          {/* Readiness bar + percentage */}
+                          {!isDone && scan && (
+                            <div className="mt-2 flex items-center gap-3">
+                              <div className="flex-1 max-w-48">
+                                <div className="h-1.5 rounded-full bg-zinc-800">
+                                  <div className={`h-1.5 rounded-full ${barColor} transition-all`} style={{ width: `${readiness}%` }} />
+                                </div>
+                              </div>
+                              <span className={`text-xs font-semibold ${readiness >= 80 ? "text-emerald-400" : readiness >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                                {readiness}%
+                              </span>
+                              <span className="text-[10px] text-zinc-600">
+                                {scan.resolved}/{scan.totalBindings} bindings
+                              </span>
+                            </div>
+                          )}
 
-              {/* DONE */}
-              {queueQuery.data.filter((q) => q.status === "DONE").length > 0 && (
-                <div>
-                  <h4 className="mb-2 text-xs font-semibold text-zinc-500 uppercase">
-                    Completees ({queueQuery.data.filter((q) => q.status === "DONE").length})
-                  </h4>
-                  <div className="space-y-2">
-                    {queueQuery.data.filter((q) => q.status === "DONE").map((item) => (
-                      <div key={item.sequenceKey} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-emerald-500" />
-                          <span className="text-sm text-zinc-400">{item.name}</span>
+                          {/* Gaps details */}
+                          {!isDone && scan && scan.gaps.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {scan.gaps.slice(0, 5).map((g, i) => (
+                                <span key={i} className="inline-flex rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-500" title={`${g.step}: ${g.field} ← ${g.path}`}>
+                                  {g.path}
+                                </span>
+                              ))}
+                              {scan.gaps.length > 5 && (
+                                <span className="text-[9px] text-zinc-600">+{scan.gaps.length - 5} autres</span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Blocked reason */}
+                          {isBlocked && (
+                            <p className="mt-1 text-[10px] text-red-400">Bloque par: {item.blockedBy.join(", ")}</p>
+                          )}
+
+                          {/* Done: output count + date */}
+                          {isDone && (
+                            <p className="mt-1 text-[10px] text-zinc-500">
+                              {item.outputIds.length} outputs | {item.lastExecutedAt ? new Date(item.lastExecutedAt).toLocaleDateString("fr-FR") : "-"}
+                            </p>
+                          )}
+
+                          <p className="mt-1 text-[10px] text-zinc-600">{item.stepCount} steps ({item.aiSteps} AI)</p>
                         </div>
-                        <span className="text-[10px] text-zinc-600">{item.outputIds.length} outputs</span>
+
+                        {/* Right: action */}
+                        <div className="shrink-0 flex flex-col items-end gap-1">
+                          {!isDone && !isBlocked && (
+                            <button
+                              onClick={() => executeMutation.mutate({ strategyId: selectedStrategyId!, sequenceKey: item.sequenceKey })}
+                              disabled={executeMutation.isPending}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                                readiness >= 60
+                                  ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                                  : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                              }`}
+                            >
+                              {executeMutation.isPending ? "..." : readiness >= 60 ? "Lancer" : "Forcer"}
+                            </button>
+                          )}
+                          {isDone && (
+                            <a
+                              href={`/cockpit/brand/deliverables`}
+                              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
+                            >
+                              Voir livrable
+                            </a>
+                          )}
+                          {isBlocked && (
+                            <span className="text-[10px] text-red-400/60">Prerequis requis</span>
+                          )}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : null}
         </div>
