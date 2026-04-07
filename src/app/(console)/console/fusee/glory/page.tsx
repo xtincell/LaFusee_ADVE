@@ -83,6 +83,7 @@ export default function GloryPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const [expandedSeq, setExpandedSeq] = useState<string | null>(null);
 
   const toolsQuery = trpc.glory.listAll.useQuery();
   const strategiesQuery = trpc.strategy.list.useQuery({});
@@ -245,6 +246,8 @@ export default function GloryPage() {
                   const isDone = item.status === "DONE";
                   const isBlocked = item.status === "BLOCKED";
                   const isRunning = item.status === "RUNNING";
+                  // Client-side RUNNING detection: this specific sequence is being executed right now
+                  const isThisRunning = executeMutation.isPending && executeMutation.variables?.sequenceKey === item.sequenceKey;
 
                   // Border color based on readiness
                   const borderColor = isDone
@@ -318,29 +321,63 @@ export default function GloryPage() {
                           <p className="mt-1 text-[10px] text-zinc-600">{item.stepCount} steps ({item.aiSteps} AI)</p>
                         </div>
 
-                        {/* Right: action */}
-                        <div className="shrink-0 flex flex-col items-end gap-1">
-                          {!isDone && !isBlocked && (
+                        {/* Right: actions */}
+                        <div className="shrink-0 flex flex-col items-end gap-1.5">
+                          {/* RUNNING state — this sequence is currently executing */}
+                          {isThisRunning && (
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
+                              <span className="text-xs text-blue-400">Lancement...</span>
+                            </div>
+                          )}
+
+                          {/* Compléter — when gaps exist and not running */}
+                          {!isDone && !isThisRunning && scan && scan.gaps.length > 0 && (
+                            <a
+                              href={`/cockpit/brand/edit?focus=${encodeURIComponent(scan.gaps.map((g) => g.path).join(","))}&from=glory&seq=${item.sequenceKey}`}
+                              className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors"
+                            >
+                              Completer ({scan.gaps.length})
+                            </a>
+                          )}
+
+                          {/* Lancer / Forcer — when not running and not done */}
+                          {!isDone && !isBlocked && !isThisRunning && (
                             <button
                               onClick={() => executeMutation.mutate({ strategyId: selectedStrategyId!, sequenceKey: item.sequenceKey })}
                               disabled={executeMutation.isPending}
                               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
                                 readiness >= 60
                                   ? "bg-emerald-600 text-white hover:bg-emerald-500"
-                                  : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                                  : readiness >= 30
+                                    ? "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
+                                    : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                               }`}
                             >
-                              {executeMutation.isPending ? "..." : readiness >= 60 ? "Lancer" : "Forcer"}
+                              {readiness >= 60 ? "Lancer" : readiness >= 30 ? "Forcer" : "Incomplet"}
                             </button>
                           )}
+
+                          {/* DONE: Voir résultats + Relancer */}
                           {isDone && (
-                            <a
-                              href={`/cockpit/brand/deliverables`}
-                              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
-                            >
-                              Voir livrable
-                            </a>
+                            <>
+                              <button
+                                onClick={() => setExpandedSeq(expandedSeq === item.sequenceKey ? null : item.sequenceKey)}
+                                className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
+                              >
+                                {expandedSeq === item.sequenceKey ? "Masquer" : "Voir resultats"}
+                              </button>
+                              <button
+                                onClick={() => executeMutation.mutate({ strategyId: selectedStrategyId!, sequenceKey: item.sequenceKey })}
+                                disabled={executeMutation.isPending}
+                                className="rounded-lg border border-zinc-800 px-3 py-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition-colors"
+                              >
+                                Relancer
+                              </button>
+                            </>
                           )}
+
+                          {/* BLOCKED */}
                           {isBlocked && (
                             <span className="text-[10px] text-red-400/60">Prerequis requis</span>
                           )}

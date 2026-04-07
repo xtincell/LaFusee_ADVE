@@ -191,7 +191,7 @@ const SECTION_ENRICHMENT: Record<string, SectionEnrichmentSpec> = {
     frameworks: [], // No Artemis — Glory sequence handles it
     pillar: "d",
     writeback: () => ({}), // writeback handled by sequence auto-apply
-    _glorySequence: "BRANDBOOK-D", // Invokes the named sequence
+    _glorySequence: "BRAND", // Invokes the BRAND production sequence (10 tools)
   } as SectionEnrichmentSpec & { _glorySequence?: string },
 
   "catalogue-actions": {
