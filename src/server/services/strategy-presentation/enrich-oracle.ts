@@ -55,6 +55,11 @@ function extractText(output: any, ...fieldNames: string[]): string {
 
 const SECTION_ENRICHMENT: Record<string, SectionEnrichmentSpec> = {
 
+  // ── Sections enrichable via Glory SEQUENCES ────────────────────────────────
+  // When executeSequence() is ready, these sections will invoke named sequences
+  // instead of Artemis frameworks. The _glorySequence flag triggers the sequence path.
+  // For now, Artemis frameworks run as fallback for sections without _glorySequence.
+
   "contexte-defi": {
     frameworks: ["fw-01-brand-archeology", "fw-02-persona-constellation"],
     pillar: "a",
@@ -182,13 +187,12 @@ const SECTION_ENRICHMENT: Record<string, SectionEnrichmentSpec> = {
   },
 
   "territoire-creatif": {
-    // Uses Glory BRAND pipeline (10 sequential tools) instead of Artemis frameworks
-    // executeBrandPipeline auto-applies outputs to D.directionArtistique
-    frameworks: [], // No Artemis frameworks — Glory handles it
+    // Uses Glory SEQUENCE "BRANDBOOK-D" (10 sequential tools → D.directionArtistique)
+    frameworks: [], // No Artemis — Glory sequence handles it
     pillar: "d",
-    writeback: () => ({}), // writeback is handled by executeBrandPipeline itself
-    _gloryPipeline: true, // Flag for special handling in enrichOracle
-  } as SectionEnrichmentSpec & { _gloryPipeline?: boolean },
+    writeback: () => ({}), // writeback handled by sequence auto-apply
+    _glorySequence: "BRANDBOOK-D", // Invokes the named sequence
+  } as SectionEnrichmentSpec & { _glorySequence?: string },
 
   "catalogue-actions": {
     frameworks: ["fw-13-90-day-roadmap", "fw-14-campaign-architecture", "fw-15-team-blueprint"],
@@ -490,20 +494,42 @@ export async function enrichAllSections(strategyId: string): Promise<{
       }
     }
 
-    // Special: Glory BRAND pipeline for territoire-creatif
-    if ((spec as any)._gloryPipeline) {
+    // Special: Glory SEQUENCE for sections that need creative tool chains
+    const sequenceKey = (spec as any)._glorySequence as string | undefined;
+    if (sequenceKey) {
       try {
-        console.log(`[enrichOracle] Running Glory BRAND pipeline for ${sectionId}...`);
-        const brandResults = await executeBrandPipeline(strategyId, {});
-        const completed = brandResults.filter((r) => r.status === "COMPLETED").length;
-        console.log(`[enrichOracle] Glory pipeline: ${completed}/${brandResults.length} tools completed`);
+        console.log(`[enrichOracle] Running Glory sequence "${sequenceKey}" for ${sectionId}...`);
+
+        // Try the sequence engine first (when available), fallback to brand pipeline
+        let completed = 0;
+        let total = 0;
+        try {
+          // Dynamic import: executeSequence may not exist yet
+          const gloryModule = await import("@/server/services/glory-tools");
+          if ("executeSequence" in gloryModule && typeof gloryModule.executeSequence === "function") {
+            const seqResults = await gloryModule.executeSequence(strategyId, sequenceKey, {});
+            completed = seqResults.filter((r: { status: string }) => r.status === "COMPLETED").length;
+            total = seqResults.length;
+          } else {
+            throw new Error("executeSequence not yet available");
+          }
+        } catch {
+          // Fallback: use executeBrandPipeline for BRANDBOOK-D sequence
+          if (sequenceKey === "BRANDBOOK-D") {
+            const brandResults = await executeBrandPipeline(strategyId, {});
+            completed = brandResults.filter((r) => r.status === "COMPLETED").length;
+            total = brandResults.length;
+          }
+        }
+
+        console.log(`[enrichOracle] Sequence "${sequenceKey}": ${completed}/${total} tools completed`);
         if (completed > 0) {
           enriched.push(sectionId);
         } else {
           failed.push(sectionId);
         }
       } catch (err) {
-        console.warn(`[enrichOracle] Glory pipeline failed for ${sectionId}:`, err instanceof Error ? err.message : err);
+        console.warn(`[enrichOracle] Sequence "${sequenceKey}" failed for ${sectionId}:`, err instanceof Error ? err.message : err);
         failed.push(sectionId);
       }
       continue;
