@@ -39,8 +39,8 @@ export { ALL_SEQUENCES, getSequence, getSequencesByFamily, getSequencesByPillar,
 export type { SequenceStepType, GlorySequenceFamily, GlorySequenceKey, SequenceStep, GlorySequenceDef } from "./sequences";
 
 // Sequence executor exports
-export { executeSequence, executeSequenceBatch, executeAllPillarSequences } from "./sequence-executor";
-export type { SequenceContext, StepResult, SequenceResult, SequenceProgressCallback } from "./sequence-executor";
+export { executeSequence, executeSequenceBatch, executeAllPillarSequences, scanSequence, scanAllSequences } from "./sequence-executor";
+export type { SequenceContext, StepResult, SequenceResult, SequenceProgressCallback, PreflightReport } from "./sequence-executor";
 
 // Pillar resolver exports
 export { PillarResolver } from "./pillar-resolver";

@@ -97,6 +97,20 @@ export const gloryRouter = createTRPCRouter({
       return gloryTools.executeSequence(input.sequenceKey as gloryTools.GlorySequenceKey, input.strategyId);
     }),
 
+  // ── Scan (pre-flight readiness, passive DB read) ──
+
+  scanSequence: protectedProcedure
+    .input(z.object({ strategyId: z.string(), sequenceKey: z.string() }))
+    .query(async ({ input }) => {
+      return gloryTools.scanSequence(input.sequenceKey as gloryTools.GlorySequenceKey, input.strategyId);
+    }),
+
+  scanAll: protectedProcedure
+    .input(z.object({ strategyId: z.string() }))
+    .query(async ({ input }) => {
+      return gloryTools.scanAllSequences(input.strategyId);
+    }),
+
   recommendSequences: protectedProcedure
     .input(z.object({ strategyId: z.string(), limit: z.number().optional() }))
     .query(async ({ input }) => {

@@ -372,6 +372,102 @@ async function loadFullStrategyContext(strategyId: string): Promise<SequenceCont
   return ctx;
 }
 
+// ─── Pre-flight Scan ─────────────────────────────────────────────────────────
+
+export interface PreflightReport {
+  sequenceKey: string;
+  totalBindings: number;
+  resolved: number;
+  missing: number;
+  /** Bindings that resolved to a non-empty value */
+  available: Array<{ step: string; field: string; path: string }>;
+  /** Bindings that resolved to empty/null — sequence can still run but output quality degrades */
+  gaps: Array<{ step: string; field: string; path: string }>;
+  /** Steps that have ALL bindings missing — these will produce garbage */
+  blockers: Array<{ step: string; missingFields: string[] }>;
+  /** Percentage of bindings satisfied (0-100) */
+  readiness: number;
+}
+
+/**
+ * Passive scan: check every pillarBinding of every GLORY step in a sequence.
+ * Single DB read (PillarResolver already loaded), zero AI calls.
+ * Returns a full report of what's available and what's missing.
+ */
+function preflightScan(seq: GlorySequenceDef, resolver: PillarResolver): PreflightReport {
+  const available: PreflightReport["available"] = [];
+  const gaps: PreflightReport["gaps"] = [];
+  const blockers: PreflightReport["blockers"] = [];
+
+  for (const step of seq.steps) {
+    if (step.type !== "GLORY" || step.status !== "ACTIVE") continue;
+
+    const tool = getGloryTool(step.ref);
+    if (!tool?.pillarBindings) continue;
+
+    const bindings = tool.pillarBindings;
+    const missingFields: string[] = [];
+
+    for (const [field, path] of Object.entries(bindings)) {
+      if (!path) continue;
+
+      if (resolver.has(path)) {
+        available.push({ step: step.ref, field, path });
+      } else {
+        gaps.push({ step: step.ref, field, path });
+        missingFields.push(field);
+      }
+    }
+
+    // If ALL bindings of a tool are missing, it's a blocker
+    const totalBindings = Object.keys(bindings).length;
+    if (totalBindings > 0 && missingFields.length === totalBindings) {
+      blockers.push({ step: step.ref, missingFields });
+    }
+  }
+
+  const total = available.length + gaps.length;
+  return {
+    sequenceKey: seq.key,
+    totalBindings: total,
+    resolved: available.length,
+    missing: gaps.length,
+    available,
+    gaps,
+    blockers,
+    readiness: total > 0 ? Math.round((available.length / total) * 100) : 100,
+  };
+}
+
+/**
+ * Public API: scan a sequence without executing it.
+ * Returns the full readiness report — which variables are available,
+ * which are missing, and which steps are blocked.
+ *
+ * This is a single DB read (loads all 8 pillars once), no AI calls.
+ */
+export async function scanSequence(
+  key: GlorySequenceKey,
+  strategyId: string,
+): Promise<PreflightReport> {
+  const seq = getSequence(key);
+  if (!seq) throw new Error(`Sequence inconnue: ${key}`);
+
+  const resolver = await PillarResolver.forStrategy(strategyId);
+  return preflightScan(seq, resolver);
+}
+
+/**
+ * Scan ALL 31 sequences for a strategy — full system readiness.
+ */
+export async function scanAllSequences(
+  strategyId: string,
+): Promise<PreflightReport[]> {
+  const resolver = await PillarResolver.forStrategy(strategyId);
+  const { ALL_SEQUENCES: seqs } = await import("./sequences");
+  return seqs.map((seq) => preflightScan(seq, resolver));
+}
+
 // ─── Main Executor ───────────────────────────────────────────────────────────
 
 /**
@@ -403,6 +499,16 @@ export async function executeSequence(
   // Layer 3 (ATOMIC): Create resolver for precise pillar variable extraction.
   // Loaded once, reused across all GLORY steps in the sequence.
   const resolver = await PillarResolver.forStrategy(strategyId);
+
+  // PRE-FLIGHT SCAN: check every pillarBinding of every GLORY step.
+  // This is a passive DB read (resolver is already loaded) — no AI calls.
+  // If critical bindings are missing, we know BEFORE executing.
+  const preflight = preflightScan(seq, resolver);
+  if (preflight.blockers.length > 0) {
+    // Don't abort — execute anyway but attach the scan report.
+    // Steps with missing bindings will use empty strings / fallbacks.
+    context._preflightScan = preflight;
+  }
 
   const stepResults: StepResult[] = [];
   const gloryOutputIds: string[] = [];

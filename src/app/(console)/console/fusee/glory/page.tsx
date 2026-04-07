@@ -9,7 +9,6 @@ import { Tabs } from "@/components/shared/tabs";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Modal } from "@/components/shared/modal";
 import { SkeletonPage } from "@/components/shared/loading-skeleton";
-import { useCurrentStrategyId, StrategySwitcher } from "@/components/cockpit/strategy-context";
 import {
   Wrench,
   Layers,
@@ -21,6 +20,9 @@ import {
   Cpu,
   FileText,
   Calculator,
+  Building2,
+  ChevronRight,
+  ArrowLeft,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -36,32 +38,7 @@ type GloryTool = {
   description: string;
 };
 
-type GlorySequence = {
-  key: string;
-  family: string;
-  name: string;
-  description: string;
-  pillar?: string;
-  steps: Array<{ type: string; ref: string; name: string; status: string }>;
-  aiPowered: boolean;
-  refined: boolean;
-};
-
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-const LAYER_COLORS: Record<string, string> = {
-  CR: "bg-blue-500",
-  DC: "bg-emerald-500",
-  HYBRID: "bg-purple-500",
-  BRAND: "bg-amber-500",
-};
-
-const LAYER_LABELS: Record<string, string> = {
-  CR: "Concepteur-Redacteur",
-  DC: "Direction Creation",
-  HYBRID: "Operations",
-  BRAND: "Identite Visuelle",
-};
 
 const LAYER_BADGE: Record<string, string> = {
   CR: "bg-blue-400/15 text-blue-400 ring-blue-400/30",
@@ -102,53 +79,38 @@ const STEP_TYPE_ICONS: Record<string, { label: string; color: string }> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function GloryPage() {
-  const [view, setView] = useState<"tools" | "sequences">("sequences");
+  const [view, setView] = useState<"overview" | "tools" | "catalogue">("overview");
   const [activeTab, setActiveTab] = useState("all");
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const [selectedSeqKey, setSelectedSeqKey] = useState<string | null>(null);
-  const strategyId = useCurrentStrategyId();
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
 
   const toolsQuery = trpc.glory.listAll.useQuery();
-  const historyQuery = trpc.glory.history.useQuery(
-    { strategyId: strategyId ?? "" },
-    { enabled: !!strategyId },
+  const strategiesQuery = trpc.strategy.list.useQuery({});
+
+  // Queue for selected strategy (drill-down)
+  const queueQuery = trpc.glory.queue.useQuery(
+    { strategyId: selectedStrategyId ?? "" },
+    { enabled: !!selectedStrategyId },
   );
 
-  // Queue & deliverables (operational data)
-  const queueQuery = trpc.glory.queue.useQuery(
-    { strategyId: strategyId ?? "" },
-    { enabled: !!strategyId },
-  );
   const executeMutation = trpc.glory.executeSequence.useMutation({
-    onSuccess: () => { queueQuery.refetch(); historyQuery.refetch(); },
+    onSuccess: () => { queueQuery.refetch(); },
   });
+
   const selectedToolQuery = trpc.glory.getBySlug.useQuery(
     { slug: selectedSlug ?? "" },
     { enabled: !!selectedSlug },
   );
 
   const allTools = (toolsQuery.data ?? []) as GloryTool[];
-  const history = (historyQuery.data ?? []) as unknown as Array<{
-    id: string; toolSlug: string; createdAt: string; status?: string;
+  const strategies = (strategiesQuery.data ?? []) as Array<{
+    id: string; name: string; status: string; advertis_vector: Record<string, number> | null;
   }>;
 
-  // Import sequences client-side (static data, no trpc needed)
-  // We'll use the trpc listAll which returns tools; sequences come from a separate endpoint or static import
-  // For now, derive sequence data from tool relationships
   const llmCount = allTools.filter((t) => t.executionType === "LLM").length;
   const composeCount = allTools.filter((t) => t.executionType === "COMPOSE").length;
   const calcCount = allTools.filter((t) => t.executionType === "CALC").length;
 
-  const todayExecutions = history.filter((h) => {
-    const d = new Date(h.createdAt);
-    return d.toDateString() === new Date().toDateString();
-  });
-
-  const successRate = history.length > 0
-    ? Math.round((history.filter((h) => h.status === "SUCCESS" || h.status === "COMPLETED").length / history.length) * 100)
-    : 0;
-
-  // Tab filtering for tools view
   const toolTabs = [
     { key: "all", label: "Tous", count: allTools.length },
     { key: "cr", label: "CR", count: allTools.filter((t) => t.layer === "CR").length },
@@ -157,9 +119,7 @@ export default function GloryPage() {
     { key: "brand", label: "BRAND", count: allTools.filter((t) => t.layer === "BRAND").length },
   ];
 
-  const tabFiltered = activeTab === "all"
-    ? allTools
-    : allTools.filter((t) => t.layer === activeTab.toUpperCase());
+  const tabFiltered = activeTab === "all" ? allTools : allTools.filter((t) => t.layer === activeTab.toUpperCase());
 
   if (toolsQuery.isLoading) return <SkeletonPage />;
 
@@ -167,7 +127,7 @@ export default function GloryPage() {
     <div className="space-y-6">
       <PageHeader
         title="GLORY Tools"
-        description={`${allTools.length} outils | 31 sequences | 4 familles — systeme de production creative ADVE-RTIS`}
+        description={`${allTools.length} outils | 31 sequences | 4 familles — superviseur global`}
         breadcrumbs={[
           { label: "Console", href: "/console" },
           { label: "Fusee" },
@@ -175,71 +135,87 @@ export default function GloryPage() {
         ]}
       />
 
-      {/* Strategy Selector */}
-      <StrategySwitcher />
-
-      {/* Stat Cards */}
+      {/* Global Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total outils" value={allTools.length} icon={Wrench} />
         <StatCard title="Sequences" value={31} icon={Link2} />
-        <StatCard title="Executions aujourd'hui" value={todayExecutions.length} icon={Play} />
-        <StatCard
-          title="Taux de succes"
-          value={history.length > 0 ? `${successRate} %` : "- %"}
-          icon={CheckCircle}
-        />
-      </div>
-
-      {/* Execution Type Breakdown */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {(["LLM", "COMPOSE", "CALC"] as const).map((exec) => {
-          const info = EXEC_BADGE[exec]!;
-          const count = exec === "LLM" ? llmCount : exec === "COMPOSE" ? composeCount : calcCount;
-          const Icon = info.icon;
-          return (
-            <div key={exec} className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800">
-                <Icon className="h-5 w-5 text-zinc-400" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-white">{count}</p>
-                <p className="text-xs text-zinc-500">{info!.label} — {exec === "LLM" ? "IA creative" : exec === "COMPOSE" ? "Compositing" : "Calcul"}</p>
-              </div>
-            </div>
-          );
-        })}
+        <StatCard title="Marques actives" value={strategies.filter((s) => s.status === "ACTIVE").length} icon={Building2} />
+        <StatCard title="Execution Types" value={`${llmCount} LLM / ${composeCount} COMP / ${calcCount} CALC`} icon={Layers} />
       </div>
 
       {/* View Toggle */}
       <div className="flex gap-2">
-        <button
-          onClick={() => setView("sequences")}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            view === "sequences" ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:text-white"
-          }`}
-        >
-          Sequences (31)
+        <button onClick={() => { setView("overview"); setSelectedStrategyId(null); }} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${view === "overview" ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:text-white"}`}>
+          Marques ({strategies.length})
         </button>
-        <button
-          onClick={() => setView("tools")}
-          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            view === "tools" ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:text-white"
-          }`}
-        >
+        <button onClick={() => setView("catalogue")} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${view === "catalogue" ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:text-white"}`}>
+          Catalogue (31 seq.)
+        </button>
+        <button onClick={() => setView("tools")} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${view === "tools" ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:text-white"}`}>
           Outils ({allTools.length})
         </button>
       </div>
 
-      {/* ═══ SEQUENCES VIEW (OPERATIONAL QUEUE) ═══ */}
-      {view === "sequences" && (
-        <div className="space-y-6">
-          {/* Live Queue (if strategy selected) */}
-          {strategyId && queueQuery.data && (
+      {/* ═══ OVERVIEW: Multi-brand queue ═══ */}
+      {view === "overview" && !selectedStrategyId && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+            Toutes les marques
+          </h3>
+          {strategies.length === 0 ? (
+            <EmptyState icon={Building2} title="Aucune marque" description="Aucune strategie trouvee." />
+          ) : (
+            <div className="space-y-2">
+              {strategies.map((s) => {
+                const vec = s.advertis_vector;
+                const composite = vec?.composite ?? 0;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedStrategyId(s.id)}
+                    className="flex w-full items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/80 p-4 text-left transition-colors hover:border-zinc-700"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Building2 className="h-5 w-5 text-violet-400" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-white">{s.name}</h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <StatusBadge status={s.status.toLowerCase()} />
+                          <span className="text-[10px] text-zinc-500">Score: {composite}/200</span>
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-zinc-600" />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ DRILL-DOWN: Queue for selected strategy ═══ */}
+      {view === "overview" && selectedStrategyId && (
+        <div className="space-y-4">
+          <button
+            onClick={() => setSelectedStrategyId(null)}
+            className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Retour aux marques
+          </button>
+
+          <h3 className="text-sm font-semibold text-white">
+            Queue : {strategies.find((s) => s.id === selectedStrategyId)?.name}
+          </h3>
+
+          {queueQuery.isLoading ? (
+            <p className="text-xs text-zinc-500">Chargement de la queue...</p>
+          ) : queueQuery.data ? (
             <div className="space-y-4">
-              {/* Queue stats */}
+              {/* Status counts */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {(["READY", "RUNNING", "BLOCKED", "DONE"] as const).map((status) => {
-                  const count = queueQuery.data.filter((q) => q.status === status).length;
+                  const count = queueQuery.data!.filter((q) => q.status === status).length;
                   const colors: Record<string, string> = { READY: "text-emerald-400", RUNNING: "text-blue-400", BLOCKED: "text-red-400", DONE: "text-zinc-500" };
                   return (
                     <div key={status} className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3 text-center">
@@ -250,12 +226,10 @@ export default function GloryPage() {
                 })}
               </div>
 
-              {/* Actionable sequences (READY) */}
+              {/* READY — launchable */}
               {queueQuery.data.filter((q) => q.status === "READY").length > 0 && (
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold text-emerald-400 uppercase tracking-wider">
-                    Pretes a lancer
-                  </h3>
+                  <h4 className="mb-2 text-xs font-semibold text-emerald-400 uppercase">Pretes a lancer</h4>
                   <div className="space-y-2">
                     {queueQuery.data.filter((q) => q.status === "READY").map((item) => (
                       <div key={item.sequenceKey} className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-zinc-900/80 p-4">
@@ -268,7 +242,7 @@ export default function GloryPage() {
                           <p className="text-[10px] text-zinc-600">{item.stepCount} steps ({item.aiSteps} AI)</p>
                         </div>
                         <button
-                          onClick={() => executeMutation.mutate({ strategyId: strategyId!, sequenceKey: item.sequenceKey })}
+                          onClick={() => executeMutation.mutate({ strategyId: selectedStrategyId, sequenceKey: item.sequenceKey })}
                           disabled={executeMutation.isPending}
                           className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
                         >
@@ -280,61 +254,50 @@ export default function GloryPage() {
                 </div>
               )}
 
-              {/* Blocked sequences */}
+              {/* BLOCKED */}
               {queueQuery.data.filter((q) => q.status === "BLOCKED").length > 0 && (
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold text-red-400 uppercase tracking-wider">
-                    Bloquees (prerequis manquants)
-                  </h3>
+                  <h4 className="mb-2 text-xs font-semibold text-red-400 uppercase">Bloquees</h4>
                   <div className="space-y-2">
                     {queueQuery.data.filter((q) => q.status === "BLOCKED").map((item) => (
                       <div key={item.sequenceKey} className="rounded-xl border border-red-500/20 bg-zinc-900/80 p-4 opacity-70">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-semibold text-white">{item.name}</h4>
+                          <h4 className="text-sm text-white">{item.name}</h4>
                           <span className="text-[10px] text-red-400">Bloque par: {item.blockedBy.join(", ")}</span>
                         </div>
-                        <p className="mt-0.5 text-xs text-zinc-500">{item.reason}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Completed sequences */}
+              {/* DONE */}
               {queueQuery.data.filter((q) => q.status === "DONE").length > 0 && (
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold text-zinc-500 uppercase tracking-wider">
+                  <h4 className="mb-2 text-xs font-semibold text-zinc-500 uppercase">
                     Completees ({queueQuery.data.filter((q) => q.status === "DONE").length})
-                  </h3>
+                  </h4>
                   <div className="space-y-2">
                     {queueQuery.data.filter((q) => q.status === "DONE").map((item) => (
-                      <div key={item.sequenceKey} className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-emerald-500" />
-                            <h4 className="text-sm text-zinc-400">{item.name}</h4>
-                          </div>
-                          <span className="text-[10px] text-zinc-600">
-                            {item.outputIds.length} outputs | {item.lastExecutedAt ? new Date(item.lastExecutedAt).toLocaleDateString("fr-FR") : "-"}
-                          </span>
+                      <div key={item.sequenceKey} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-emerald-500" />
+                          <span className="text-sm text-zinc-400">{item.name}</span>
                         </div>
+                        <span className="text-[10px] text-zinc-600">{item.outputIds.length} outputs</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
             </div>
-          )}
+          ) : null}
+        </div>
+      )}
 
-          {/* No strategy selected — show static catalogue */}
-          {!strategyId && (
-            <p className="text-sm text-zinc-500">Selectionnez une strategie pour voir la queue operationnelle.</p>
-          )}
-
-          {/* Static sequence catalogue (always visible below queue) */}
-          <div className="border-t border-zinc-800 pt-6">
-            <h3 className="mb-4 text-sm font-semibold text-zinc-400">Catalogue des 31 sequences</h3>
-          </div>
+      {/* ═══ CATALOGUE: Static 31 sequences ═══ */}
+      {view === "catalogue" && (
+        <div className="space-y-6">
           {(["PILLAR", "PRODUCTION", "STRATEGIC", "OPERATIONAL"] as const).map((family) => (
             <div key={family}>
               <h3 className="mb-3 text-sm font-semibold text-zinc-400 uppercase tracking-wider">
@@ -342,10 +305,7 @@ export default function GloryPage() {
               </h3>
               <div className="space-y-2">
                 {getStaticSequences(family).map((seq) => (
-                  <div
-                    key={seq.key}
-                    className={`rounded-xl border border-zinc-800 border-l-4 ${FAMILY_COLORS[family]} bg-zinc-900/80 p-4`}
-                  >
+                  <div key={seq.key} className={`rounded-xl border border-zinc-800 border-l-4 ${FAMILY_COLORS[family]} bg-zinc-900/80 p-4`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -361,25 +321,15 @@ export default function GloryPage() {
                               CALC
                             </span>
                           )}
-                          {seq.refined && (
-                            <span className="inline-flex rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 ring-1 ring-inset ring-emerald-400/30">
-                              AFFINE
-                            </span>
-                          )}
                         </div>
                         <p className="mt-1 text-xs text-zinc-400 line-clamp-2">{seq.description}</p>
-
-                        {/* Step chain visualization */}
                         <div className="mt-3 flex flex-wrap items-center gap-1">
-                          {seq.steps.map((step, i) => {
+                          {seq.steps.map((step: { type: string; name: string }, i: number) => {
                             const typeInfo = STEP_TYPE_ICONS[step.type] ?? { label: "?", color: "bg-zinc-600" };
                             return (
                               <div key={i} className="flex items-center gap-1">
                                 {i > 0 && <span className="text-zinc-600 text-[10px]">&rarr;</span>}
-                                <div
-                                  className={`flex h-5 w-5 items-center justify-center rounded text-[9px] font-bold text-white ${typeInfo.color}`}
-                                  title={`${step.type}: ${step.name}`}
-                                >
+                                <div className={`flex h-5 w-5 items-center justify-center rounded text-[9px] font-bold text-white ${typeInfo.color}`} title={`${step.type}: ${step.name}`}>
                                   {typeInfo.label}
                                 </div>
                               </div>
@@ -401,13 +351,12 @@ export default function GloryPage() {
       {view === "tools" && (
         <>
           <Tabs tabs={toolTabs} activeTab={activeTab} onChange={setActiveTab} />
-
           {tabFiltered.length === 0 ? (
             <EmptyState icon={Wrench} title="Aucun outil" description="Aucun outil GLORY trouve dans cette couche." />
           ) : (
             <div className="space-y-2">
               {tabFiltered.map((tool) => {
-                const execInfo = EXEC_BADGE[tool.executionType] ?? EXEC_BADGE["COMPOSE"]!;
+                const execInfo = EXEC_BADGE[tool.executionType] ?? EXEC_BADGE.COMPOSE;
                 return (
                   <div
                     key={tool.slug}
@@ -418,20 +367,14 @@ export default function GloryPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-semibold text-white">{tool.name}</h4>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${LAYER_BADGE[tool.layer] ?? ""}`}>
-                            {tool.layer}
-                          </span>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${execInfo!.color}`}>
-                            {execInfo!.label}
-                          </span>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${LAYER_BADGE[tool.layer] ?? ""}`}>{tool.layer}</span>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${execInfo.color}`}>{execInfo.label}</span>
                         </div>
                         <p className="mt-1 text-xs text-zinc-400 line-clamp-2">{tool.description}</p>
                         {tool.pillarKeys.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1">
                             {tool.pillarKeys.map((pk) => (
-                              <span key={pk} className="inline-flex rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400">
-                                {pk.toUpperCase()}
-                              </span>
+                              <span key={pk} className="inline-flex rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-400">{pk.toUpperCase()}</span>
                             ))}
                           </div>
                         )}
@@ -447,31 +390,20 @@ export default function GloryPage() {
       )}
 
       {/* Tool Detail Modal */}
-      <Modal
-        open={!!selectedSlug}
-        onClose={() => setSelectedSlug(null)}
-        title={selectedToolQuery.data?.name ?? selectedSlug ?? "Details"}
-        size="lg"
-      >
+      <Modal open={!!selectedSlug} onClose={() => setSelectedSlug(null)} title={selectedToolQuery.data?.name ?? selectedSlug ?? "Details"} size="lg">
         {selectedToolQuery.isLoading ? (
           <p className="text-sm text-zinc-500">Chargement...</p>
         ) : selectedToolQuery.data ? (() => {
           const t = selectedToolQuery.data;
-          const execInfo = EXEC_BADGE[t.executionType] ?? EXEC_BADGE["COMPOSE"]!;
+          const execInfo = EXEC_BADGE[t.executionType] ?? EXEC_BADGE.COMPOSE;
           return (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${LAYER_BADGE[t.layer] ?? ""}`}>
-                  {t.layer}
-                </span>
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${execInfo!.color}`}>
-                  {execInfo!.label}
-                </span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${LAYER_BADGE[t.layer] ?? ""}`}>{t.layer}</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${execInfo.color}`}>{execInfo.label}</span>
                 <span className="text-xs text-zinc-500">#{t.order} — {t.slug}</span>
               </div>
-
               <p className="text-sm text-zinc-400">{t.description}</p>
-
               {t.inputFields?.length > 0 && (
                 <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
                   <p className="mb-2 text-xs font-medium text-zinc-500">Champs d&apos;entree</p>
@@ -482,10 +414,9 @@ export default function GloryPage() {
                   </div>
                 </div>
               )}
-
               {t.pillarBindings && Object.keys(t.pillarBindings).length > 0 && (
                 <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
-                  <p className="mb-2 text-xs font-medium text-zinc-500">Bindings piliers (irrigation ADVE-RTIS)</p>
+                  <p className="mb-2 text-xs font-medium text-zinc-500">Irrigation ADVE-RTIS</p>
                   <div className="space-y-1">
                     {Object.entries(t.pillarBindings as Record<string, string>).map(([field, path]) => (
                       <div key={field} className="flex items-center gap-2 text-[11px]">
@@ -497,12 +428,10 @@ export default function GloryPage() {
                   </div>
                 </div>
               )}
-
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
                 <p className="mb-1 text-xs font-medium text-zinc-500">Format de sortie</p>
                 <p className="text-sm font-mono text-white">{t.outputFormat}</p>
               </div>
-
               {t.dependencies?.length > 0 && (
                 <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
                   <p className="mb-2 text-xs font-medium text-zinc-500">Dependances</p>
@@ -517,75 +446,47 @@ export default function GloryPage() {
           );
         })() : null}
       </Modal>
-
-      {/* Execution History */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Clock className="h-5 w-5 text-zinc-400" />
-          <h3 className="text-sm font-semibold text-white">Historique d&apos;execution</h3>
-        </div>
-        {!strategyId ? (
-          <p className="text-xs text-zinc-500">Selectionnez une strategie pour voir l&apos;historique.</p>
-        ) : historyQuery.isLoading ? (
-          <p className="text-xs text-zinc-500">Chargement...</p>
-        ) : history.length === 0 ? (
-          <EmptyState icon={Zap} title="Aucune execution" description="L&apos;historique des executions GLORY apparaitra ici." />
-        ) : (
-          <div className="space-y-2">
-            {history.slice(0, 20).map((h) => (
-              <div key={h.id} className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-2.5">
-                <div>
-                  <span className="text-sm text-white">{h.toolSlug}</span>
-                  <span className="ml-2 text-xs text-zinc-500">
-                    {new Date(h.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-                <StatusBadge status={h.status ?? "completed"} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
 
-// ─── Static sequence data (until trpc endpoint exists) ───────────────────────
-// This mirrors sequences.ts structure for client rendering
+// ─── Static sequence catalogue ───────────────────────────────────────────────
 
-function getStaticSequences(family: string): GlorySequence[] {
-  const all: GlorySequence[] = [
+type StaticSeq = { key: string; name: string; description: string; pillar?: string; aiPowered: boolean; steps: Array<{ type: string; name: string }> };
+
+function getStaticSequences(family: string): StaticSeq[] {
+  const all: StaticSeq[] = [
     // PILLAR
-    { key: "MANIFESTE-A", family: "PILLAR", name: "Le Manifeste", pillar: "a", description: "Document fondateur de l'Authenticite — ADN, archeytpe, prophetie, voix, manifeste redige.", steps: [{ type: "PILLAR", ref: "a", name: "Injection A", status: "ACTIVE" }, { type: "ARTEMIS", ref: "fw-01", name: "Archeologie", status: "ACTIVE" }, { type: "SESHAT", ref: "cultural", name: "Refs culturelles", status: "ACTIVE" }, { type: "GLORY", ref: "wordplay-cultural-bank", name: "Jeux de mots", status: "ACTIVE" }, { type: "GLORY", ref: "concept-generator", name: "Concepts", status: "ACTIVE" }, { type: "GLORY", ref: "tone-of-voice-designer", name: "Ton de voix", status: "ACTIVE" }, { type: "GLORY", ref: "claim-baseline-factory", name: "Claims", status: "ACTIVE" }, { type: "GLORY", ref: "manifesto-writer", name: "Manifeste", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "BRANDBOOK-D", family: "PILLAR", name: "Le Brandbook", pillar: "d", description: "Systeme visuel complet — identite, codes, guidelines.", steps: [{ type: "PILLAR", ref: "d", name: "Injection D", status: "ACTIVE" }, { type: "GLORY", ref: "semiotic-brand-analyzer", name: "Semiotique", status: "ACTIVE" }, { type: "GLORY", ref: "visual-landscape-mapper", name: "Paysage", status: "ACTIVE" }, { type: "GLORY", ref: "visual-moodboard-generator", name: "Moodboard", status: "ACTIVE" }, { type: "GLORY", ref: "photography-style-guide", name: "Photo", status: "ACTIVE" }, { type: "GLORY", ref: "chromatic-strategy-builder", name: "Chromatic", status: "ACTIVE" }, { type: "GLORY", ref: "typography-system-architect", name: "Typo", status: "ACTIVE" }, { type: "GLORY", ref: "logo-type-advisor", name: "Logo", status: "ACTIVE" }, { type: "GLORY", ref: "design-token-architect", name: "Tokens", status: "ACTIVE" }, { type: "GLORY", ref: "iconography-system-builder", name: "Icones", status: "ACTIVE" }, { type: "GLORY", ref: "motion-identity-designer", name: "Motion", status: "ACTIVE" }, { type: "GLORY", ref: "brand-guidelines-generator", name: "Guidelines", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "OFFRE-V", family: "PILLAR", name: "L'Offre Commerciale", pillar: "v", description: "Proposition de valeur, pricing, deck commercial.", steps: [{ type: "PILLAR", ref: "v", name: "Injection V", status: "ACTIVE" }, { type: "SESHAT", ref: "benchmarks", name: "Benchmarks", status: "ACTIVE" }, { type: "GLORY", ref: "value-proposition-builder", name: "Value Prop", status: "ACTIVE" }, { type: "GLORY", ref: "claim-baseline-factory", name: "Claims", status: "ACTIVE" }, { type: "CALC", ref: "pricing-strategy-advisor", name: "Pricing", status: "ACTIVE" }, { type: "GLORY", ref: "sales-deck-builder", name: "Deck", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "PLAYBOOK-E", family: "PILLAR", name: "Le Playbook Engagement", pillar: "e", description: "Communaute, content, rituels, parcours superfan.", steps: [{ type: "PILLAR", ref: "e", name: "Injection E", status: "ACTIVE" }, { type: "ARTEMIS", ref: "fw-07", name: "Touchpoints", status: "ACTIVE" }, { type: "ARTEMIS", ref: "fw-08", name: "Rituels", status: "ACTIVE" }, { type: "GLORY", ref: "community-playbook-generator", name: "Playbook", status: "ACTIVE" }, { type: "GLORY", ref: "superfan-journey-mapper", name: "Superfan", status: "ACTIVE" }, { type: "GLORY", ref: "engagement-rituals-designer", name: "Rituels", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "AUDIT-R", family: "PILLAR", name: "L'Audit Interne", pillar: "r", description: "Risques, conformite, vulnerabilites, mitigation.", steps: [{ type: "PILLAR", ref: "r", name: "Injection R", status: "ACTIVE" }, { type: "MESTOR", ref: "actualize-r", name: "RTIS R", status: "ACTIVE" }, { type: "ARTEMIS", ref: "fw-22", name: "Risk Matrix", status: "ACTIVE" }, { type: "GLORY", ref: "risk-matrix-builder", name: "Matrice", status: "ACTIVE" }, { type: "GLORY", ref: "crisis-communication-planner", name: "Crise", status: "ACTIVE" }, { type: "GLORY", ref: "compliance-checklist-generator", name: "Conformite", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "ETUDE-T", family: "PILLAR", name: "L'Etude de Marche", pillar: "t", description: "Intelligence marche, analyse concurrentielle, tendances.", steps: [{ type: "PILLAR", ref: "t", name: "Injection T", status: "ACTIVE" }, { type: "SESHAT", ref: "market", name: "Market Intel", status: "ACTIVE" }, { type: "ARTEMIS", ref: "fw-11", name: "Market Fit", status: "ACTIVE" }, { type: "GLORY", ref: "competitive-analysis-builder", name: "Concurrents", status: "ACTIVE" }, { type: "CALC", ref: "market-sizing-estimator", name: "TAM/SAM", status: "ACTIVE" }, { type: "GLORY", ref: "trend-radar-builder", name: "Tendances", status: "ACTIVE" }, { type: "GLORY", ref: "insight-synthesizer", name: "Insights", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "BRAINSTORM-I", family: "PILLAR", name: "Le Brainstorm 360", pillar: "i", description: "Ideation, architecture campagne, allocation ressources.", steps: [{ type: "PILLAR", ref: "i", name: "Injection I", status: "ACTIVE" }, { type: "MESTOR", ref: "actualize-i", name: "RTIS I", status: "ACTIVE" }, { type: "GLORY", ref: "ideation-workshop-facilitator", name: "Ideation", status: "ACTIVE" }, { type: "GLORY", ref: "concept-generator", name: "Concepts", status: "ACTIVE" }, { type: "GLORY", ref: "campaign-architecture-planner", name: "Architecture", status: "ACTIVE" }, { type: "CALC", ref: "resource-allocation-planner", name: "Ressources", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "ROADMAP-S", family: "PILLAR", name: "La Roadmap Strategique", pillar: "s", description: "Vision, objectifs, KPIs, jalons, gouvernance.", steps: [{ type: "PILLAR", ref: "s", name: "Injection S", status: "ACTIVE" }, { type: "MESTOR", ref: "actualize-s", name: "RTIS S", status: "ACTIVE" }, { type: "GLORY", ref: "strategic-diagnostic", name: "Diagnostic", status: "ACTIVE" }, { type: "GLORY", ref: "kpi-framework-builder", name: "KPIs", status: "ACTIVE" }, { type: "GLORY", ref: "milestone-roadmap-builder", name: "Roadmap", status: "ACTIVE" }], aiPowered: true, refined: false },
-
+    { key: "MANIFESTE-A", name: "Le Manifeste", pillar: "a", description: "ADN, archeytpe, prophetie, voix, manifeste.", steps: [{ type: "PILLAR", name: "A" }, { type: "ARTEMIS", name: "Archeo" }, { type: "SESHAT", name: "Refs" }, { type: "GLORY", name: "Mots" }, { type: "GLORY", name: "Concepts" }, { type: "GLORY", name: "Ton" }, { type: "GLORY", name: "Claims" }, { type: "GLORY", name: "Manifeste" }], aiPowered: true },
+    { key: "BRANDBOOK-D", name: "Le Brandbook", pillar: "d", description: "Systeme visuel complet.", steps: [{ type: "PILLAR", name: "D" }, { type: "GLORY", name: "Semio" }, { type: "GLORY", name: "Paysage" }, { type: "GLORY", name: "Mood" }, { type: "GLORY", name: "Photo" }, { type: "GLORY", name: "Chroma" }, { type: "GLORY", name: "Typo" }, { type: "GLORY", name: "Logo" }, { type: "GLORY", name: "Tokens" }, { type: "GLORY", name: "Icons" }, { type: "GLORY", name: "Motion" }, { type: "GLORY", name: "Guide" }], aiPowered: true },
+    { key: "OFFRE-V", name: "L'Offre Commerciale", pillar: "v", description: "Proposition de valeur, pricing, deck.", steps: [{ type: "PILLAR", name: "V" }, { type: "SESHAT", name: "Bench" }, { type: "GLORY", name: "ValProp" }, { type: "GLORY", name: "Claims" }, { type: "CALC", name: "Pricing" }, { type: "GLORY", name: "Deck" }], aiPowered: true },
+    { key: "PLAYBOOK-E", name: "Le Playbook Engagement", pillar: "e", description: "Communaute, rituels, superfan.", steps: [{ type: "PILLAR", name: "E" }, { type: "ARTEMIS", name: "Touch" }, { type: "ARTEMIS", name: "Rituels" }, { type: "GLORY", name: "Playbook" }, { type: "GLORY", name: "Superfan" }, { type: "GLORY", name: "Rituels" }], aiPowered: true },
+    { key: "AUDIT-R", name: "L'Audit Interne", pillar: "r", description: "Risques, conformite, mitigation.", steps: [{ type: "PILLAR", name: "R" }, { type: "MESTOR", name: "RTIS R" }, { type: "ARTEMIS", name: "Risk" }, { type: "GLORY", name: "Matrice" }, { type: "GLORY", name: "Crise" }, { type: "GLORY", name: "Conformite" }], aiPowered: true },
+    { key: "ETUDE-T", name: "L'Etude de Marche", pillar: "t", description: "Intelligence marche, tendances.", steps: [{ type: "PILLAR", name: "T" }, { type: "SESHAT", name: "Intel" }, { type: "ARTEMIS", name: "Fit" }, { type: "GLORY", name: "Concur" }, { type: "CALC", name: "TAM" }, { type: "GLORY", name: "Trends" }, { type: "GLORY", name: "Insights" }], aiPowered: true },
+    { key: "BRAINSTORM-I", name: "Le Brainstorm 360", pillar: "i", description: "Ideation, architecture, ressources.", steps: [{ type: "PILLAR", name: "I" }, { type: "MESTOR", name: "RTIS I" }, { type: "GLORY", name: "Ideation" }, { type: "GLORY", name: "Concepts" }, { type: "GLORY", name: "Archi" }, { type: "CALC", name: "Ressources" }], aiPowered: true },
+    { key: "ROADMAP-S", name: "La Roadmap Strategique", pillar: "s", description: "Vision, KPIs, jalons.", steps: [{ type: "PILLAR", name: "S" }, { type: "MESTOR", name: "RTIS S" }, { type: "GLORY", name: "Diagnostic" }, { type: "GLORY", name: "KPIs" }, { type: "GLORY", name: "Roadmap" }], aiPowered: true },
     // PRODUCTION
-    { key: "BRAND", family: "PRODUCTION", name: "Identite Visuelle", description: "Pipeline sequentiel 10 outils — semiotique aux guidelines.", steps: Array(10).fill(null).map((_, i) => ({ type: "GLORY", ref: `brand-${i}`, name: `Step ${i+1}`, status: "ACTIVE" })), aiPowered: true, refined: true },
-    { key: "KV", family: "PRODUCTION", name: "Key Visual", description: "Du concept au prompt AI image optimise.", steps: [{ type: "PILLAR", ref: "a+d", name: "Inject A+D", status: "ACTIVE" }, { type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "claim-baseline-factory", name: "Claim", status: "ACTIVE" }, { type: "GLORY", ref: "creative-evaluation-matrix", name: "Eval", status: "ACTIVE" }, { type: "GLORY", ref: "kv-art-direction-brief", name: "Brief DA", status: "ACTIVE" }, { type: "GLORY", ref: "kv-banana-prompt-generator", name: "Prompt", status: "ACTIVE" }, { type: "GLORY", ref: "kv-review-validator", name: "Validation", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "SPOT-VIDEO", family: "PRODUCTION", name: "Spot Video / TV", description: "Script, dialogues, storyboard, briefs prod.", steps: [{ type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "script-writer", name: "Script", status: "ACTIVE" }, { type: "GLORY", ref: "dialogue-writer", name: "Dialogues", status: "ACTIVE" }, { type: "GLORY", ref: "storyboard-generator", name: "Storyboard", status: "ACTIVE" }, { type: "GLORY", ref: "casting-brief-generator", name: "Casting", status: "ACTIVE" }, { type: "GLORY", ref: "music-sound-brief", name: "Son", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "SPOT-RADIO", family: "PRODUCTION", name: "Spot Radio", description: "Script, dialogues, voix off, son.", steps: [{ type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "script-writer", name: "Script", status: "ACTIVE" }, { type: "GLORY", ref: "voiceover-brief-generator", name: "Voix Off", status: "ACTIVE" }, { type: "GLORY", ref: "music-sound-brief", name: "Son", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "PRINT-AD", family: "PRODUCTION", name: "Annonce Presse", description: "Concept, claim, layout, body copy.", steps: [{ type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "claim-baseline-factory", name: "Claim", status: "ACTIVE" }, { type: "GLORY", ref: "print-ad-architect", name: "Layout", status: "ACTIVE" }, { type: "GLORY", ref: "long-copy-craftsman", name: "Copy", status: "ACTIVE" }, { type: "GLORY", ref: "brand-guardian-system", name: "Check", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "OOH", family: "PRODUCTION", name: "Affichage Exterieur", description: "Layout maitre + declinaisons multi-formats.", steps: [{ type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "print-ad-architect", name: "Layout", status: "ACTIVE" }, { type: "GLORY", ref: "format-declination-engine", name: "Formats", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "SOCIAL-POST", family: "PRODUCTION", name: "Post Social", description: "Copy plateforme + brand check.", steps: [{ type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "social-copy-engine", name: "Copy", status: "ACTIVE" }, { type: "GLORY", ref: "brand-guardian-system", name: "Check", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "NAMING", family: "PRODUCTION", name: "Naming", description: "Exploration, generation, evaluation, check legal.", steps: [{ type: "GLORY", ref: "semiotic-brand-analyzer", name: "Semiotique", status: "ACTIVE" }, { type: "GLORY", ref: "wordplay-cultural-bank", name: "Mots", status: "ACTIVE" }, { type: "GLORY", ref: "naming-generator", name: "Noms", status: "ACTIVE" }, { type: "GLORY", ref: "creative-evaluation-matrix", name: "Eval", status: "ACTIVE" }, { type: "GLORY", ref: "naming-legal-checker", name: "Legal", status: "ACTIVE" }], aiPowered: true, refined: false },
-
+    { key: "KV", name: "Key Visual", description: "Concept → prompt AI image.", steps: [{ type: "PILLAR", name: "A+D" }, { type: "GLORY", name: "Concept" }, { type: "GLORY", name: "Claim" }, { type: "GLORY", name: "Eval" }, { type: "GLORY", name: "Brief DA" }, { type: "GLORY", name: "Prompt" }, { type: "GLORY", name: "Valid" }], aiPowered: true },
+    { key: "SPOT-VIDEO", name: "Spot Video", description: "Script, storyboard, casting, son.", steps: [{ type: "GLORY", name: "Concept" }, { type: "GLORY", name: "Script" }, { type: "GLORY", name: "Dialogue" }, { type: "GLORY", name: "Storyboard" }, { type: "GLORY", name: "Casting" }, { type: "GLORY", name: "Son" }], aiPowered: true },
+    { key: "PRINT-AD", name: "Annonce Presse", description: "Claim, layout, body copy.", steps: [{ type: "GLORY", name: "Concept" }, { type: "GLORY", name: "Claim" }, { type: "GLORY", name: "Layout" }, { type: "GLORY", name: "Copy" }, { type: "GLORY", name: "Check" }], aiPowered: true },
+    { key: "SOCIAL-POST", name: "Post Social", description: "Copy + brand check.", steps: [{ type: "GLORY", name: "Concept" }, { type: "GLORY", name: "Copy" }, { type: "GLORY", name: "Check" }], aiPowered: true },
+    { key: "NAMING", name: "Naming", description: "Exploration → legal check.", steps: [{ type: "GLORY", name: "Semio" }, { type: "GLORY", name: "Mots" }, { type: "GLORY", name: "Noms" }, { type: "GLORY", name: "Eval" }, { type: "GLORY", name: "Legal" }], aiPowered: true },
     // STRATEGIC
-    { key: "CAMPAIGN-360", family: "STRATEGIC", name: "Campagne 360", description: "Brief, architecture, media, simulation.", steps: [{ type: "GLORY", ref: "brief-creatif-interne", name: "Brief", status: "ACTIVE" }, { type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "campaign-architecture-planner", name: "Archi", status: "ACTIVE" }, { type: "CALC", ref: "media-plan-builder", name: "Media", status: "ACTIVE" }, { type: "GLORY", ref: "digital-planner", name: "Digital", status: "ACTIVE" }, { type: "CALC", ref: "campaign-360-simulator", name: "Simulation", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "LAUNCH", family: "STRATEGIC", name: "Lancement", description: "Benchmark, brief, campagne, timeline.", steps: [{ type: "SESHAT", ref: "market", name: "Intel", status: "ACTIVE" }, { type: "GLORY", ref: "competitive-analysis-builder", name: "Concurrents", status: "ACTIVE" }, { type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "launch-timeline-planner", name: "Timeline", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "PITCH", family: "STRATEGIC", name: "Pitch", description: "Benchmark, brief, concept, pitch, presentation.", steps: [{ type: "GLORY", ref: "benchmark-reference-finder", name: "Refs", status: "ACTIVE" }, { type: "GLORY", ref: "concept-generator", name: "Concept", status: "ACTIVE" }, { type: "GLORY", ref: "pitch-architect", name: "Pitch", status: "ACTIVE" }, { type: "GLORY", ref: "credentials-deck-builder", name: "Credentials", status: "ACTIVE" }], aiPowered: true, refined: false },
-
+    { key: "CAMPAIGN-360", name: "Campagne 360", description: "Brief → simulation.", steps: [{ type: "GLORY", name: "Brief" }, { type: "GLORY", name: "Concept" }, { type: "GLORY", name: "Archi" }, { type: "CALC", name: "Media" }, { type: "GLORY", name: "Digital" }, { type: "CALC", name: "Simul" }], aiPowered: true },
+    { key: "LAUNCH", name: "Lancement", description: "Benchmark → timeline.", steps: [{ type: "SESHAT", name: "Intel" }, { type: "GLORY", name: "Concur" }, { type: "GLORY", name: "Concept" }, { type: "GLORY", name: "Timeline" }], aiPowered: true },
+    { key: "PITCH", name: "Pitch", description: "Benchmark → credentials.", steps: [{ type: "GLORY", name: "Refs" }, { type: "GLORY", name: "Concept" }, { type: "GLORY", name: "Pitch" }, { type: "GLORY", name: "Credentials" }], aiPowered: true },
     // OPERATIONAL
-    { key: "OPS", family: "OPERATIONAL", name: "Operations Production", description: "Budget, devis, vendor, approval.", steps: [{ type: "GLORY", ref: "production-budget-optimizer", name: "Budget", status: "ACTIVE" }, { type: "GLORY", ref: "devis-generator", name: "Devis", status: "ACTIVE" }, { type: "GLORY", ref: "vendor-brief-generator", name: "Vendor", status: "ACTIVE" }, { type: "GLORY", ref: "approval-workflow-manager", name: "Approval", status: "ACTIVE" }], aiPowered: false, refined: false },
-    { key: "EVAL", family: "OPERATIONAL", name: "Post-Campagne & Awards", description: "Resultats, ROI, evaluation, case.", steps: [{ type: "GLORY", ref: "post-campaign-reader", name: "Resultats", status: "ACTIVE" }, { type: "CALC", ref: "roi-calculator", name: "ROI", status: "ACTIVE" }, { type: "GLORY", ref: "creative-evaluation-matrix", name: "Eval", status: "ACTIVE" }, { type: "GLORY", ref: "award-case-builder", name: "Case", status: "ACTIVE" }], aiPowered: true, refined: false },
-    { key: "COST-SERVICE", family: "OPERATIONAL", name: "Cout du Service", description: "Taux horaire, CODB, marge par prestation.", steps: [{ type: "CALC", ref: "hourly-rate-calculator", name: "Taux", status: "ACTIVE" }, { type: "CALC", ref: "codb-calculator", name: "CODB", status: "ACTIVE" }, { type: "CALC", ref: "service-margin-analyzer", name: "Marges", status: "ACTIVE" }], aiPowered: false, refined: false },
-    { key: "PROFITABILITY", family: "OPERATIONAL", name: "Rentabilite", description: "P&L, rentabilite client, taux utilisation.", steps: [{ type: "CALC", ref: "project-pnl-calculator", name: "P&L", status: "ACTIVE" }, { type: "CALC", ref: "client-profitability-analyzer", name: "Client", status: "ACTIVE" }, { type: "CALC", ref: "utilization-rate-tracker", name: "Utilisation", status: "ACTIVE" }], aiPowered: false, refined: false },
+    { key: "OPS", name: "Operations", description: "Budget, devis, vendor, approval.", steps: [{ type: "GLORY", name: "Budget" }, { type: "GLORY", name: "Devis" }, { type: "GLORY", name: "Vendor" }, { type: "GLORY", name: "Approval" }], aiPowered: false },
+    { key: "EVAL", name: "Post-Campagne", description: "Resultats, ROI, case.", steps: [{ type: "GLORY", name: "Resultats" }, { type: "CALC", name: "ROI" }, { type: "GLORY", name: "Eval" }, { type: "GLORY", name: "Case" }], aiPowered: true },
+    { key: "COST-SERVICE", name: "Cout du Service", description: "Taux horaire, CODB, marges.", steps: [{ type: "CALC", name: "Taux" }, { type: "CALC", name: "CODB" }, { type: "CALC", name: "Marges" }], aiPowered: false },
+    { key: "PROFITABILITY", name: "Rentabilite", description: "P&L, client, utilisation.", steps: [{ type: "CALC", name: "P&L" }, { type: "CALC", name: "Client" }, { type: "CALC", name: "Utilisation" }], aiPowered: false },
   ];
-
-  return all.filter((s) => s.family === family);
+  const familyMap: Record<string, string[]> = {
+    PILLAR: ["MANIFESTE-A", "BRANDBOOK-D", "OFFRE-V", "PLAYBOOK-E", "AUDIT-R", "ETUDE-T", "BRAINSTORM-I", "ROADMAP-S"],
+    PRODUCTION: ["KV", "SPOT-VIDEO", "PRINT-AD", "SOCIAL-POST", "NAMING"],
+    STRATEGIC: ["CAMPAIGN-360", "LAUNCH", "PITCH"],
+    OPERATIONAL: ["OPS", "EVAL", "COST-SERVICE", "PROFITABILITY"],
+  };
+  const keys = familyMap[family] ?? [];
+  return all.filter((s) => keys.includes(s.key));
 }
