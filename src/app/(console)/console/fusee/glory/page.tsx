@@ -105,8 +105,14 @@ export default function GloryPage() {
   const executeMutation = trpc.glory.executeSequence.useMutation({
     onSuccess: () => { queueQuery.refetch(); scanQuery.refetch(); historyQuery2.refetch(); },
   });
+  const [autoError, setAutoError] = useState<string | null>(null);
   const autoCompleteMutation = trpc.glory.autoComplete.useMutation({
-    onSuccess: () => { queueQuery.refetch(); scanQuery.refetch(); },
+    onMutate: () => { setAutoError(null); },
+    onSuccess: (data) => {
+      if (data.status === "ERROR") setAutoError(`${data.pillarProcessed}: ${data.error}`);
+      queueQuery.refetch(); scanQuery.refetch();
+    },
+    onError: (err) => { setAutoError(err.message); },
   });
 
   // Index scan results by sequenceKey for fast lookup
@@ -222,6 +228,17 @@ export default function GloryPage() {
           <h3 className="text-sm font-semibold text-white">
             Queue : {strategies.find((s) => s.id === selectedStrategyId)?.name}
           </h3>
+
+          {/* Error banner */}
+          {autoError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold text-red-400">Erreur Auto-Complete</p>
+                <p className="text-[11px] text-red-300/80 mt-0.5">{autoError}</p>
+              </div>
+              <button onClick={() => setAutoError(null)} className="text-red-400 hover:text-red-300 text-sm">✕</button>
+            </div>
+          )}
 
           {queueQuery.isLoading ? (
             <p className="text-xs text-zinc-500">Chargement de la queue...</p>
