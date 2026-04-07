@@ -249,8 +249,9 @@ export default function GloryPage() {
                   const isDone = item.status === "DONE";
                   const isBlocked = item.status === "BLOCKED";
                   const isRunning = item.status === "RUNNING";
-                  // Client-side RUNNING detection: this specific sequence is being executed right now
+                  // Client-side per-sequence state detection
                   const isThisRunning = executeMutation.isPending && executeMutation.variables?.sequenceKey === item.sequenceKey;
+                  const isThisAutoCompleting = autoCompleteMutation.isPending && autoCompleteMutation.variables?.sequenceKey === item.sequenceKey;
 
                   // Border color based on state
                   const borderColor = isThisRunning
@@ -341,12 +342,10 @@ export default function GloryPage() {
                             <div className="flex gap-1.5">
                               <button
                                 onClick={() => autoCompleteMutation.mutate({ strategyId: selectedStrategyId!, sequenceKey: item.sequenceKey })}
-                                disabled={autoCompleteMutation.isPending}
+                                disabled={isThisAutoCompleting}
                                 className="flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500 disabled:opacity-50 transition-colors"
                               >
-                                {autoCompleteMutation.isPending && autoCompleteMutation.variables?.sequenceKey === item.sequenceKey
-                                  ? "Mestor..."
-                                  : `Auto (${scan.gaps.length})`}
+                                {isThisAutoCompleting ? "Mestor..." : `Auto (${scan.gaps.length})`}
                               </button>
                               <a
                                 href={`/cockpit/brand/edit?focus=${encodeURIComponent(scan.gaps.map((g) => g.path).join(","))}&from=glory&seq=${item.sequenceKey}`}
@@ -359,10 +358,10 @@ export default function GloryPage() {
                           )}
 
                           {/* Lancer / Forcer — when not running and not done */}
-                          {!isDone && !isBlocked && !isThisRunning && (
+                          {!isDone && !isBlocked && !isThisRunning && !isThisAutoCompleting && (
                             <button
                               onClick={() => executeMutation.mutate({ strategyId: selectedStrategyId!, sequenceKey: item.sequenceKey })}
-                              disabled={executeMutation.isPending}
+                              disabled={isThisRunning}
                               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
                                 readiness >= 60
                                   ? "bg-emerald-600 text-white hover:bg-emerald-500"
@@ -386,10 +385,10 @@ export default function GloryPage() {
                               </button>
                               <button
                                 onClick={() => executeMutation.mutate({ strategyId: selectedStrategyId!, sequenceKey: item.sequenceKey })}
-                                disabled={executeMutation.isPending}
-                                className="rounded-lg border border-zinc-800 px-3 py-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition-colors"
+                                disabled={isThisRunning}
+                                className="rounded-lg border border-zinc-800 px-3 py-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition-colors disabled:opacity-50"
                               >
-                                Relancer
+                                {isThisRunning ? "..." : "Relancer"}
                               </button>
                             </>
                           )}
