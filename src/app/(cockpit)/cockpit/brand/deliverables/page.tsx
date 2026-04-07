@@ -116,7 +116,7 @@ export default function BrandDeliverablesPage() {
           </h3>
           <div className="space-y-2">
             {complete.map((d) => {
-              const fmt = FORMAT_BADGE[d.format] ?? FORMAT_BADGE.JSON;
+              const fmt = (FORMAT_BADGE[d.format] ?? FORMAT_BADGE["JSON"])!;
               const FmtIcon = fmt.icon;
               return (
                 <div key={d.sequenceKey} className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-zinc-900/80 p-4">
@@ -166,7 +166,7 @@ export default function BrandDeliverablesPage() {
           </h3>
           <div className="space-y-2">
             {partial.map((d) => {
-              const fmt = FORMAT_BADGE[d.format] ?? FORMAT_BADGE.JSON;
+              const fmt = (FORMAT_BADGE[d.format] ?? FORMAT_BADGE["JSON"])!;
               return (
                 <div key={d.sequenceKey} className="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4">
                   <div className="flex items-center justify-between">

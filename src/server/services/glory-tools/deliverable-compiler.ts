@@ -144,7 +144,7 @@ export async function compileDeliverable(
     } else if (step.type === "ARTEMIS") {
       // Check FrameworkResult
       const fwResult = await db.frameworkResult.findFirst({
-        where: { strategyId, frameworkSlug: step.ref },
+        where: { strategyId, framework: { slug: step.ref } },
         orderBy: { createdAt: "desc" },
       });
       if (fwResult) {

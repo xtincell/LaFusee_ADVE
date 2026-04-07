@@ -331,7 +331,7 @@ export const tools: ToolDefinition[] = [
     }),
     handler: async (input) => {
       const { ALL_SEQUENCES, getSequencesByFamily } = await import("@/server/services/glory-tools");
-      const seqs = input.family ? getSequencesByFamily(input.family) : ALL_SEQUENCES;
+      const seqs = input.family ? getSequencesByFamily(input.family as never) : ALL_SEQUENCES;
       return {
         sequences: seqs.map((s) => ({
           key: s.key, family: s.family, name: s.name, description: s.description,
@@ -354,7 +354,7 @@ export const tools: ToolDefinition[] = [
     }),
     handler: async (input) => {
       const { executeSequence } = await import("@/server/services/glory-tools");
-      const result = await executeSequence(input.sequenceKey as any, input.strategyId);
+      const result = await executeSequence(input.sequenceKey as never, input.strategyId as string);
       return {
         sequenceKey: result.sequenceKey,
         status: result.status,
@@ -378,7 +378,7 @@ export const tools: ToolDefinition[] = [
     }),
     handler: async (input) => {
       const { getNextSequences } = await import("@/server/services/glory-tools");
-      const recs = await getNextSequences(input.strategyId, input.limit ?? 5);
+      const recs = await getNextSequences(input.strategyId as string, (input.limit ?? 5) as number);
       return { recommendations: recs };
     },
   },

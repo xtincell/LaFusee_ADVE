@@ -111,7 +111,7 @@ function serviceMarginAnalyzer(ctx: Ctx): Result {
   const prices = Array.isArray(pricesRaw) ? pricesRaw.map(Number) : [num(ctx, "price_per_service")];
   const names = Array.isArray(servicesRaw) ? servicesRaw.map((s: unknown) => typeof s === "object" && s !== null ? (s as Record<string, unknown>).nom ?? String(s) : String(s)) : ["Service"];
 
-  const analysis = names.map((name: string, i: number) => {
+  const analysis = (names as string[]).map((name: string, i: number) => {
     const h = hours[i] ?? hours[0] ?? 0;
     const p = prices[i] ?? prices[0] ?? 0;
     const cost = h * hourlyCost;

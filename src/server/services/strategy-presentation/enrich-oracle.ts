@@ -507,9 +507,10 @@ export async function enrichAllSections(strategyId: string): Promise<{
           // Dynamic import: executeSequence may not exist yet
           const gloryModule = await import("@/server/services/glory-tools");
           if ("executeSequence" in gloryModule && typeof gloryModule.executeSequence === "function") {
-            const seqResults = await gloryModule.executeSequence(strategyId, sequenceKey, {});
-            completed = seqResults.filter((r: { status: string }) => r.status === "COMPLETED").length;
-            total = seqResults.length;
+            const seqResult = await gloryModule.executeSequence(sequenceKey as never, strategyId);
+            const steps = (seqResult as { steps?: Array<{ status: string }> }).steps ?? [];
+            completed = steps.filter((r) => r.status === "SUCCESS").length;
+            total = steps.length;
           } else {
             throw new Error("executeSequence not yet available");
           }

@@ -168,7 +168,7 @@ async function executeMestorStep(
 
   // ref format: "actualize-r" → pillar key = "r"
   const pillarKey = ref.replace("actualize-", "");
-  const result = await actualizePillar(strategyId, pillarKey);
+  const result = await actualizePillar(strategyId, pillarKey as "A" | "D" | "E" | "V" | "I" | "T" | "R" | "S");
   return result ?? {};
 }
 
@@ -180,7 +180,7 @@ async function executeCalcStep(
   // Dynamic import — calculators may not exist yet (Phase 6)
   try {
     const calculators = await import("./calculators");
-    const calcFn = (calculators as Record<string, (ctx: SequenceContext) => Record<string, unknown>>)[ref];
+    const calcFn = (calculators as unknown as Record<string, (ctx: SequenceContext) => Record<string, unknown>>)[ref];
     if (calcFn) return calcFn(context);
   } catch {
     // calculators.ts not yet built — return empty
