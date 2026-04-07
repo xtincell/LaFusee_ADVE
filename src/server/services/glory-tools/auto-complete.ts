@@ -61,78 +61,90 @@ export async function autoCompleteGaps(
     };
   }
 
-  // 2. Group gaps by pillar
+  // 2. Group gaps by pillar — deduplicate to top-level field names
   const gapsByPillar: Record<string, string[]> = {};
   for (const gap of scan.gaps) {
     const pillarKey = gap.path.split(".")[0]!;
     if (!gapsByPillar[pillarKey]) gapsByPillar[pillarKey] = [];
-    // Extract the field name (first level after pillar key)
-    const fieldPath = gap.path.split(".").slice(1).join(".");
-    const topField = gap.path.split(".")[1]!; // Top-level field for accept
+    const topField = gap.path.split(".")[1]!;
     gapsByPillar[pillarKey].push(topField);
+  }
+  // Deduplicate fields per pillar
+  for (const key of Object.keys(gapsByPillar)) {
+    gapsByPillar[key] = [...new Set(gapsByPillar[key])];
   }
 
   const filled: AutoCompleteResult["filled"] = [];
   const errors: string[] = [];
 
-  // 3. Process ADVE pillars — generate recos + auto-accept gap fields
-  const advePillars = ["a", "d", "v", "e"] as const;
-  for (const pillarKey of advePillars) {
-    const gapFields = gapsByPillar[pillarKey];
-    if (!gapFields || gapFields.length === 0) continue;
+  // 3. Process ONE pillar at a time to avoid timeout
+  // Pick the pillar with the most gaps first (highest impact)
+  const pillarsByGapCount = Object.entries(gapsByPillar)
+    .sort(([, a], [, b]) => b.length - a.length);
 
-    const upperKey = pillarKey.toUpperCase() as "A" | "D" | "V" | "E";
+  // Process max 1 ADVE + 1 RTIS per call to keep response time under 30s
+  let adveProcessed = false;
+  let rtisProcessed = false;
 
-    try {
-      // Generate recommendations from Mestor (uses R+T insights)
-      const recoResult = await generateADVERecommendations(strategyId, upperKey);
+  for (const [pillarKey, gapFields] of pillarsByGapCount) {
+    if (gapFields.length === 0) continue;
 
-      if (recoResult.error) {
-        errors.push(`${upperKey}: ${recoResult.error}`);
-        continue;
-      }
+    const isADVE = ["a", "d", "v", "e"].includes(pillarKey);
+    const isRTIS = ["r", "t", "i", "s"].includes(pillarKey);
 
-      if (recoResult.recommendations.length === 0) {
-        errors.push(`${upperKey}: Mestor n'a pas pu generer de recommandations`);
-        continue;
-      }
+    // Only process 1 of each type per call
+    if (isADVE && adveProcessed) continue;
+    if (isRTIS && rtisProcessed) continue;
 
-      // Auto-accept only the fields that are in the gap list
-      const recoFields = recoResult.recommendations.map((r) => r.field);
-      const fieldsToAccept = [...new Set(gapFields)].filter((f) => recoFields.includes(f));
+    if (isADVE) {
+      const upperKey = pillarKey.toUpperCase() as "A" | "D" | "V" | "E";
+      try {
+        console.log(`[auto-complete] Generating ADVE recos for ${upperKey} (${gapFields.length} gaps)...`);
+        const recoResult = await generateADVERecommendations(strategyId, upperKey);
 
-      if (fieldsToAccept.length > 0) {
-        const applyResult = await applyAcceptedRecommendations(strategyId, upperKey, fieldsToAccept);
-        if (applyResult.error) {
-          errors.push(`${upperKey} apply: ${applyResult.error}`);
+        if (recoResult.error) {
+          errors.push(`${upperKey}: ${recoResult.error}`);
+        } else if (recoResult.recommendations.length === 0) {
+          errors.push(`${upperKey}: Mestor n'a pas pu generer de recommandations`);
         } else {
-          for (const field of fieldsToAccept) {
-            filled.push({ pillar: upperKey, field, source: "MESTOR_RECO" });
+          const recoFields = recoResult.recommendations.map((r) => r.field);
+          const fieldsToAccept = gapFields.filter((f) => recoFields.includes(f));
+
+          if (fieldsToAccept.length > 0) {
+            const applyResult = await applyAcceptedRecommendations(strategyId, upperKey, fieldsToAccept);
+            if (applyResult.error) {
+              errors.push(`${upperKey} apply: ${applyResult.error}`);
+            } else {
+              for (const field of fieldsToAccept) {
+                filled.push({ pillar: upperKey, field, source: "MESTOR_RECO" });
+              }
+            }
           }
         }
+        adveProcessed = true;
+      } catch (err) {
+        errors.push(`${upperKey}: ${err instanceof Error ? err.message : String(err)}`);
+        adveProcessed = true;
       }
-    } catch (err) {
-      errors.push(`${upperKey}: ${err instanceof Error ? err.message : String(err)}`);
     }
-  }
 
-  // 4. Process RTIS pillars — re-actualize via cascade
-  const rtisPillars = ["r", "t", "i", "s"] as const;
-  for (const pillarKey of rtisPillars) {
-    const gapFields = gapsByPillar[pillarKey];
-    if (!gapFields || gapFields.length === 0) continue;
-
-    try {
-      const result = await actualizePillar(strategyId, pillarKey.toUpperCase());
-      if (result.updated) {
-        for (const field of [...new Set(gapFields)]) {
-          filled.push({ pillar: pillarKey.toUpperCase(), field, source: "RTIS_CASCADE" });
+    if (isRTIS) {
+      const upperKey = pillarKey.toUpperCase();
+      try {
+        console.log(`[auto-complete] Actualizing RTIS pillar ${upperKey} (${gapFields.length} gaps)...`);
+        const result = await actualizePillar(strategyId, upperKey);
+        if (result.updated) {
+          for (const field of gapFields) {
+            filled.push({ pillar: upperKey, field, source: "RTIS_CASCADE" });
+          }
+        } else if (result.error) {
+          errors.push(`${upperKey}: ${result.error}`);
         }
-      } else if (result.error) {
-        errors.push(`${pillarKey.toUpperCase()}: ${result.error}`);
+        rtisProcessed = true;
+      } catch (err) {
+        errors.push(`${upperKey}: ${err instanceof Error ? err.message : String(err)}`);
+        rtisProcessed = true;
       }
-    } catch (err) {
-      errors.push(`${pillarKey.toUpperCase()}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
