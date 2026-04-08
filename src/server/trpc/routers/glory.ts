@@ -195,4 +195,86 @@ export const gloryRouter = createTRPCRouter({
       plannedSteps: gloryTools.getAllPlannedSteps().length,
     };
   }),
+
+  // ── Individual Output Viewing ──
+
+  /** Get a single GloryOutput by ID — full content */
+  getOutput: protectedProcedure
+    .input(z.object({ outputId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const output = await ctx.db.gloryOutput.findUnique({
+        where: { id: input.outputId },
+        select: {
+          id: true,
+          toolSlug: true,
+          output: true,
+          createdAt: true,
+          strategyId: true,
+        },
+      });
+      if (!output) return null;
+
+      // Resolve the tool name from registry
+      const tool = gloryTools.getGloryTool(output.toolSlug);
+      return {
+        id: output.id,
+        toolSlug: output.toolSlug,
+        toolName: tool?.name ?? output.toolSlug,
+        layer: tool?.layer ?? "UNKNOWN",
+        output: output.output as Record<string, unknown>,
+        createdAt: output.createdAt.toISOString(),
+      };
+    }),
+
+  /** Get all outputs for a specific sequence execution */
+  getSequenceOutputs: protectedProcedure
+    .input(z.object({ strategyId: z.string(), sequenceKey: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const seq = gloryTools.getSequence(input.sequenceKey as gloryTools.GlorySequenceKey);
+      if (!seq) return { sequenceKey: input.sequenceKey, outputs: [] };
+
+      // Get all glory steps in this sequence
+      const gloryStepSlugs = seq.steps
+        .filter(s => s.type === "GLORY" || s.type === "ARTEMIS")
+        .map(s => s.ref);
+
+      // Fetch the latest output for each tool slug
+      const outputs = await ctx.db.gloryOutput.findMany({
+        where: {
+          strategyId: input.strategyId,
+          toolSlug: { in: gloryStepSlugs },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          toolSlug: true,
+          output: true,
+          createdAt: true,
+        },
+      });
+
+      // Deduplicate: keep only the latest per toolSlug
+      const seen = new Set<string>();
+      const unique = outputs.filter(o => {
+        if (seen.has(o.toolSlug)) return false;
+        seen.add(o.toolSlug);
+        return true;
+      });
+
+      return {
+        sequenceKey: input.sequenceKey,
+        sequenceName: seq.name,
+        outputs: unique.map(o => {
+          const tool = gloryTools.getGloryTool(o.toolSlug);
+          return {
+            id: o.id,
+            toolSlug: o.toolSlug,
+            toolName: tool?.name ?? o.toolSlug,
+            layer: tool?.layer ?? "UNKNOWN",
+            output: o.output as Record<string, unknown>,
+            createdAt: o.createdAt.toISOString(),
+          };
+        }),
+      };
+    }),
 });

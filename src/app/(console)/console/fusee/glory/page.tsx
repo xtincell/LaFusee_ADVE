@@ -76,6 +76,138 @@ const STEP_TYPE_ICONS: Record<string, { label: string; color: string }> = {
   CALC: { label: "C", color: "bg-orange-500" },
 };
 
+// ─── Sequence Results Panel ──────────────────────────────────────────────────
+
+function SequenceResultsPanel({ strategyId, sequenceKey, outputIds }: { strategyId: string; sequenceKey: string; outputIds: string[] }) {
+  const [viewingOutputId, setViewingOutputId] = useState<string | null>(null);
+
+  const seqOutputs = trpc.glory.getSequenceOutputs.useQuery(
+    { strategyId, sequenceKey },
+    { enabled: !!strategyId && !!sequenceKey },
+  );
+
+  const singleOutput = trpc.glory.getOutput.useQuery(
+    { outputId: viewingOutputId ?? "" },
+    { enabled: !!viewingOutputId },
+  );
+
+  const outputs = seqOutputs.data?.outputs ?? [];
+
+  return (
+    <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-medium text-zinc-500">
+          {seqOutputs.data?.sequenceName ?? "Resultats"} — {outputs.length} output{outputs.length > 1 ? "s" : ""}
+        </p>
+      </div>
+
+      {seqOutputs.isLoading ? (
+        <p className="text-[10px] text-zinc-600 animate-pulse">Chargement des resultats...</p>
+      ) : outputs.length === 0 ? (
+        <p className="text-[10px] text-zinc-600">Aucun output enregistre.</p>
+      ) : (
+        <div className="space-y-1">
+          {outputs.map((o, i) => (
+            <button
+              key={o.id}
+              onClick={() => setViewingOutputId(viewingOutputId === o.id ? null : o.id)}
+              className={`w-full text-left flex items-center gap-2 rounded px-2.5 py-2 text-[11px] transition-colors ${
+                viewingOutputId === o.id
+                  ? "bg-violet-900/30 border border-violet-700/40"
+                  : "bg-zinc-900 hover:bg-zinc-800 border border-transparent"
+              }`}
+            >
+              <span className={`flex h-5 w-5 items-center justify-center rounded text-[9px] font-bold ${
+                o.layer === "CR" ? "bg-blue-500/20 text-blue-400" :
+                o.layer === "BRAND" ? "bg-amber-500/20 text-amber-400" :
+                "bg-purple-500/20 text-purple-400"
+              }`}>{i + 1}</span>
+              <span className="flex-1 text-zinc-300 truncate">{o.toolName}</span>
+              <span className="text-[9px] text-zinc-600 uppercase">{o.layer}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Detail viewer — shows full output content */}
+      {viewingOutputId && singleOutput.data && (
+        <div className="mt-3 rounded-lg border border-violet-800/30 bg-zinc-950 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="text-sm font-semibold text-violet-300">{singleOutput.data.toolName}</h4>
+              <p className="text-[10px] text-zinc-600">{singleOutput.data.toolSlug} — {singleOutput.data.layer} — {new Date(singleOutput.data.createdAt).toLocaleDateString("fr")}</p>
+            </div>
+            <button
+              onClick={() => {
+                const blob = new Blob([JSON.stringify(singleOutput.data!.output, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${singleOutput.data!.toolSlug}-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="rounded border border-zinc-700 px-2 py-1 text-[10px] text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
+            >
+              Telecharger JSON
+            </button>
+          </div>
+          <div className="max-h-96 overflow-y-auto rounded bg-zinc-900/80 p-3">
+            {renderOutputContent(singleOutput.data.output)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Render Glory output content as readable cards instead of raw JSON */
+function renderOutputContent(output: Record<string, unknown>) {
+  const entries = Object.entries(output).filter(([k]) => !k.startsWith("_"));
+
+  if (entries.length === 0) {
+    return <p className="text-[11px] text-zinc-600">Output vide</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {entries.map(([key, value]) => (
+        <div key={key}>
+          <p className="text-[10px] font-bold text-zinc-500 uppercase mb-1">{key.replace(/_/g, " ")}</p>
+          {typeof value === "string" ? (
+            <p className="text-[11px] text-zinc-300 whitespace-pre-wrap leading-relaxed">{value}</p>
+          ) : Array.isArray(value) ? (
+            <div className="space-y-1">
+              {(value as unknown[]).map((item, i) => (
+                <div key={i} className="rounded bg-zinc-800/50 px-2.5 py-1.5 text-[11px] text-zinc-300">
+                  {typeof item === "string" ? item : typeof item === "object" && item ? (
+                    <div className="space-y-0.5">
+                      {Object.entries(item as Record<string, unknown>).map(([k, v]) => (
+                        <div key={k}><span className="text-zinc-500">{k}:</span> <span>{String(v)}</span></div>
+                      ))}
+                    </div>
+                  ) : String(item)}
+                </div>
+              ))}
+            </div>
+          ) : typeof value === "object" && value !== null ? (
+            <div className="rounded bg-zinc-800/50 p-2.5 text-[11px] space-y-0.5">
+              {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
+                <div key={k} className="text-zinc-300">
+                  <span className="text-zinc-500">{k}:</span>{" "}
+                  <span>{typeof v === "string" ? v : JSON.stringify(v)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-zinc-300">{String(value)}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function GloryPage() {
@@ -523,30 +655,11 @@ export default function GloryPage() {
 
                       {/* Expanded results panel (DONE sequences) */}
                       {isDone && expandedSeq === item.sequenceKey && (
-                        <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
-                          <p className="mb-2 text-xs font-medium text-zinc-500">Outputs produits</p>
-                          {item.outputIds.length === 0 ? (
-                            <p className="text-[10px] text-zinc-600">Aucun output enregistre.</p>
-                          ) : (
-                            <div className="space-y-1">
-                              {item.outputIds.slice(0, 10).map((id) => (
-                                <div key={id} className="flex items-center gap-2 rounded bg-zinc-900 px-2.5 py-1.5 text-[11px]">
-                                  <CheckCircle className="h-3 w-3 text-emerald-500 shrink-0" />
-                                  <span className="font-mono text-zinc-400 truncate">{id}</span>
-                                </div>
-                              ))}
-                              {item.outputIds.length > 10 && (
-                                <p className="text-[10px] text-zinc-600">+{item.outputIds.length - 10} autres outputs</p>
-                              )}
-                            </div>
-                          )}
-                          <a
-                            href="/cockpit/brand/deliverables"
-                            className="mt-2 inline-flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300"
-                          >
-                            Ouvrir dans Livrables →
-                          </a>
-                        </div>
+                        <SequenceResultsPanel
+                          strategyId={selectedStrategyId!}
+                          sequenceKey={item.sequenceKey}
+                          outputIds={item.outputIds}
+                        />
                       )}
                     </div>
                   );
