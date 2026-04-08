@@ -10,6 +10,15 @@ import {
   DEVOTION_LEVELS, CHANNELS, TOUCHPOINT_TYPES, RITUAL_TYPES,
   MASLOW_LEVELS, PRODUCT_CATEGORIES, PRODUCT_LIFECYCLE, RISK_LEVELS,
 } from "./taxonomies";
+// Types from business-context used as documentation references in Zod comments
+// (Zod uses z.string() with runtime validation rather than TS-only enums)
+
+// ============================================================================
+// ENUMS PARTAGÉS (réutilisés dans les variables de transition)
+// ============================================================================
+
+const SALES_CHANNELS = ["DIRECT", "INTERMEDIATED", "HYBRID"] as const;
+const DATA_SOURCES = ["ai_estimate", "verified", "calculated", "operator_input"] as const;
 
 // ============================================================================
 // ATOMS RÉUTILISABLES (N1)
@@ -75,7 +84,20 @@ const CommunityLevelSchema = z.object({
 
 /** PILIER A COMPLET */
 export const PillarASchema = z.object({
-  // Identité
+  // ── Fondamentaux (migrés de Strategy — Chantier -1 §-1.2) ────────────
+  nomMarque: z.string().min(1),                           // Le nom de la marque
+  accroche: z.string().max(100).optional(),                // Phrase identitaire < 15 mots (pas le slogan pub de D)
+  description: z.string().min(1),                          // Ce que fait la marque, 2-3 phrases
+  secteur: z.string().min(1),                              // Secteur d'activité (FMCG, TECH, BANQUE, etc.)
+  pays: z.string().min(1),                                 // Pays/marché d'origine
+  brandNature: z.string().min(1).optional(),                // PRODUCT, SERVICE, FESTIVAL_IP, MEDIA_IP, etc. (BrandNatureKey)
+  langue: z.string().min(1).optional(),                    // Langue principale de la marque
+
+  // ── Transition A→D (exports que D consomme) ──────────────────────────
+  publicCible: z.string().min(1).optional(),               // Qui vise-t-on ? En 1 phrase. D détaille en personas.
+  promesseFondamentale: z.string().min(1).optional(),      // Croyance intime : "On croit que le monde devrait être X"
+
+  // ── Identité (existant) ──────────────────────────────────────────────
   archetype: z.enum(ARCHETYPES),
   archetypeSecondary: z.enum(ARCHETYPES).optional(),
   citationFondatrice: z.string().min(1),
@@ -225,6 +247,13 @@ const CompetitorSchema = z.object({
 
 /** PILIER D COMPLET */
 export const PillarDSchema = z.object({
+  // ── Transition A→D (pont archétype → expression) ─────────────────────
+  archetypalExpression: z.object({
+    visualTranslation: z.string().min(1).optional(),       // Comment l'archétype A se traduit visuellement
+    verbalTranslation: z.string().min(1).optional(),       // Comment il se traduit verbalement
+    emotionalRegister: z.string().min(1).optional(),       // Le registre émotionnel dérivé
+  }).optional(),
+
   // Personas (2-5)
   personas: z.array(PersonaSchema).min(2).max(5),
 
@@ -247,6 +276,8 @@ export const PillarDSchema = z.object({
 
   // Assets linguistiques
   assetsLinguistiques: z.object({
+    languePrincipale: z.string().min(1).optional(),          // Langue principale (FR, EN, AR, etc.)
+    languesSecondaires: z.array(z.string().min(1)).optional(),// Marchés multilingues (CM: FR/EN, MA: FR/AR)
     slogan: z.string().max(50).optional(),
     tagline: z.string().max(100).optional(),
     motto: z.string().min(1).max(150).optional(),
@@ -424,6 +455,26 @@ const UnitEconomicsSchema = z.object({
 
 /** PILIER V COMPLET */
 export const PillarVSchema = z.object({
+  // ── Fondamentaux économiques (migrés de Strategy.businessContext) ─────
+  businessModel: z.string().min(1).optional(),             // BusinessModelKey (PRODUCTION, DISTRIBUTION, etc.)
+  economicModels: z.array(z.string().min(1)).optional(),
+  positioningArchetype: z.string().min(1).optional(),      // PositioningArchetypeKey (ULTRA_LUXE, PREMIUM, etc.)
+  salesChannel: z.enum(SALES_CHANNELS).optional(),
+  freeLayer: z.object({
+    whatIsFree: z.string().min(1),
+    whatIsPaid: z.string().min(1),
+    conversionLever: z.string().min(1),
+  }).optional(),
+
+  // ── Transition D→V (pont positionnement → valeur) ────────────────────
+  pricingJustification: z.string().min(1).optional(),        // Pourquoi CE prix pour CE positionnement ?
+  personaSegmentMap: z.array(z.object({
+    personaName: z.string().min(1),                          // Ref D.personas[].name
+    productNames: z.array(z.string().min(1)),                // Ref V.produitsCatalogue[].nom
+    devotionLevel: z.enum(DEVOTION_LEVELS).optional(),       // Quel niveau Devotion ce persona peut atteindre
+    revenueContributionPct: z.number().min(0).max(100).optional(),
+  })).optional(),
+
   // Catalogue produits (1-50)
   produitsCatalogue: z.array(ProduitServiceSchema).min(1).max(50),
 
@@ -513,6 +564,49 @@ const KPISchema = z.object({
 
 /** PILIER E COMPLET */
 export const PillarESchema = z.object({
+  // ── Fondamentaux engagement (Chantier -1 §-1.2) ─────────────────────
+  promesseExperience: z.string().min(1).optional(),          // L'expérience que chaque interaction garantit
+  primaryChannel: z.enum(CHANNELS).optional(),               // Canal principal d'engagement (migré de Strategy)
+
+  // ── Superfan portrait (Chantier -1 §-1.2) ───────────────────────────
+  superfanPortrait: z.object({
+    personaRef: z.string().min(1).optional(),                // Ref D.personas[] — quel persona devient superfan
+    motivations: z.array(z.string().min(1)).optional(),      // Ce qui pousse au stade évangéliste
+    barriers: z.array(z.string().min(1)).optional(),         // Ce qui empêche la montée
+    profile: z.string().min(1).optional(),                   // Description du superfan idéal
+  }).optional(),
+
+  // ── Transitions V→E (pont offre → engagement) ───────────────────────
+  productExperienceMap: z.array(z.object({
+    productRef: z.string().min(1),                           // Ref V.produitsCatalogue[].nom
+    experienceDescription: z.string().min(1),
+    touchpointRefs: z.array(z.string().min(1)).optional(),   // Refs E.touchpoints
+    emotionalOutcome: z.string().min(1).optional(),
+  })).optional(),
+  ladderProductAlignment: z.array(z.object({
+    devotionLevel: z.enum(DEVOTION_LEVELS),
+    productTierRef: z.string().min(1).optional(),            // Ref V.productLadder[].tier
+    entryAction: z.string().min(1).optional(),               // Comment on entre à ce niveau
+    upgradeAction: z.string().min(1).optional(),             // Comment on monte au suivant
+  })).optional(),
+  channelTouchpointMap: z.array(z.object({
+    salesChannel: z.enum(SALES_CHANNELS),
+    touchpointRefs: z.array(z.string().min(1)),
+  })).optional(),
+
+  // ── Conversion mechanics (Chantier -1 §-1.2) ────────────────────────
+  conversionTriggers: z.array(z.object({
+    fromLevel: z.enum(DEVOTION_LEVELS),
+    toLevel: z.enum(DEVOTION_LEVELS),
+    trigger: z.string().min(1),                              // Ce qui déclenche la transition
+    channel: z.string().min(1).optional(),
+  })).optional(),
+  barriersEngagement: z.array(z.object({
+    level: z.enum(DEVOTION_LEVELS),
+    barrier: z.string().min(1),
+    mitigation: z.string().min(1).optional(),
+  })).optional(),
+
   // Touchpoints (5-15)
   touchpoints: z.array(TouchpointSchema).min(5).max(15),
 
@@ -602,6 +696,35 @@ const RiskEntrySchema = z.object({
 });
 
 export const PillarRSchema = z.object({
+  // ── Diagnostic ADVE (transition E→R) ─────────────────────────────────
+  pillarGaps: z.object({
+    a: z.object({ score: z.number().optional(), gaps: z.array(z.string()).optional() }).optional(),
+    d: z.object({ score: z.number().optional(), gaps: z.array(z.string()).optional() }).optional(),
+    v: z.object({ score: z.number().optional(), gaps: z.array(z.string()).optional() }).optional(),
+    e: z.object({ score: z.number().optional(), gaps: z.array(z.string()).optional() }).optional(),
+  }).optional(),
+  coherenceRisks: z.array(z.object({
+    pillar1: z.string().min(1),
+    pillar2: z.string().min(1),
+    field1: z.string().min(1),
+    field2: z.string().min(1),
+    contradiction: z.string().min(1),
+    severity: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  })).optional(),
+
+  // ── Overton blockers (Chantier -1 §-1.2 + §0.4) ────────────────────
+  overtonBlockers: z.array(z.object({
+    risk: z.string().min(1),
+    blockingPerception: z.string().min(1),                   // Quelle perception est bloquée
+    mitigation: z.string().min(1),
+    devotionLevelBlocked: z.enum(DEVOTION_LEVELS).optional(),// Quel niveau de la ladder est bloqué
+  })).optional(),
+  devotionVulnerabilities: z.array(z.object({
+    level: z.enum(DEVOTION_LEVELS),
+    churnCause: z.string().min(1),
+    mitigation: z.string().min(1).optional(),
+  })).optional(),
+
   // Micro-SWOTs par pilier (1 par pilier A/D/V/E)
   microSWOTs: z.record(SWOTQuadrantSchema).optional(),
 
@@ -661,6 +784,37 @@ const MarketDataSourceSchema = z.object({
 });
 
 export const PillarTSchema = z.object({
+  // ── Transition R→T (confrontation des risques au marché) ─────────────
+  riskValidation: z.array(z.object({
+    riskRef: z.string().min(1).optional(),                   // Ref R.probabilityImpactMatrix[i].risk
+    marketEvidence: z.string().min(1),
+    status: z.enum(["CONFIRMED", "DENIED", "UNKNOWN"]),
+    source: z.enum(DATA_SOURCES).optional(),
+  })).optional(),
+
+  // ── Fenêtre d'Overton mesurée (Chantier -1 §-1.2) ───────────────────
+  overtonPosition: z.object({
+    currentPerception: z.string().min(1),                    // Comment le marché perçoit la marque MAINTENANT
+    marketSegments: z.array(z.object({
+      segment: z.string().min(1),
+      perception: z.string().min(1),
+    })).optional(),
+    measurementMethod: z.string().min(1).optional(),
+    measuredAt: z.string().optional(),
+    confidence: z.number().min(0).max(1).optional(),
+  }).optional(),
+  perceptionGap: z.object({
+    currentPerception: z.string().min(1),                    // T.overtonPosition résumé
+    targetPerception: z.string().min(1),                     // A.prophecy + D.positionnement résumé
+    gapDescription: z.string().min(1),                       // L'écart — KPI d'entrée de S
+    gapScore: z.number().min(0).max(100).optional(),         // 0 = aucun écart, 100 = perception opposée
+  }).optional(),
+  competitorOvertonPositions: z.array(z.object({
+    competitorName: z.string().min(1),                       // Ref D.paysageConcurrentiel[].name
+    overtonPosition: z.string().min(1),
+    relativeToUs: z.enum(["AHEAD", "BEHIND", "PARALLEL", "DIVERGENT"]).optional(),
+  })).optional(),
+
   // Triangulation marché (4 méthodes)
   triangulation: z.object({
     customerInterviews: z.string().min(1).optional(),
@@ -683,11 +837,11 @@ export const PillarTSchema = z.object({
     weakSignals: z.array(textShort).min(2),
   }).optional(),
 
-  // TAM / SAM / SOM
+  // TAM / SAM / SOM (avec provenance — LOI 4)
   tamSamSom: z.object({
-    tam: z.object({ value: currency, description: textShort }),
-    sam: z.object({ value: currency, description: textShort }),
-    som: z.object({ value: currency, description: textShort }),
+    tam: z.object({ value: currency, description: textShort, source: z.enum(DATA_SOURCES).optional(), sourceRef: z.string().optional() }),
+    sam: z.object({ value: currency, description: textShort, source: z.enum(DATA_SOURCES).optional(), sourceRef: z.string().optional() }),
+    som: z.object({ value: currency, description: textShort, source: z.enum(DATA_SOURCES).optional(), sourceRef: z.string().optional() }),
   }),
 
   // Brand-Market Fit Score (0-100)
@@ -738,6 +892,8 @@ const PotentialActionSchema = z.object({
   format: textShort,
   objectif: textShort,
   pilierImpact: z.enum(["A", "D", "V", "E"]).optional(),
+  devotionImpact: z.enum(DEVOTION_LEVELS).optional(),        // Quel niveau de la Ladder cette action active
+  overtonShift: z.string().min(1).optional(),                // Comment cette action déplace la perception
 });
 
 /** N2 — Asset Produisible */
@@ -756,6 +912,42 @@ const PotentialActivationSchema = z.object({
 });
 
 export const PillarISchema = z.object({
+  // ── Transitions T→I (le potentiel guidé par la réalité marché) ───────
+  actionsByDevotionLevel: z.object({
+    SPECTATEUR: z.array(PotentialActionSchema).optional(),
+    INTERESSE: z.array(PotentialActionSchema).optional(),
+    PARTICIPANT: z.array(PotentialActionSchema).optional(),
+    ENGAGE: z.array(PotentialActionSchema).optional(),
+    AMBASSADEUR: z.array(PotentialActionSchema).optional(),
+    EVANGELISTE: z.array(PotentialActionSchema).optional(),
+  }).optional(),
+  actionsByOvertonPhase: z.array(z.object({
+    phase: z.string().min(1),                                // "early_adopters", "mainstream", "resistants"
+    actions: z.array(PotentialActionSchema),
+  })).optional(),
+  riskMitigationActions: z.array(z.object({
+    riskRef: z.string().min(1).optional(),                   // Ref R.probabilityImpactMatrix[i].risk
+    action: z.string().min(1),
+    canal: z.string().min(1).optional(),
+    expectedImpact: z.string().min(1).optional(),
+  })).optional(),
+  hypothesisTestActions: z.array(z.object({
+    hypothesisRef: z.string().min(1).optional(),             // Ref T.hypothesisValidation[i].hypothesis
+    testAction: z.string().min(1),
+    expectedOutcome: z.string().min(1).optional(),
+    cost: z.enum(["LOW", "MEDIUM", "HIGH"]).optional(),
+  })).optional(),
+
+  // ── Innovations produit/marque (Chantier -1 §-1.2) ──────────────────
+  innovationsProduit: z.array(z.object({
+    name: z.string().min(1),
+    type: z.enum(["EXTENSION_GAMME", "EXTENSION_MARQUE", "CO_BRANDING", "PIVOT", "DIVERSIFICATION"]),
+    description: z.string().min(1),
+    feasibility: z.enum(["HIGH", "MEDIUM", "LOW"]),
+    horizon: z.enum(["COURT", "MOYEN", "LONG"]),
+    devotionImpact: z.enum(DEVOTION_LEVELS).optional(),
+  })).optional(),
+
   // ── Catalogue d'actions par canal (le coeur de I) ─────────────────────
   catalogueParCanal: z.record(z.array(PotentialActionSchema)).optional(),
 
@@ -821,21 +1013,8 @@ export const PillarISchema = z.object({
     })).optional(),
   }).optional(),
 
-  // ── Legacy compat (kept for migration, will be deprecated) ────────────
-  sprint90Days: z.array(z.object({
-    action: z.string().min(1),
-    owner: textShort.optional(),
-    kpi: textShort.optional(),
-    priority: rank.optional(),
-    isRiskMitigation: z.boolean().optional(),
-  })).optional(),
-  annualCalendar: z.array(z.object({
-    name: textShort,
-    quarter: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
-    objective: textShort.optional(),
-    budget: currency.optional(),
-    drivers: z.array(z.enum(CHANNELS)).optional(),
-  })).optional(),
+  // sprint90Days et annualCalendar ont été déplacés dans le pilier S
+  // (S pioche dans I pour construire la roadmap — Chantier 0 §0.3)
 
   // ── Generation metadata ───────────────────────────────────────────────
   generationMeta: z.object({
@@ -849,28 +1028,22 @@ export const PillarISchema = z.object({
 // PILIER S — STRATÉGIE (planification temporalisée qui pioche dans I)
 // ============================================================================
 
-/** N2 — Action planifiee (choisie parmi I, avec owner + timeline) */
-const PlannedActionSchema = z.object({
-  action: z.string().min(1),
-  owner: textShort.optional(),
-  kpi: textShort,
-  priority: rank,
-  isRiskMitigation: z.boolean().optional(),
-});
-
 export const PillarSSchema = z.object({
-  // ── Fenetre d'Overton ─────────────────────────────────────────────────
+  // ── Fenetre d'Overton — LE CŒUR DE S (required, pas optional) ────────
   fenetreOverton: z.object({
-    perceptionActuelle: textMedium,
-    perceptionCible: textMedium,
-    ecart: textMedium,
+    perceptionActuelle: textMedium,                          // Déduit de T.overtonPosition
+    perceptionCible: textMedium,                             // Déduit de A.prophecy + D.positionnement
+    ecart: textMedium,                                       // Déduit de T.perceptionGap
     strategieDeplacement: z.array(z.object({
       etape: textShort,
       action: textShort,
       canal: textShort.optional(),
       horizon: textShort.optional(),
-    })).min(3).optional(),
-  }).optional(),
+      devotionTarget: z.enum(DEVOTION_LEVELS).optional(),    // Quel niveau Devotion cette étape cible
+      riskRef: z.string().optional(),                        // Ref R.overtonBlockers[i] mitigé
+      hypothesisRef: z.string().optional(),                  // Ref T.hypothesisValidation[i] validé
+    })).min(3),
+  }),
 
   // ── Vision & Axes ─────────────────────────────────────────────────────
   visionStrategique: textMedium.optional(),
@@ -885,12 +1058,21 @@ export const PillarSSchema = z.object({
   facteursClesSucces: z.array(textShort).min(3),
 
   // ── Sprint 90 jours (actions choisies PARMI I) ────────────────────────
-  sprint90Days: z.array(PlannedActionSchema).min(5),
+  sprint90Days: z.array(z.object({
+    action: z.string().min(1),
+    owner: textShort.optional(),
+    kpi: textShort,
+    priority: rank,
+    isRiskMitigation: z.boolean().optional(),
+    devotionImpact: z.enum(DEVOTION_LEVELS).optional(),      // Quel niveau Devotion cette action cible
+    sourceRef: z.string().optional(),                        // Ref I.catalogueParCanal path d'où vient l'action
+  })).min(5),
 
-  // ── Roadmap (jalons temporels) ────────────────────────────────────────
+  // ── Roadmap orientée superfan (jalons temporels) ──────────────────────
   roadmap: z.array(z.object({
     phase: textShort,
     objectif: textShort,
+    objectifDevotion: z.string().min(1).optional(),          // Ex: "spectateur → intéressé"
     actions: z.array(textShort).optional(),
     budget: currency.optional(),
     duree: textShort.optional(),
@@ -925,6 +1107,45 @@ export const PillarSSchema = z.object({
 
   // ── Score de coherence ────────────────────────────────────────────────
   coherenceScore: z.number().min(0).max(100).optional(),
+
+  // ── Transitions I→S (traçabilité + objectifs Devotion) ────────────────
+  selectedFromI: z.array(z.object({
+    sourceRef: z.string().min(1),                            // Path dans I (ex: "catalogueParCanal.DIGITAL[3]")
+    action: z.string().min(1),
+    phase: z.string().min(1).optional(),                     // Phase roadmap où l'action est planifiée
+    priority: rank.optional(),
+  })).optional(),
+  rejectedFromI: z.array(z.object({
+    sourceRef: z.string().min(1),
+    reason: z.string().min(1),                               // Pourquoi pas maintenant
+  })).optional(),
+  devotionFunnel: z.array(z.object({
+    phase: z.string().min(1),                                // Phase roadmap
+    spectateurs: z.number().optional(),
+    interesses: z.number().optional(),
+    participants: z.number().optional(),
+    engages: z.number().optional(),
+    ambassadeurs: z.number().optional(),
+    evangelistes: z.number().optional(),
+  })).optional(),
+  overtonMilestones: z.array(z.object({
+    phase: z.string().min(1),
+    currentPerception: z.string().min(1),
+    targetPerception: z.string().min(1),
+    measurementMethod: z.string().min(1).optional(),
+  })).optional(),
+  budgetByDevotion: z.object({
+    acquisition: currency.optional(),                        // Budget pour spectateur → intéressé
+    conversion: currency.optional(),                         // Budget pour intéressé → participant
+    retention: currency.optional(),                          // Budget pour participant → engagé
+    evangelisation: currency.optional(),                      // Budget pour engagé → ambassadeur/évangéliste
+  }).optional(),
+  northStarKPI: z.object({
+    name: z.string().min(1),                                 // Ex: "Progression Devotion Ladder"
+    target: z.string().min(1),
+    frequency: z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY"]),
+    currentValue: z.string().optional(),
+  }).optional(),
 
   // ── Legacy compat ─────────────────────────────────────────────────────
   recommandationsPrioritaires: z.array(z.object({

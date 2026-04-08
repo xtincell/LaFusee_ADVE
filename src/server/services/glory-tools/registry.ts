@@ -38,7 +38,7 @@ export type GloryToolStatus = "ACTIVE" | "PLANNED";
  * Path format: "pillarKey.fieldPath" using dot notation.
  * Examples:
  *   "a.archetype"              → pillar A, field archetype
- *   "a.tonDeVoix.personnalite" → pillar A, tonDeVoix.personnalite array
+ *   "d.tonDeVoix.personnalite" → pillar D, tonDeVoix.personnalite array
  *   "d.promesseMaitre"         → pillar D, promesse maître
  *   "r.globalSwot.strengths"   → pillar R, SWOT strengths
  *   "t.tamSamSom.tam.value"    → pillar T, TAM numeric value
@@ -270,9 +270,9 @@ Pour chaque épisode : titre, hook, contenu, cliffhanger, CTA.`,
     description: "Génère des jeux de mots et références culturelles contextuelles",
     inputFields: ["brand_name", "market", "cultural_context", "language"],
     pillarBindings: {
-      brand_name: "a.noyauIdentitaire",
+      brand_name: "a.nomMarque",
       cultural_context: "a.doctrine.dogmas",
-      market: "t.triangulation.som",
+      market: "a.pays",
       language: "d.assetsLinguistiques.languePrincipale",
     },
     outputFormat: "wordplay_bank",
@@ -917,7 +917,7 @@ Livrable : familles, hiérarchie, échelle, line-height, letter-spacing, web/pri
     description: "Guide la conception du logotype",
     inputFields: ["brand_name", "brand_values", "typography_system", "chromatic_strategy"],
     pillarBindings: {
-      brand_name: "a.noyauIdentitaire",
+      brand_name: "a.nomMarque",
       brand_values: "a.valeurs",
       typography_system: "d.directionArtistique.typographySystem",
       chromatic_strategy: "d.directionArtistique.chromaticStrategy",
@@ -1663,7 +1663,7 @@ Livrable : KPIs par axe (leading + lagging), source de données, fréquence (dai
     pillarBindings: {
       roadmap: "s.roadmap",
       sprint_90: "s.sprint90Days",
-      annual_calendar: "i.annualCalendar",
+      annual_calendar: "s.roadmap",
       budget: "s.globalBudget",
       team: "s.teamStructure",
     },
@@ -2097,7 +2097,7 @@ Livrable : structure deck (10-12 slides), pitch agence (1 slide), méthodologie 
       sacred_calendar: "e.sacredCalendar",
       rituals: "e.rituels",
       brand_values: "a.valeurs",
-      annual_calendar: "i.annualCalendar",
+      annual_calendar: "s.roadmap",
     },
     outputFormat: "seasonal_themes",
     promptTemplate: `Thèmes saisonniers :

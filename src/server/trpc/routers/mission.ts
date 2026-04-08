@@ -87,6 +87,13 @@ export const missionRouter = createTRPCRouter({
         // 1. Auto-trigger tier evaluation for the assigned creator
         if (updated.assigneeId) {
           evaluateCreator(updated.assigneeId).catch((err) => { console.warn("[tier-evaluator] creator evaluation failed:", err instanceof Error ? err.message : err); });
+
+          // 1b. Chantier 6 — Recalculate talent ADVE vector
+          import("@/server/services/talent-engine").then(({ recalculateTalentVector }) => {
+            recalculateTalentVector(updated.assigneeId!).catch((err) => {
+              console.warn("[talent-engine] vector recalc failed:", err instanceof Error ? err.message : err);
+            });
+          }).catch(() => {});
         }
 
         // 2. Capture knowledge from mission outcome

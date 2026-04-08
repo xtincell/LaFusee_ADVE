@@ -91,17 +91,23 @@ async function executePillarStep(
  * These are resolved ONCE per sequence and injected as Layer 0.
  */
 const GLOBAL_BINDINGS: Record<string, string> = {
-  sector: "t.triangulation.competitiveAnalysis",
-  market: "t.triangulation.som",
+  // Fondamentaux marque (maintenant dans les piliers — Chantier -1)
+  brand_name: "a.nomMarque",
+  sector: "a.secteur",
+  market: "a.pays",
+  language: "d.assetsLinguistiques.languePrincipale",
+  // Canaux & engagement
   platforms: "e.touchpoints",
   platform: "e.touchpoints",
   channel: "e.touchpoints",
   channels: "e.touchpoints",
   usage_contexts: "d.directionArtistique",
   frequency: "e.kpis",
+  // Planification
   deadline: "s.roadmap",
   timeline: "s.roadmap",
   references: "d.directionArtistique.moodboard",
+  // Intelligence
   campaign_results: "t.traction",
   hourly_cost: "v.unitEconomics",
 };

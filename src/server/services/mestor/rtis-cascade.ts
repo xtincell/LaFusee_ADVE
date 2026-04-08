@@ -17,7 +17,8 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
 import { db } from "@/lib/db";
 import { PILLAR_SCHEMAS, type PillarKey } from "@/lib/types/pillar-schemas";
-import { scoreAllPillarsSemantic } from "@/server/services/advertis-scorer/semantic";
+import { scoreObject } from "@/server/services/advertis-scorer";
+import type { AdvertisVector } from "@/lib/types/advertis-vector";
 import { Prisma } from "@prisma/client";
 import { runMarketIntelligence } from "@/server/services/market-intelligence";
 
@@ -41,12 +42,8 @@ async function savePillar(strategyId: string, key: string, content: Record<strin
 }
 
 async function recalcScores(strategyId: string) {
-  const pillars = await db.pillar.findMany({ where: { strategyId } });
-  const result = scoreAllPillarsSemantic(pillars.map((p) => ({ key: p.key, content: p.content })));
-  const vec: Record<string, number> = { composite: result.composite };
-  for (const ps of result.pillarScores) vec[ps.pillarKey.toLowerCase()] = ps.score;
-  await db.strategy.update({ where: { id: strategyId }, data: { advertis_vector: vec as Prisma.InputJsonValue } });
-  return result;
+  // Chantier 2: unified scorer — scoreObject handles persist + snapshot internally
+  return scoreObject("strategy", strategyId);
 }
 
 async function callLLM(system: string, prompt: string, strategyId?: string): Promise<string> {
@@ -75,15 +72,10 @@ async function callLLM(system: string, prompt: string, strategyId?: string): Pro
   return text;
 }
 
+// Re-export robust extractJSON from shared utils (Chantier 10)
+import { extractJSON as _extractJSON } from "@/server/services/utils/llm";
 function extractJSON(text: string): Record<string, unknown> {
-  // Try to find JSON block in response (objects or arrays)
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)```/)
-    ?? text.match(/(\[[\s\S]*\])/)
-    ?? text.match(/(\{[\s\S]*\})/);
-  if (!jsonMatch) throw new Error("No JSON found in LLM response");
-  const raw = jsonMatch[1] ?? jsonMatch[0];
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return JSON.parse(raw.trim());
+  return _extractJSON(text) as Record<string, unknown>;
 }
 
 function serializePillar(key: string, content: unknown): string {
@@ -349,7 +341,7 @@ export interface FieldRecommendation {
 export type ActualizeResult = {
   pillarKey: string;
   updated: boolean;
-  scoreResult?: ReturnType<typeof scoreAllPillarsSemantic>;
+  scoreResult?: AdvertisVector;
   maturityStage?: string;
   maturityCompletionPct?: number;
   maturityMissing?: string[];
@@ -726,7 +718,7 @@ export async function runRTISCascade(
   options: { updateADVE?: boolean; skipT?: boolean } = {},
 ): Promise<{
   results: ActualizeResult[];
-  finalScore?: ReturnType<typeof scoreAllPillarsSemantic>;
+  finalScore?: AdvertisVector;
 }> {
   const results: ActualizeResult[] = [];
 

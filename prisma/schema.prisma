@@ -27,6 +27,24 @@ enum LicenseType {
   TRIAL
 }
 
+// Chantier 5 — Type d'agence dans le réseau UPgraders
+enum AgencyType {
+  HOLDING              // UPgraders — l'entité mère
+  COMMUNICATION        // Agence conseil en communication
+  RELATIONS_PUBLIQUES
+  MEDIA_BUYING
+  DIGITAL
+  EVENEMENTIEL
+  PRODUCTION
+  CUSTOM
+}
+
+enum AllocationRole {
+  LEAD        // Agence principale, ownership stratégique
+  SUPPORT     // Agence d'appui sur un scope précis
+  SPECIALIST  // Spécialiste ponctuel (production, événement)
+}
+
 enum GuildTier {
   APPRENTI
   COMPAGNON
@@ -431,12 +449,41 @@ model Operator {
   maxBrands      Int            @default(50)
   commissionRate Float          @default(0.10)
 
+  // Chantier 5 — Type et spécialisation
+  agencyType      AgencyType     @default(COMMUNICATION)
+  specializations String[]       @default([])
+
+  // Chantier 5 — Hiérarchie (UPgraders = null = racine)
+  parentId        String?
+  parent          Operator?      @relation("OperatorHierarchy", fields: [parentId], references: [id])
+  children        Operator[]     @relation("OperatorHierarchy")
+
   users      User[]
   strategies Strategy[]
   clients    Client[]
+  clientAllocations ClientAllocation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Chantier 5 — Allocation client multi-agences
+model ClientAllocation {
+  id          String         @id @default(cuid())
+  clientId    String
+  operatorId  String
+  role        AllocationRole @default(LEAD)
+  scope       String[]       @default([])  // ["BRANDING", "SOCIAL_MEDIA", "PR", ...]
+  startDate   DateTime       @default(now())
+  endDate     DateTime?
+
+  client      Client         @relation(fields: [clientId], references: [id])
+  operator    Operator       @relation(fields: [operatorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, operatorId])
 }
 
 model Client {
@@ -454,6 +501,7 @@ model Client {
 
   operator   Operator   @relation(fields: [operatorId], references: [id])
   strategies Strategy[]
+  allocations ClientAllocation[]  // Chantier 5 — multi-agence
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

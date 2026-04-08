@@ -31,7 +31,7 @@ import { createTRPCRouter, protectedProcedure, operatorProcedure } from "../init
 import * as pillarVersioning from "@/server/services/pillar-versioning";
 import { PILLAR_SCHEMAS, validatePillarContent, validatePillarPartial, type PillarKey } from "@/lib/types/pillar-schemas";
 import { validateCrossReferences, getCrossRefSummary } from "@/server/services/cross-validator";
-import { scorePillarSemantic, scoreAllPillarsSemantic } from "@/server/services/advertis-scorer/semantic";
+import { scoreObject } from "@/server/services/advertis-scorer";
 import { propagateFromPillar } from "@/server/services/staleness-propagator";
 import { triggerNextStageFrameworks } from "@/server/services/artemis";
 import {
@@ -55,7 +55,7 @@ export const pillarRouter = createTRPCRouter({
       if (!pillar) return { pillar: null, validation: null, score: null };
 
       const validation = validatePillarPartial(input.key, pillar.content);
-      const score = scorePillarSemantic(input.key, pillar.content);
+      const score = validatePillarPartial(input.key, pillar.content);
 
       return { pillar, validation, score };
     }),
@@ -71,12 +71,11 @@ export const pillarRouter = createTRPCRouter({
         const pillar = pillars.find((p) => p.key.toUpperCase() === key);
         if (pillar) {
           const validation = validatePillarPartial(key as PillarKey, pillar.content);
-          const semanticScore = scorePillarSemantic(key as PillarKey, pillar.content);
           map[key] = {
             content: pillar.content,
             commentary: pillar.commentary,
             completion: validation.completionPercentage,
-            score: semanticScore.score,
+            score: validation.completionPercentage / 4, // Approx /25 from completion %
             errors: validation.errors?.length ?? 0,
             validationStatus: pillar.validationStatus ?? "DRAFT",
           };
@@ -122,19 +121,8 @@ export const pillarRouter = createTRPCRouter({
       // Trigger staleness propagation
       await propagateFromPillar(input.strategyId, input.key).catch((err) => { console.warn("[staleness] propagation failed:", err instanceof Error ? err.message : err); });
 
-      // Recalculate score
-      const allPillars = await ctx.db.pillar.findMany({ where: { strategyId: input.strategyId } });
-      const scoreResult = await scoreAllPillarsSemantic(allPillars.map((p) => ({ key: p.key, content: p.content })));
-
-      // Update strategy's advertis_vector
-      const vec: Record<string, number> = { composite: scoreResult.composite };
-      for (const ps of scoreResult.pillarScores) {
-        vec[ps.pillarKey.toLowerCase()] = ps.score;
-      }
-      await ctx.db.strategy.update({
-        where: { id: input.strategyId },
-        data: { advertis_vector: vec as Prisma.InputJsonValue },
-      });
+      // Recalculate score via unified scorer (Chantier 2)
+      const scoreResult = await scoreObject("strategy", input.strategyId).catch(() => null);
 
       return { success: true, score: scoreResult };
     }),
@@ -167,18 +155,8 @@ export const pillarRouter = createTRPCRouter({
         create: { strategyId: input.strategyId, key: input.key.toLowerCase(), content: merged as Prisma.InputJsonValue, confidence: 0.5 },
       });
 
-      // Recalculate score
-      const allPillars = await ctx.db.pillar.findMany({ where: { strategyId: input.strategyId } });
-      const scoreResult = await scoreAllPillarsSemantic(allPillars.map((p) => ({ key: p.key, content: p.content })));
-
-      const vec: Record<string, number> = { composite: scoreResult.composite };
-      for (const ps of scoreResult.pillarScores) {
-        vec[ps.pillarKey.toLowerCase()] = ps.score;
-      }
-      await ctx.db.strategy.update({
-        where: { id: input.strategyId },
-        data: { advertis_vector: vec as Prisma.InputJsonValue },
-      });
+      // Recalculate score via unified scorer (Chantier 2)
+      const scoreResult = await scoreObject("strategy", input.strategyId).catch(() => null);
 
       return { success: true, validation, score: scoreResult, merged };
     }),
@@ -189,8 +167,7 @@ export const pillarRouter = createTRPCRouter({
     .query(({ input }) => {
       const full = validatePillarContent(input.key, input.content);
       const partial = validatePillarPartial(input.key, input.content);
-      const score = scorePillarSemantic(input.key, input.content);
-      return { fullValidation: full, partialValidation: partial, score };
+      return { fullValidation: full, partialValidation: partial, score: { completionPct: partial.completionPercentage } };
     }),
 
   /** Cross-pillar validation */

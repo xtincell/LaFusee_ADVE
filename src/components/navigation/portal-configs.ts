@@ -76,12 +76,28 @@ export const cockpitNavGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Marque",
+    title: "Marque — Fondation",
+    items: [
+      { href: "/cockpit/brand/identity", label: "Identite", icon: Fingerprint },          // A
+      { href: "/cockpit/brand/positioning", label: "Positionnement", icon: Target },       // D
+      { href: "/cockpit/brand/offer", label: "Offre & Pricing", icon: Tags },              // V
+      { href: "/cockpit/brand/engagement", label: "Experience", icon: Users },              // E
+    ],
+  },
+  {
+    title: "Marque — Strategie",
+    items: [
+      { href: "/cockpit/brand/diagnostic", label: "Diagnostic", icon: Shield },            // R
+      { href: "/cockpit/brand/market", label: "Realite Marche", icon: TrendingUp },        // T
+      { href: "/cockpit/brand/potential", label: "Potentiel", icon: Rocket },               // I
+      { href: "/cockpit/brand/roadmap", label: "Strategie", icon: Route },                  // S
+    ],
+  },
+  {
+    title: "Livrables",
     items: [
       { href: "/cockpit/brand/proposition", label: "L'Oracle", icon: Brain },
-      { href: "/cockpit/brand/identity", label: "Identite", icon: Fingerprint },
-      { href: "/cockpit/brand/rtis", label: "RTIS", icon: Shield },
-      { href: "/cockpit/brand/deliverables", label: "Livrables", icon: FileText },
+      { href: "/cockpit/brand/deliverables", label: "Mes Livrables", icon: FileText },
       { href: "/cockpit/brand/guidelines", label: "Guidelines", icon: BookOpen },
       { href: "/cockpit/brand/assets", label: "Assets", icon: Image },
     ],

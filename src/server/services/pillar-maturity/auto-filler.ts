@@ -323,11 +323,10 @@ Retourne UNIQUEMENT le JSON, rien d'autre.`;
     },
   }).catch(() => {});
 
-  // Parse response
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)```/) ?? text.match(/(\{[\s\S]*\})/);
-  if (!jsonMatch) return {};
+  // Parse with robust extractor (Chantier 10)
   try {
-    return JSON.parse(jsonMatch[1] ?? jsonMatch[0]);
+    const { extractJSON } = await import("@/server/services/utils/llm");
+    return extractJSON(text) as Record<string, unknown>;
   } catch {
     return {};
   }
