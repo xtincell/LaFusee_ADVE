@@ -108,13 +108,43 @@ async function loadVault(strategyId: string): Promise<{ text: string; sourceCoun
 
 // ── Describe schema fields ────────────────────────────────────────────
 
-function describeSchemaFields(pillarKey: string): string {
+function describeSchemaFields(pillarKey: string, currentContent: Record<string, unknown>): string {
   const schemaKey = pillarKey.toUpperCase() as keyof typeof PILLAR_SCHEMAS;
   const schema = PILLAR_SCHEMAS[schemaKey];
   if (!schema) return "Schema non disponible";
 
   const shape = (schema as { shape?: Record<string, unknown> }).shape ?? {};
-  return Object.keys(shape).map(k => `- ${k}`).join("\n");
+  const isFilled = (v: unknown) => v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
+
+  return Object.entries(shape).map(([fieldName, fieldSchema]) => {
+    const def = (fieldSchema as { _def?: { typeName?: string; innerType?: { _def?: { typeName?: string } } } })?._def;
+    const typeName = def?.typeName ?? "unknown";
+
+    // Determine type label
+    let typeLabel = "unknown";
+    if (typeName.includes("ZodString")) typeLabel = "string";
+    else if (typeName.includes("ZodNumber")) typeLabel = "number";
+    else if (typeName.includes("ZodArray")) typeLabel = "array";
+    else if (typeName.includes("ZodObject")) typeLabel = "object";
+    else if (typeName.includes("ZodEnum")) typeLabel = "enum";
+    else if (typeName.includes("ZodOptional")) {
+      const inner = def?.innerType?._def?.typeName ?? "";
+      if (inner.includes("Array")) typeLabel = "array (optional)";
+      else if (inner.includes("Object")) typeLabel = "object (optional)";
+      else if (inner.includes("String")) typeLabel = "string (optional)";
+      else if (inner.includes("Number")) typeLabel = "number (optional)";
+      else typeLabel = `${inner.replace("Zod", "").toLowerCase()} (optional)`;
+    } else if (typeName.includes("ZodUnion")) typeLabel = "string | object";
+
+    // Check if filled or empty
+    const value = currentContent[fieldName];
+    const status = isFilled(value) ? "REMPLI" : "VIDE";
+    const currentPreview = isFilled(value)
+      ? (typeof value === "string" ? `"${value.slice(0, 60)}"` : Array.isArray(value) ? `[${value.length} items]` : typeof value === "object" ? "{...}" : String(value))
+      : "—";
+
+    return `- ${fieldName} (${typeLabel}) [${status}] ${status === "REMPLI" ? `= ${currentPreview}` : "← A REMPLIR"}`;
+  }).join("\n");
 }
 
 // ── Main API ──────────────────────────────────────────────────────────
@@ -154,34 +184,42 @@ export async function enrichFromVault(
       .map(p => `[${p.key.toUpperCase()}] ${JSON.stringify(p.content, null, 2).slice(0, 1000)}`)
       .join("\n\n");
 
-    // 4. Get schema fields for this pillar
-    const schemaFields = describeSchemaFields(pillarKey);
+    // 4. Get schema fields for this pillar (with types + fill status)
+    const schemaFields = describeSchemaFields(pillarKey, currentContent);
 
     // 5. Mestor scans vault vs current content → produces recos
     const result = await callLLMAndParse({
       system: `Tu es le Commandant MESTOR. On te donne :
 1. Le VAULT complet de la marque (toutes les sources brutes : notes, intake, documents)
 2. Le contenu ACTUEL du pilier ${pillarKey.toUpperCase()}
-3. Les VARIABLES ATTENDUES du pilier (schema)
+3. Les VARIABLES ATTENDUES du pilier avec leur TYPE et leur STATUT (REMPLI ou VIDE)
 4. Le contexte des autres piliers
 
-Pour CHAQUE variable du pilier, analyse le vault et determine :
-- CONFIRM : le vault valide la valeur actuelle (cite la source)
-- CHALLENGE : le vault suggere une meilleure valeur ou une nuance (propose la modification)
-- INFIRM : le vault contredit la valeur actuelle (propose le remplacement)
-- ADD : le vault contient une info qui n'est pas dans le pilier (propose l'ajout)
+PRIORITE ABSOLUE : les champs marques "VIDE ← A REMPLIR" dans le schema.
+Pour chaque champ VIDE, cherche dans le vault et les autres piliers une information pour le remplir.
 
-Ne propose QUE ce que le vault JUSTIFIE. Ne fabrique pas d'informations.
-Chaque reco doit citer la source du vault qui la motive.
+Pour les champs REMPLIS, verifie si le vault confirme, challenge ou infirme la valeur.
 
-Retourne un JSON array de recommandations avec :
-- field: le nom du champ
-- operation: SET | ADD | MODIFY | REMOVE | EXTEND
-- currentSummary: resume de la valeur actuelle (20 mots max)
-- proposedValue: la nouvelle valeur (respecte le type attendu)
-- justification: pourquoi, en citant la source du vault
-- impact: LOW | MEDIUM | HIGH
-- verdict: CONFIRM | CHALLENGE | INFIRM | ADD`,
+REGLES DE FORMAT CRITIQUES :
+- Si le schema dit "(string)" → proposedValue DOIT etre une string, pas un array ni un objet
+- Si le schema dit "(array)" → proposedValue DOIT etre un SEUL item a ajouter (pas le tableau complet)
+- Si le schema dit "(object)" → proposedValue DOIT etre un objet avec les sous-champs requis
+- Si le schema dit "(number)" → proposedValue DOIT etre un nombre
+- Pour les operations ADD sur un array → proposedValue = UN SEUL nouvel item
+- Pour les operations SET sur un string → proposedValue = la string complete
+
+Retourne un JSON array. Chaque item :
+{
+  "field": "nom_du_champ",
+  "operation": "SET" (pour string/number/object vide) | "ADD" (pour ajouter a un array) | "MODIFY" | "EXTEND",
+  "currentSummary": "resume actuel (20 mots max) ou 'Vide'",
+  "proposedValue": <RESPECTE LE TYPE DU SCHEMA>,
+  "justification": "Source du vault qui justifie + raisonnement",
+  "impact": "HIGH" (champ vide) | "MEDIUM" (challenge) | "LOW" (confirm),
+  "verdict": "ADD" (champ vide) | "CHALLENGE" | "INFIRM" | "CONFIRM"
+}
+
+Produis au moins 1 reco par champ VIDE si le vault ou les autres piliers contiennent l'info.`,
       prompt: `=== VAULT DE LA MARQUE (${sourceCount} sources) ===
 ${vaultText.slice(0, 12000)}
 
