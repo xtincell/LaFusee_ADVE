@@ -64,7 +64,7 @@ export async function autoCompleteGaps(
   console.log(`[auto-complete] Actualizing pillar ${targetPillar.toUpperCase()} for ${sequenceKey} (${gapCount} gaps)...`);
 
   try {
-    const result = await actualizePillar(strategyId, targetPillar.toUpperCase());
+    const result = await actualizePillar(strategyId, targetPillar.toUpperCase() as "A" | "D" | "E" | "V" | "I" | "T" | "R" | "S");
 
     if (!result.updated) {
       // Re-scan anyway — maybe the error message is informative

@@ -102,8 +102,36 @@ export default function GloryPage() {
     { enabled: !!selectedStrategyId },
   );
 
+  // ── Execution result tracker ──────────────────────────────────────────────
+  const [execResult, setExecResult] = useState<{
+    sequenceKey: string;
+    status: string;
+    steps: Array<{ ref: string; type: string; status: string; durationMs: number; error?: string }>;
+    totalDurationMs: number;
+    timestamp: string;
+  } | null>(null);
+  const [execError, setExecError] = useState<string | null>(null);
+
   const executeMutation = trpc.glory.executeSequence.useMutation({
-    onSuccess: () => { queueQuery.refetch(); scanQuery.refetch(); historyQuery2.refetch(); },
+    onMutate: () => { setExecError(null); setExecResult(null); },
+    onSuccess: (data: any) => {
+      queueQuery.refetch(); scanQuery.refetch(); historyQuery2.refetch();
+      // Capture full result for debug tracker
+      setExecResult({
+        sequenceKey: data.sequenceKey ?? "?",
+        status: data.status ?? "UNKNOWN",
+        steps: (data.steps ?? []).map((s: any) => ({
+          ref: s.ref, type: s.type, status: s.status,
+          durationMs: s.durationMs ?? 0, error: s.error,
+        })),
+        totalDurationMs: data.totalDurationMs ?? 0,
+        timestamp: new Date().toISOString(),
+      });
+    },
+    onError: (err) => {
+      setExecError(err.message);
+      queueQuery.refetch(); scanQuery.refetch();
+    },
   });
   const [autoError, setAutoError] = useState<string | null>(null);
   const autoCompleteMutation = trpc.glory.autoComplete.useMutation({
@@ -229,7 +257,7 @@ export default function GloryPage() {
             Queue : {strategies.find((s) => s.id === selectedStrategyId)?.name}
           </h3>
 
-          {/* Error banner */}
+          {/* Error banners */}
           {autoError && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-start justify-between">
               <div>
@@ -237,6 +265,74 @@ export default function GloryPage() {
                 <p className="text-[11px] text-red-300/80 mt-0.5">{autoError}</p>
               </div>
               <button onClick={() => setAutoError(null)} className="text-red-400 hover:text-red-300 text-sm">✕</button>
+            </div>
+          )}
+          {execError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold text-red-400">Erreur Execution</p>
+                <p className="text-[11px] text-red-300/80 mt-0.5">{execError}</p>
+              </div>
+              <button onClick={() => setExecError(null)} className="text-red-400 hover:text-red-300 text-sm">✕</button>
+            </div>
+          )}
+
+          {/* ── Debug Tracker: dernier resultat d'execution ─────────────── */}
+          {execResult && (
+            <div className={`rounded-lg border px-4 py-3 font-mono text-[11px] ${
+              execResult.status === "COMPLETED" ? "border-emerald-500/30 bg-emerald-500/5" :
+              execResult.status === "PARTIAL" ? "border-amber-500/30 bg-amber-500/5" :
+              "border-red-500/30 bg-red-500/5"
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-bold ${
+                    execResult.status === "COMPLETED" ? "text-emerald-400" :
+                    execResult.status === "PARTIAL" ? "text-amber-400" : "text-red-400"
+                  }`}>
+                    {execResult.status}
+                  </span>
+                  <span className="text-zinc-500">{execResult.sequenceKey}</span>
+                  <span className="text-zinc-600">{(execResult.totalDurationMs / 1000).toFixed(1)}s</span>
+                  <span className="text-zinc-700">{execResult.timestamp.slice(11, 19)}</span>
+                </div>
+                <button onClick={() => setExecResult(null)} className="text-zinc-500 hover:text-zinc-300">✕</button>
+              </div>
+              <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                {execResult.steps.map((step, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-sm text-[8px] font-bold flex items-center justify-center ${
+                      step.status === "SUCCESS" ? "bg-emerald-600 text-white" :
+                      step.status === "SKIPPED" ? "bg-zinc-700 text-zinc-400" :
+                      "bg-red-600 text-white"
+                    }`}>
+                      {step.status === "SUCCESS" ? "✓" : step.status === "SKIPPED" ? "–" : "✕"}
+                    </span>
+                    <span className={`w-8 ${STEP_TYPE_ICONS[step.type]?.color ?? "bg-zinc-600"} rounded px-1 text-[9px] text-white text-center`}>
+                      {step.type}
+                    </span>
+                    <span className={`flex-1 truncate ${step.status === "FAILED" ? "text-red-300" : step.status === "SKIPPED" ? "text-zinc-600" : "text-zinc-300"}`}>
+                      {step.ref}
+                    </span>
+                    <span className="text-zinc-600 w-12 text-right">
+                      {step.durationMs > 0 ? `${(step.durationMs / 1000).toFixed(1)}s` : ""}
+                    </span>
+                    {step.error && (
+                      <span className="text-red-400 truncate max-w-[200px]" title={step.error}>
+                        {step.error.slice(0, 60)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {execResult.steps.some(s => s.status === "FAILED") && (
+                <div className="mt-2 pt-2 border-t border-zinc-800">
+                  <p className="text-red-400 text-[10px]">
+                    {execResult.steps.filter(s => s.status === "FAILED").length} step(s) failed —{" "}
+                    {execResult.steps.filter(s => s.status === "SUCCESS").length}/{execResult.steps.length} succeeded
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -534,7 +630,7 @@ export default function GloryPage() {
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-semibold text-white">{tool.name}</h4>
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${LAYER_BADGE[tool.layer] ?? ""}`}>{tool.layer}</span>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${execInfo.color}`}>{execInfo.label}</span>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${execInfo?.color ?? ""}`}>{execInfo?.label ?? ""}</span>
                         </div>
                         <p className="mt-1 text-xs text-zinc-400 line-clamp-2">{tool.description}</p>
                         {tool.pillarKeys.length > 0 && (
@@ -566,7 +662,7 @@ export default function GloryPage() {
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${LAYER_BADGE[t.layer] ?? ""}`}>{t.layer}</span>
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${execInfo.color}`}>{execInfo.label}</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${execInfo?.color ?? ""}`}>{execInfo?.label ?? ""}</span>
                 <span className="text-xs text-zinc-500">#{t.order} — {t.slug}</span>
               </div>
               <p className="text-sm text-zinc-400">{t.description}</p>

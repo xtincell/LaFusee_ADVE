@@ -251,9 +251,9 @@ export default function PillarEditorPage() {
               <div className="text-left">
                 <div className="flex items-center gap-1.5 font-medium">
                   {p.key} — {p.label}
-                  {focusByPillar[p.key] && focusByPillar[p.key].length > 0 && (
+                  {focusByPillar[p.key] && focusByPillar[p.key]!.length > 0 && (
                     <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-black">
-                      {focusByPillar[p.key].length}
+                      {focusByPillar[p.key]!.length}
                     </span>
                   )}
                 </div>

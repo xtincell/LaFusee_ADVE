@@ -285,38 +285,61 @@ Tu dois:
 
 const RECO_PROMPT = `${SYSTEM_BASE}
 
-Tu analyses les piliers R (Risk) et T (Track) pour produire des recommandations concrètes
+Tu analyses les piliers R (Risk) et T (Track) pour produire des recommandations GRANULAIRES
 destinées à enrichir un pilier ADVE spécifique.
 
-Pour CHAQUE champ du pilier que tu peux améliorer grâce aux insights R et/ou T, produis une recommandation.
+Pour CHAQUE modification necessaire, choisis l'operation la plus precise :
+- SET : remplacer le champ entier (quand la valeur actuelle est nulle, incoherente ou doit etre completement refaite)
+- ADD : ajouter un element a un array existant (nouveau persona, nouveau risque, nouvelle valeur)
+- MODIFY : modifier un element specifique d'un array existant (inclure targetMatch pour l'identifier)
+- REMOVE : supprimer un element specifique d'un array (inclure targetMatch pour l'identifier)
+- EXTEND : enrichir un objet existant avec de nouvelles cles sans ecraser les existantes
+
+Tu peux produire PLUSIEURS operations sur le meme champ. Exemple pour "personas":
+- ADD un persona "Architecte Junior"
+- MODIFY le persona "Architecte Senior" (nouvelles motivations)
+- REMOVE le persona "Client Industriel" (mal cible)
 
 Retourne un JSON array:
 [
   {
     "field": "nomDuChamp",
-    "currentSummary": "résumé court de la valeur actuelle (20 mots max)",
-    "proposedValue": <la nouvelle valeur complète pour ce champ — même type que l'actuel>,
-    "justification": "Pourquoi cette modification ? Quelle insight R ou T la motive ? (2-3 phrases)",
+    "operation": "SET" | "ADD" | "MODIFY" | "REMOVE" | "EXTEND",
+    "currentSummary": "resume court de la valeur actuelle ou de l'item cible (20 mots max)",
+    "proposedValue": <la valeur proposee — pour ADD: le nouvel item, pour MODIFY: l'item modifie complet, pour REMOVE: null, pour SET: la valeur complete, pour EXTEND: les cles a ajouter>,
+    "targetMatch": { "key": "nom", "value": "Architecte Senior" } | null,
+    "justification": "Pourquoi ? Quelle insight R ou T motive ce changement ? (2-3 phrases)",
     "source": "R" | "T" | "R+T",
     "impact": "LOW" | "MEDIUM" | "HIGH"
   }
 ]
 
-Règles:
-- Ne propose QUE des modifications justifiées par des données R ou T concrètes
-- CONSERVE le type de données de chaque champ (string→string, array→array, object→object)
-- Pour les arrays, propose la version COMPLÈTE du tableau (items existants + ajouts)
-- Pour les strings, propose le texte COMPLET de remplacement
-- Si un champ est déjà excellent et R/T ne l'améliorent pas, NE le mentionne PAS
-- Sois spécifique dans tes justifications — cite les données R/T qui motivent le changement
-- 5 à 15 recommandations par pilier, triées par impact décroissant`;
+Regles:
+- Ne propose QUE des modifications justifiees par des donnees R ou T concretes
+- PREFERE les operations granulaires (ADD/MODIFY/REMOVE/EXTEND) au SET quand le champ est un array ou objet
+- Utilise SET uniquement pour les champs string ou quand le champ entier doit etre remplace
+- Pour ADD sur un array : proposedValue = le SEUL nouvel item a ajouter (pas le tableau complet)
+- Pour MODIFY : proposedValue = l'item modifie complet, targetMatch = comment identifier l'item a modifier
+- Pour REMOVE : proposedValue = null, targetMatch = comment identifier l'item a supprimer
+- Pour EXTEND : proposedValue = les nouvelles cles/valeurs a merger dans l'objet existant
+- Si un champ est deja excellent et R/T ne l'ameliorent pas, NE le mentionne PAS
+- Sois specifique dans tes justifications — cite les donnees R/T qui motivent le changement
+- 5 a 20 recommandations par pilier, triees par impact decroissant`;
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
+export type RecoOperation = "SET" | "ADD" | "MODIFY" | "REMOVE" | "EXTEND";
+
 export interface FieldRecommendation {
   field: string;
+  /** Operation type — defaults to SET for backward compat with existing recos */
+  operation?: RecoOperation;
   currentSummary: string;
   proposedValue: unknown;
+  /** For MODIFY/REMOVE on arrays: index of the targeted item */
+  targetIndex?: number;
+  /** For MODIFY/REMOVE on arrays: match by key/value instead of index */
+  targetMatch?: { key: string; value: string };
   justification: string;
   source: "R" | "T" | "R+T";
   impact: "LOW" | "MEDIUM" | "HIGH";
@@ -484,11 +507,14 @@ ${rContent ? JSON.stringify(rContent, null, 2) : "Non disponible"}
 Voici le pilier T (Track):
 ${tContent ? JSON.stringify(tContent, null, 2) : "Non disponible"}
 
-Produis les recommandations d'enrichissement pour le pilier ${pillarKey}.
-IMPORTANT: chaque proposedValue DOIT respecter EXACTEMENT le type et la structure du champ decrit dans le schema ci-dessus.
-Pour les champs "array", propose le tableau COMPLET (items existants + ajouts), chaque item doit avoir TOUS les sous-champs requis.
-Pour les champs "object", propose l'objet COMPLET avec tous les sous-champs.
-Pour les champs "string", propose le texte COMPLET.`;
+Produis les recommandations d'enrichissement GRANULAIRES pour le pilier ${pillarKey}.
+IMPORTANT: chaque proposedValue DOIT respecter EXACTEMENT le type et la structure du champ decrit dans le schema.
+Pour les operations ADD : proposedValue = UN SEUL nouvel item avec TOUS les sous-champs requis.
+Pour les operations MODIFY : proposedValue = l'item modifie complet, targetMatch = {key, value} pour identifier l'item.
+Pour les operations REMOVE : proposedValue = null, targetMatch = {key, value} pour identifier l'item.
+Pour les operations EXTEND : proposedValue = les nouvelles cles a merger.
+Pour les operations SET (string ou remplacement total) : proposedValue = la valeur complete.
+Prefere ADD/MODIFY/REMOVE a SET quand le champ est un array.`;
 
     const response = await callLLM(RECO_PROMPT, prompt, strategyId);
     const parsed = extractJSON(response);
@@ -527,14 +553,32 @@ Pour les champs "string", propose le texte COMPLET.`;
   }
 }
 
+/** Resolve target index for MODIFY/REMOVE: by explicit index or key/value match */
+function resolveTargetIndex(arr: unknown[], reco: FieldRecommendation): number {
+  if (reco.targetIndex !== undefined && reco.targetIndex >= 0) return reco.targetIndex;
+  if (reco.targetMatch) {
+    return arr.findIndex(item =>
+      typeof item === "object" && item !== null &&
+      (item as Record<string, unknown>)[reco.targetMatch!.key] === reco.targetMatch!.value
+    );
+  }
+  return -1;
+}
+
 /**
  * Apply accepted recommendations to an ADVE pillar.
- * Only applies recos where accepted === true.
+ * Supports two selection modes:
+ *   - recoIndices: select by index in pendingRecos array (granular, preferred)
+ *   - acceptedFields: select all recos matching these field names (legacy compat)
+ *
+ * Operations are applied in guaranteed order to avoid index shift issues:
+ *   1. EXTEND  2. MODIFY  3. ADD  4. REMOVE (desc index)  5. SET
  */
 export async function applyAcceptedRecommendations(
   strategyId: string,
   pillarKey: "A" | "D" | "V" | "E",
-  acceptedFields: string[],
+  acceptedFields?: string[],
+  recoIndices?: number[],
 ): Promise<{ applied: number; error?: string }> {
   try {
     const pillar = await db.pillar.findUnique({
@@ -545,13 +589,79 @@ export async function applyAcceptedRecommendations(
     const recos = (pillar.pendingRecos ?? []) as unknown as FieldRecommendation[];
     const content = (pillar.content ?? {}) as Record<string, unknown>;
 
-    let applied = 0;
-    for (const reco of recos) {
-      if (acceptedFields.includes(reco.field)) {
-        content[reco.field] = reco.proposedValue;
-        reco.accepted = true;
-        applied++;
+    // Resolve which recos to apply
+    const selectedIndices = new Set<number>();
+    if (recoIndices && recoIndices.length > 0) {
+      for (const idx of recoIndices) {
+        if (idx >= 0 && idx < recos.length) selectedIndices.add(idx);
       }
+    } else if (acceptedFields && acceptedFields.length > 0) {
+      // Legacy: select all recos matching these fields
+      recos.forEach((r, i) => { if (acceptedFields.includes(r.field)) selectedIndices.add(i); });
+    }
+
+    if (selectedIndices.size === 0) return { applied: 0 };
+
+    // Build ordered list: EXTEND(0) → MODIFY(1) → ADD(2) → REMOVE(3) → SET(4)
+    const OP_ORDER: Record<string, number> = { EXTEND: 0, MODIFY: 1, ADD: 2, REMOVE: 3, SET: 4 };
+    const selected = Array.from(selectedIndices)
+      .map(i => ({ idx: i, reco: recos[i]! }))
+      .sort((a, b) => (OP_ORDER[a.reco.operation ?? "SET"] ?? 4) - (OP_ORDER[b.reco.operation ?? "SET"] ?? 4));
+
+    let applied = 0;
+    for (const { idx, reco } of selected) {
+      const op = reco.operation ?? "SET";
+
+      switch (op) {
+        case "SET":
+          content[reco.field] = reco.proposedValue;
+          break;
+
+        case "ADD": {
+          const arr = Array.isArray(content[reco.field]) ? [...(content[reco.field] as unknown[])] : [];
+          arr.push(reco.proposedValue);
+          content[reco.field] = arr;
+          break;
+        }
+
+        case "MODIFY": {
+          if (Array.isArray(content[reco.field])) {
+            const arr = [...(content[reco.field] as unknown[])];
+            const modIdx = resolveTargetIndex(arr, reco);
+            if (modIdx >= 0 && modIdx < arr.length) {
+              arr[modIdx] = reco.proposedValue;
+              content[reco.field] = arr;
+            }
+          } else if (typeof content[reco.field] === "object" && content[reco.field] !== null) {
+            // Modify object: merge proposed into existing
+            content[reco.field] = { ...(content[reco.field] as object), ...(reco.proposedValue as object) };
+          }
+          break;
+        }
+
+        case "REMOVE": {
+          if (Array.isArray(content[reco.field])) {
+            const arr = [...(content[reco.field] as unknown[])];
+            const rmIdx = resolveTargetIndex(arr, reco);
+            if (rmIdx >= 0 && rmIdx < arr.length) {
+              arr.splice(rmIdx, 1);
+              content[reco.field] = arr;
+            }
+          }
+          break;
+        }
+
+        case "EXTEND": {
+          content[reco.field] = {
+            ...((content[reco.field] as object) ?? {}),
+            ...(reco.proposedValue as object),
+          };
+          break;
+        }
+      }
+
+      recos[idx]!.accepted = true;
+      applied++;
     }
 
     // Save updated content + mark recos as processed

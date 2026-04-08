@@ -596,11 +596,21 @@ export const pillarRouter = createTRPCRouter({
       return (pillar?.pendingRecos ?? []) as unknown as FieldRecommendation[];
     }),
 
-  /** Accept selected recommendations — apply their proposed values to the pillar */
+  /** Accept selected recommendations — by index (granular) or by field name (legacy) */
   acceptRecos: operatorProcedure
-    .input(z.object({ strategyId: z.string(), key: adveKeyEnum, fields: z.array(z.string()) }))
+    .input(z.object({
+      strategyId: z.string(),
+      key: adveKeyEnum,
+      recoIndices: z.array(z.number()).optional(),
+      fields: z.array(z.string()).optional(),
+    }))
     .mutation(async ({ input }) => {
-      return applyAcceptedRecommendations(input.strategyId, input.key, input.fields);
+      return applyAcceptedRecommendations(
+        input.strategyId,
+        input.key,
+        input.fields,
+        input.recoIndices,
+      );
     }),
 
   /** Reject all remaining recommendations for a pillar */
