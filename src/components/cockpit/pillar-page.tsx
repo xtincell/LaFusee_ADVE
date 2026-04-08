@@ -157,132 +157,122 @@ export function PillarPage({ pageKey }: PillarPageProps) {
     }
   };
 
+  // Split fields into filled vs empty, exclude inline metadata
+  const filledKeys = allKeys.filter(k => !inlineKeys.includes(k) && isFilled(content[k]));
+  const emptyKeys = allKeys.filter(k => !inlineKeys.includes(k) && !isFilled(content[k]));
+  const inlineFilledKeys = allKeys.filter(k => inlineKeys.includes(k) && isFilled(content[k]));
+
+  // Classify fields for grid layout: "hero" (large), "card" (medium), "compact" (small)
+  const heroFields = ["nomMarque", "fenetreOverton", "globalSwot"];
+  const compactFields = ["archetype", "archetypeSecondary", "riskScore", "brandMarketFitScore", "totalActions", "coherenceScore", "globalBudget"];
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className={`text-2xl font-bold ${config.accent}`}>{config.title}</h1>
-          <p className="mt-1 text-sm text-foreground-muted">{config.subtitle}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <ScoreBadge
-            score={validationPct * 2} // Approximate /200 from %
-            maxScore={200}
-            size="sm"
-            mode="cockpit"
-            showClassification={false}
-          />
-          <button
-            onClick={handleRegenerate}
-            disabled={isRegenerating}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              config.type === "adve"
-                ? "bg-violet-600/20 text-violet-300 hover:bg-violet-600/30"
-                : "bg-sky-600/20 text-sky-300 hover:bg-sky-600/30"
-            } disabled:opacity-50`}
-          >
-            {isRegenerating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : config.type === "adve" ? (
-              <Sparkles className="h-4 w-4" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            {config.type === "adve" ? "Enrichir avec l'IA" : "Relancer le protocole"}
-          </button>
-        </div>
-      </div>
-
-      {/* Completion bar */}
-      <div className={`rounded-lg border border-white/5 p-4 ${config.bgAccent}`}>
-        <div className="mb-2 flex justify-between text-sm">
-          <span className="text-foreground-muted">Completude</span>
-          <span className={`font-semibold ${config.accent}`}>{validationPct}%</span>
-        </div>
-        <div className="h-2 rounded-full bg-white/5">
-          <div
-            className="h-2 rounded-full transition-all duration-500"
-            style={{
-              width: `${validationPct}%`,
-              backgroundColor: `color-mix(in oklch, currentColor 60%, transparent)`,
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Validation status */}
-      {pillar?.validationStatus && (
-        <div className="flex items-center gap-2 text-sm">
-          {pillar.validationStatus === "VALIDATED" ? (
-            <CheckCircle className="h-4 w-4 text-emerald-400" />
-          ) : pillar.validationStatus === "AI_PROPOSED" ? (
-            <Sparkles className="h-4 w-4 text-amber-400" />
-          ) : (
-            <AlertCircle className="h-4 w-4 text-foreground-muted" />
-          )}
-          <span className="text-foreground-muted">
-            Statut : {
-              pillar.validationStatus === "VALIDATED" ? "Valide" :
-              pillar.validationStatus === "AI_PROPOSED" ? "Proposition IA — a valider" :
-              pillar.validationStatus === "LOCKED" ? "Verrouille" :
-              "Brouillon"
-            }
-          </span>
-        </div>
-      )}
-
-      {/* Content display — rich renderers by field type */}
-      <div className="space-y-4">
-        {/* Inline metadata badges grouped together */}
-        {(() => {
-          const entries = allKeys.filter(k => inlineKeys.includes(k) && isFilled(content[k]));
-          if (entries.length > 0) {
-            return (
-              <div className="flex flex-wrap gap-2">
-                {entries.map(key => (
-                  <FieldRenderer key={key} fieldKey={key} value={content[key]} accent={config.accent} />
-                ))}
-              </div>
-            );
-          }
-          return null;
-        })()}
-
-        {/* All fields from schema — filled ones get rich renderers, empty ones show placeholder */}
-        {allKeys
-          .filter(key => !inlineKeys.includes(key))
-          .map(key => {
-            const value = content[key];
-            if (isFilled(value)) {
-              return <FieldRenderer key={key} fieldKey={key} value={value} accent={config.accent} />;
-            }
-            // Empty field — show as "to fill"
-            return (
-              <div key={key} className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wide">{fieldLabel(key)}</h3>
-                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-foreground-muted">A remplir</span>
-                </div>
-              </div>
-            );
-          })}
-
-        {filledFields === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-white/10 py-16 text-center">
-            <AlertCircle className="mb-3 h-8 w-8 text-foreground-muted" />
-            <p className="text-foreground-muted">Ce pilier est vide.</p>
-            <button
-              onClick={handleRegenerate}
-              disabled={isRegenerating}
-              className="mt-4 flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-foreground hover:bg-white/15"
-            >
-              {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {config.type === "adve" ? "Generer avec l'IA" : "Lancer le protocole"}
-            </button>
+    <div className="mx-auto max-w-6xl space-y-4 p-4 md:p-6">
+      {/* ── Header: compact bar ──────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-white/5 bg-surface-raised px-4 py-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className={`text-lg font-bold ${config.accent} truncate`}>{config.title}</h1>
+          {/* Inline completion */}
+          <div className="hidden items-center gap-2 sm:flex">
+            <div className="h-1.5 w-24 rounded-full bg-white/5">
+              <div className="h-1.5 rounded-full transition-all" style={{ width: `${validationPct}%`, backgroundColor: validationPct === 100 ? "#34d399" : "#a78bfa" }} />
+            </div>
+            <span className="text-xs text-foreground-muted">{validationPct}%</span>
           </div>
-        )}
+          {/* Status badge */}
+          {pillar?.validationStatus && pillar.validationStatus !== "DRAFT" ? (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              pillar.validationStatus === "VALIDATED" ? "bg-emerald-500/15 text-emerald-300" :
+              pillar.validationStatus === "AI_PROPOSED" ? "bg-amber-500/15 text-amber-300" :
+              "bg-white/10 text-foreground-muted"
+            }`}>
+              {pillar.validationStatus === "VALIDATED" ? "Valide" : pillar.validationStatus === "AI_PROPOSED" ? "IA" : pillar.validationStatus}
+            </span>
+          ) : null}
+        </div>
+        <button
+          onClick={handleRegenerate}
+          disabled={isRegenerating}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            config.type === "adve"
+              ? "bg-violet-600/20 text-violet-300 hover:bg-violet-600/30"
+              : "bg-sky-600/20 text-sky-300 hover:bg-sky-600/30"
+          } disabled:opacity-50`}
+        >
+          {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Enrichir
+        </button>
       </div>
+
+      {/* ── Metadata badges ──────────────────────────────────────── */}
+      {inlineFilledKeys.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {inlineFilledKeys.map(key => (
+            <FieldRenderer key={key} fieldKey={key} value={content[key]} accent={config.accent} />
+          ))}
+        </div>
+      ) : null}
+
+      {/* ── Hero fields (full width, prominent) ──────────────────── */}
+      {filledKeys.filter(k => heroFields.includes(k)).map(key => (
+        <FieldRenderer key={key} fieldKey={key} value={content[key]} accent={config.accent} />
+      ))}
+
+      {/* ── Compact fields (grid row of small cards) ─────────────── */}
+      {(() => {
+        const compactFilled = filledKeys.filter(k => compactFields.includes(k));
+        if (compactFilled.length === 0) return null;
+        return (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            {compactFilled.map(key => (
+              <FieldRenderer key={key} fieldKey={key} value={content[key]} accent={config.accent} />
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* ── Main content (2-column grid for medium fields) ────────── */}
+      {(() => {
+        const mainKeys = filledKeys.filter(k => !heroFields.includes(k) && !compactFields.includes(k));
+        if (mainKeys.length === 0 && filledFields === 0) {
+          return (
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-white/10 py-12 text-center">
+              <AlertCircle className="mb-2 h-6 w-6 text-foreground-muted" />
+              <p className="text-sm text-foreground-muted">Pilier vide</p>
+              <button onClick={handleRegenerate} disabled={isRegenerating}
+                className="mt-3 flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-white/15">
+                {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Generer
+              </button>
+            </div>
+          );
+        }
+        return (
+          <div className="grid gap-3 md:grid-cols-2">
+            {mainKeys.map(key => (
+              <FieldRenderer key={key} fieldKey={key} value={content[key]} accent={config.accent} />
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* ── Empty fields (collapsed, subtle) ─────────────────────── */}
+      {emptyKeys.length > 0 ? (
+        <details className="group">
+          <summary className="cursor-pointer rounded-lg border border-dashed border-white/10 px-4 py-2 text-xs text-foreground-muted hover:bg-white/[0.02]">
+            {emptyKeys.length} champ{emptyKeys.length > 1 ? "s" : ""} a remplir
+            <span className="ml-1 text-[10px] group-open:hidden">&#9654;</span>
+            <span className="ml-1 text-[10px] hidden group-open:inline">&#9660;</span>
+          </summary>
+          <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
+            {emptyKeys.map(key => (
+              <div key={key} className="rounded border border-dashed border-white/5 px-2.5 py-1.5 text-[11px] text-foreground-muted">
+                {fieldLabel(key)}
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }
