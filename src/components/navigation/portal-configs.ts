@@ -94,12 +94,13 @@ export const cockpitNavGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Livrables",
+    title: "Livrables & Sources",
     items: [
       { href: "/cockpit/brand/proposition", label: "L'Oracle", icon: Brain },
       { href: "/cockpit/brand/deliverables", label: "Mes Livrables", icon: FileText },
       { href: "/cockpit/brand/guidelines", label: "Guidelines", icon: BookOpen },
       { href: "/cockpit/brand/assets", label: "Assets", icon: Image },
+      { href: "/cockpit/brand/sources", label: "Sources", icon: Layers },
     ],
   },
   {

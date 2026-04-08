@@ -166,10 +166,14 @@ export async function generateImplementation(
 
   // ── Phase 3: Persist I Pillar ───────────────────────────────────────────
   const confidence = Math.min(0.85, qualityScore / 100);
-  await db.pillar.upsert({
-    where: { strategyId_key: { strategyId, key: "i" } },
-    update: { content: pillarContent as Prisma.InputJsonValue, confidence },
-    create: { strategyId, key: "i", content: pillarContent as Prisma.InputJsonValue, confidence },
+  // Persist via Gateway
+  const { writePillar } = await import("@/server/services/pillar-gateway");
+  await writePillar({
+    strategyId,
+    pillarKey: "i" as import("@/lib/types/advertis-vector").PillarKey,
+    operation: { type: "MERGE_DEEP", patch: pillarContent as Record<string, unknown> },
+    author: { system: "MESTOR", reason: "Implementation generator I pillar creation" },
+    options: { confidenceDelta: 0.05 },
   });
 
   // ── Phase 4: Campaign Activation Bridge ─────────────────────────────────

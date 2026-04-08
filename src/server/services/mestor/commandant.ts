@@ -99,7 +99,7 @@ Produis les recommandations d'enrichissement pour ${pillarKey.toUpperCase()}.`,
 
   const recos = Array.isArray(result) ? result : (result as Record<string, unknown>).recommendations;
 
-  // Store in DB as pendingRecos
+  // pendingRecos is metadata — not routed through Gateway
   await db.pillar.update({
     where: { strategyId_key: { strategyId, key: pillarKey } },
     data: { pendingRecos: (recos ?? []) as unknown as import("@prisma/client").Prisma.InputJsonValue },

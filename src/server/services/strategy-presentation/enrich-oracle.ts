@@ -598,14 +598,19 @@ export async function enrichAllSections(strategyId: string): Promise<{
         }
       }
 
-      if (pillar) {
-        await db.pillar.update({
-          where: { id: pillar.id },
-          data: { content: merged as never },
-        });
-      } else {
-        await db.pillar.create({
-          data: { strategyId, key: spec.pillar, content: merged as never },
+      // Gateway write — SET_FIELDS for selective field enrichment
+      const { writePillar } = await import("@/server/services/pillar-gateway");
+      const fieldsToSet = Object.entries(merged)
+        .filter(([k]) => !k.startsWith("_") && merged[k] !== currentContent[k])
+        .map(([path, value]) => ({ path, value }));
+
+      if (fieldsToSet.length > 0) {
+        await writePillar({
+          strategyId,
+          pillarKey: spec.pillar as import("@/lib/types/advertis-vector").PillarKey,
+          operation: { type: "SET_FIELDS", fields: fieldsToSet },
+          author: { system: "ARTEMIS", reason: `Oracle enrichment: section ${sectionId}` },
+          options: { confidenceDelta: 0.05, skipValidation: true },
         });
       }
 

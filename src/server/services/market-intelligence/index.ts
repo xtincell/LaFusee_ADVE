@@ -184,10 +184,14 @@ Format JSON strict conforme au schema PillarT :
 
   // 7. Persist T pillar
   const confidence = sectorReused ? 0.75 : 0.80;
-  await db.pillar.upsert({
-    where: { strategyId_key: { strategyId, key: "t" } },
-    update: { content: pillarContent as Prisma.InputJsonValue, confidence },
-    create: { strategyId, key: "t", content: pillarContent as Prisma.InputJsonValue, confidence },
+  // Persist via Gateway
+  const { writePillar } = await import("@/server/services/pillar-gateway");
+  await writePillar({
+    strategyId,
+    pillarKey: "t" as import("@/lib/types/advertis-vector").PillarKey,
+    operation: { type: "MERGE_DEEP", patch: pillarContent as Record<string, unknown> },
+    author: { system: "MESTOR", reason: "Market intelligence T pillar generation" },
+    options: { confidenceDelta: 0.05 },
   });
 
   // 8. Store as sector knowledge for cross-brand reuse

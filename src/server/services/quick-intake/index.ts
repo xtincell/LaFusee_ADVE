@@ -222,6 +222,13 @@ export async function complete(token: string) {
     intake.sector,
   );
 
+  // Pre-create empty pillar rows so the Gateway can find them
+  for (const p of pillars) {
+    await db.pillar.create({
+      data: { strategyId: strategy.id, key: p, content: {} as Prisma.InputJsonValue, confidence: 0 },
+    });
+  }
+
   for (const pillar of pillars) {
     const rawResponses = responses[pillar];
     const structuredContent = structuredContents[pillar];
@@ -229,13 +236,14 @@ export async function complete(token: string) {
     const content = structuredContent ?? rawResponses;
 
     if (content && typeof content === "object" && Object.keys(content).length > 0) {
-      await db.pillar.create({
-        data: {
-          strategyId: strategy.id,
-          key: pillar,
-          content: content as Prisma.InputJsonValue,
-          confidence: structuredContent ? 0.5 : 0.4,
-        },
+      // Persist via Gateway — full replace for initial intake conversion
+      const { writePillar } = await import("@/server/services/pillar-gateway");
+      await writePillar({
+        strategyId: strategy.id,
+        pillarKey: pillar as import("@/lib/types/advertis-vector").PillarKey,
+        operation: { type: "REPLACE_FULL", content: content as Record<string, unknown> },
+        author: { system: "INGESTION", reason: `Quick intake conversion: pillar ${pillar}` },
+        options: { confidenceDelta: 0.05 },
       });
     }
   }

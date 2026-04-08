@@ -358,23 +358,14 @@ INSTRUCTIONS:
   // --- Step 4: Re-validate after Glory refinement ---
   const finalValidation = validatePillarPartial(pillarKey, content);
 
-  // --- Step 5: Persist to DB ---
-  await db.pillar.upsert({
-    where: { strategyId_key: { strategyId, key: pillarKey } },
-    update: {
-      content: content as Prisma.InputJsonValue,
-      confidence: 0.5,
-      validationStatus: "AI_PROPOSED",
-      sources: sources as unknown as Prisma.InputJsonValue,
-    },
-    create: {
-      strategyId,
-      key: pillarKey,
-      content: content as Prisma.InputJsonValue,
-      confidence: 0.5,
-      validationStatus: "AI_PROPOSED",
-      sources: sources as unknown as Prisma.InputJsonValue,
-    },
+  // --- Step 5: Persist to DB via Gateway ---
+  const { writePillar } = await import("@/server/services/pillar-gateway");
+  await writePillar({
+    strategyId,
+    pillarKey: pillarKey as import("@/lib/types/advertis-vector").PillarKey,
+    operation: { type: "MERGE_DEEP", patch: content },
+    author: { system: "INGESTION", reason: `AI ADVE filler: pillar ${pillarKey}` },
+    options: { targetStatus: "AI_PROPOSED", confidenceDelta: 0.05 },
   });
 
   return {
@@ -450,22 +441,14 @@ Reponds en JSON valide. Sois precis et actionnable. Base tes recommandations sur
 
   const validation = validatePillarPartial(pillarKey, content);
 
-  await db.pillar.upsert({
-    where: { strategyId_key: { strategyId, key: pillarKey } },
-    update: {
-      content: content as Prisma.InputJsonValue,
-      confidence: 0.6,
-      validationStatus: "AI_PROPOSED",
-      sources: [{ sourceType: "AI_RTIS_GENERATION", field: "all", confidence: 0.6 }] as unknown as Prisma.InputJsonValue,
-    },
-    create: {
-      strategyId,
-      key: pillarKey,
-      content: content as Prisma.InputJsonValue,
-      confidence: 0.6,
-      validationStatus: "AI_PROPOSED",
-      sources: [{ sourceType: "AI_RTIS_GENERATION", field: "all", confidence: 0.6 }] as unknown as Prisma.InputJsonValue,
-    },
+  // Persist via Gateway
+  const { writePillar: writePillarRTIS } = await import("@/server/services/pillar-gateway");
+  await writePillarRTIS({
+    strategyId,
+    pillarKey: pillarKey as import("@/lib/types/advertis-vector").PillarKey,
+    operation: { type: "MERGE_DEEP", patch: content },
+    author: { system: "INGESTION", reason: `AI RTIS filler: pillar ${pillarKey}` },
+    options: { targetStatus: "AI_PROPOSED", confidenceDelta: 0.05 },
   });
 
   return {

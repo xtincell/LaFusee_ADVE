@@ -138,20 +138,16 @@ export async function fillToStage(
     }
   }
 
-  // ── Save ─────────────────────────────────────────────────────────────────
+  // ── Save via Gateway — LOI 1 ─────────────────────────────────────────
   if (filled.length > 0) {
-    const newConfidence = Math.min((pillar?.confidence ?? 0.5) + 0.03 * filled.length, 0.95);
-    await db.pillar.upsert({
-      where: { strategyId_key: { strategyId, key } },
-      update: { content: content as Prisma.InputJsonValue, confidence: newConfidence, staleAt: null },
-      create: { strategyId, key, content: content as Prisma.InputJsonValue, confidence: newConfidence },
+    const { writePillarAndScore } = await import("@/server/services/pillar-gateway");
+    await writePillarAndScore({
+      strategyId,
+      pillarKey: key as import("@/lib/types/advertis-vector").PillarKey,
+      operation: { type: "REPLACE_FULL", content },
+      author: { system: "AUTO_FILLER", reason: `fillToStage(${targetStage}) — ${filled.length} fields filled` },
+      options: { confidenceDelta: 0.03 * filled.length },
     });
-
-    // Re-score
-    try {
-      const { scoreObject } = await import("@/server/services/advertis-scorer");
-      await scoreObject("strategy", strategyId);
-    } catch { /* non-fatal */ }
   }
 
   // Re-assess

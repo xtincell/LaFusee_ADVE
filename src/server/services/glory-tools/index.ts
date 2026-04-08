@@ -302,18 +302,18 @@ export async function executeBrandPipeline(
       const targetField = fieldMap[slug];
       if (targetField) {
         try {
-          const pillar = await db.pillar.findUnique({
-            where: { strategyId_key: { strategyId, key: "d" } },
-          });
-          const content = (pillar?.content as Record<string, unknown>) ?? {};
-          const da = (content.directionArtistique as Record<string, unknown>) ?? {};
+          // Migrated to Pillar Gateway — LOI 1
           const { _meta, ...cleanOutput } = output;
-          da[targetField] = { ...cleanOutput, gloryOutputId: outputId };
-          content.directionArtistique = da;
-          await db.pillar.upsert({
-            where: { strategyId_key: { strategyId, key: "d" } },
-            update: { content: content as unknown as import("@prisma/client").Prisma.InputJsonValue },
-            create: { strategyId, key: "d", content: content as unknown as import("@prisma/client").Prisma.InputJsonValue, confidence: 0.6 },
+          const { writePillar } = await import("@/server/services/pillar-gateway");
+          await writePillar({
+            strategyId,
+            pillarKey: "d",
+            operation: {
+              type: "SET_FIELDS",
+              fields: [{ path: `directionArtistique.${targetField}`, value: { ...cleanOutput, gloryOutputId: outputId } }],
+            },
+            author: { system: "GLORY", reason: `Brand pipeline — ${slug} → D.directionArtistique.${targetField}` },
+            options: { confidenceDelta: 0.02 },
           });
         } catch (applyErr) {
           console.warn(`[glory-pipeline] auto-apply ${slug} → D.${targetField} failed:`, applyErr instanceof Error ? applyErr.message : applyErr);

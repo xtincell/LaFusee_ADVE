@@ -34,10 +34,14 @@ async function loadPillars(strategyId: string): Promise<Record<string, unknown>>
 }
 
 async function savePillar(strategyId: string, key: string, content: Record<string, unknown>, confidence: number) {
-  await db.pillar.upsert({
-    where: { strategyId_key: { strategyId, key: key.toLowerCase() } },
-    update: { content: content as Prisma.InputJsonValue, confidence, validationStatus: "DRAFT", staleAt: null },
-    create: { strategyId, key: key.toLowerCase(), content: content as Prisma.InputJsonValue, confidence },
+  // Migrated to Pillar Gateway — LOI 1
+  const { writePillar } = await import("@/server/services/pillar-gateway");
+  await writePillar({
+    strategyId,
+    pillarKey: key.toLowerCase() as import("@/lib/types/advertis-vector").PillarKey,
+    operation: { type: "MERGE_DEEP", patch: content },
+    author: { system: "MESTOR", reason: "RTIS cascade — actualizePillar" },
+    options: { targetStatus: "AI_PROPOSED", confidenceDelta: confidence * 0.1 },
   });
 }
 
@@ -672,15 +676,19 @@ export async function applyAcceptedRecommendations(
       applied++;
     }
 
-    // Save updated content + mark recos as processed
+    // Save via Gateway — LOI 1
+    const { writePillar } = await import("@/server/services/pillar-gateway");
+    await writePillar({
+      strategyId,
+      pillarKey: pillarKey.toLowerCase() as import("@/lib/types/advertis-vector").PillarKey,
+      operation: { type: "REPLACE_FULL", content },
+      author: { system: "MESTOR", reason: "applyAcceptedRecommendations" },
+      options: { confidenceDelta: 0.05 * applied },
+    });
+    // Update pendingRecos separately (metadata, not content)
     await db.pillar.update({
       where: { id: pillar.id },
-      data: {
-        content: content as Prisma.InputJsonValue,
-        pendingRecos: recos as unknown as Prisma.InputJsonValue,
-        confidence: Math.min((pillar.confidence ?? 0.5) + 0.05 * applied, 0.95),
-        staleAt: null,
-      },
+      data: { pendingRecos: recos as unknown as Prisma.InputJsonValue },
     });
 
     // Recalc scores
