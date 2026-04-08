@@ -108,9 +108,17 @@ export function PillarPage({ pageKey }: PillarPageProps) {
   const strategyId = useCurrentStrategyId();
   const [isRegenerating, setIsRegenerating] = useState(false);
 
+  const isAdve = config.type === "adve";
+  const adveKey = config.pillarKey.toUpperCase() as "A" | "D" | "V" | "E";
+
   const pillarQuery = trpc.pillar.get.useQuery(
     { strategyId: strategyId ?? "", key: config.pillarKey.toUpperCase() as "A" | "D" | "V" | "E" | "R" | "T" | "I" | "S" },
     { enabled: !!strategyId },
+  );
+
+  const recosQuery = trpc.pillar.getRecos.useQuery(
+    { strategyId: strategyId ?? "", key: adveKey },
+    { enabled: !!strategyId && isAdve },
   );
 
   const autoFillMutation = trpc.pillar.autoFill.useMutation({
@@ -121,18 +129,10 @@ export function PillarPage({ pageKey }: PillarPageProps) {
     onSuccess: () => pillarQuery.refetch(),
   });
 
-  // Vault enrichment — loads ALL sources, scans variables, produces recos
   const vaultEnrichMutation = trpc.pillar.enrichFromVault.useMutation({
     onSuccess: () => { pillarQuery.refetch(); if (isAdve) recosQuery.refetch(); },
   });
 
-  // Recommendations (all pillars — vault can enrich any pillar)
-  const isAdve = config.type === "adve";
-  const adveKey = config.pillarKey.toUpperCase() as "A" | "D" | "V" | "E";
-  const recosQuery = trpc.pillar.getRecos.useQuery(
-    { strategyId: strategyId ?? "", key: adveKey },
-    { enabled: !!strategyId && isAdve }, // getRecos only works for ADVE keys in the router
-  );
   const acceptRecosMutation = trpc.pillar.acceptRecos.useMutation({
     onSuccess: () => { pillarQuery.refetch(); recosQuery.refetch(); },
   });
