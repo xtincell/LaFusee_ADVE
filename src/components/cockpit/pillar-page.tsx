@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { SkeletonPage } from "@/components/shared/loading-skeleton";
 import { useCurrentStrategyId } from "@/components/cockpit/strategy-context";
 import type { PillarKey } from "@/lib/types/advertis-vector";
+import { PILLAR_SCHEMAS } from "@/lib/types/pillar-schemas";
 import {
   RefreshCw, Save, AlertCircle, CheckCircle, Sparkles, Loader2,
 } from "lucide-react";
@@ -124,13 +125,23 @@ export function PillarPage({ pageKey }: PillarPageProps) {
 
   const pillar = pillarQuery.data?.pillar;
   const content = (pillar?.content ?? {}) as Record<string, unknown>;
-  const filledFields = Object.entries(content).filter(([, v]) =>
-    v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)
-  ).length;
-  const totalFields = Math.max(Object.keys(content).length, 1);
+
+  // Get ALL expected fields from the Zod schema (source of truth)
+  const schemaKey = config.pillarKey.toUpperCase() as keyof typeof PILLAR_SCHEMAS;
+  const schema = PILLAR_SCHEMAS[schemaKey];
+  const allSchemaKeys = schema ? Object.keys((schema as { shape?: Record<string, unknown> }).shape ?? {}) : [];
+
+  // Merge: schema keys + any extra keys in content
+  const allKeys = [...new Set([...allSchemaKeys, ...Object.keys(content)])];
+
+  const isFilled = (v: unknown) => v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
+  const filledFields = allKeys.filter(k => isFilled(content[k])).length;
+  const totalFields = Math.max(allKeys.length, 1);
   const completionPct = Math.round((filledFields / totalFields) * 100);
   const validation = pillarQuery.data?.validation;
   const validationPct = validation?.completionPercentage ?? completionPct;
+
+  const inlineKeys = ["secteur", "pays", "langue", "brandNature", "primaryChannel", "businessModel", "positioningArchetype", "salesChannel"];
 
   const handleRegenerate = async () => {
     if (!strategyId) return;
@@ -225,13 +236,12 @@ export function PillarPage({ pageKey }: PillarPageProps) {
       <div className="space-y-4">
         {/* Inline metadata badges grouped together */}
         {(() => {
-          const inlineKeys = ["secteur", "pays", "langue", "brandNature", "primaryChannel", "businessModel", "positioningArchetype", "salesChannel"];
-          const inlineEntries = Object.entries(content).filter(([k, v]) => inlineKeys.includes(k) && v != null && v !== "");
-          if (inlineEntries.length > 0) {
+          const entries = allKeys.filter(k => inlineKeys.includes(k) && isFilled(content[k]));
+          if (entries.length > 0) {
             return (
               <div className="flex flex-wrap gap-2">
-                {inlineEntries.map(([key, value]) => (
-                  <FieldRenderer key={key} fieldKey={key} value={value} accent={config.accent} />
+                {entries.map(key => (
+                  <FieldRenderer key={key} fieldKey={key} value={content[key]} accent={config.accent} />
                 ))}
               </div>
             );
@@ -239,13 +249,24 @@ export function PillarPage({ pageKey }: PillarPageProps) {
           return null;
         })()}
 
-        {/* Non-inline fields */}
-        {Object.entries(content).map(([key, value]) => {
-          if (value === null || value === undefined) return null;
-          const inlineKeys = ["secteur", "pays", "langue", "brandNature", "primaryChannel", "businessModel", "positioningArchetype", "salesChannel"];
-          if (inlineKeys.includes(key)) return null; // Already rendered above
-          return <FieldRenderer key={key} fieldKey={key} value={value} accent={config.accent} />;
-        })}
+        {/* All fields from schema — filled ones get rich renderers, empty ones show placeholder */}
+        {allKeys
+          .filter(key => !inlineKeys.includes(key))
+          .map(key => {
+            const value = content[key];
+            if (isFilled(value)) {
+              return <FieldRenderer key={key} fieldKey={key} value={value} accent={config.accent} />;
+            }
+            // Empty field — show as "to fill"
+            return (
+              <div key={key} className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground-muted uppercase tracking-wide">{fieldLabel(key)}</h3>
+                  <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-foreground-muted">A remplir</span>
+                </div>
+              </div>
+            );
+          })}
 
         {filledFields === 0 && (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-white/10 py-16 text-center">
