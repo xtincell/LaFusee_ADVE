@@ -624,6 +624,25 @@ export const pillarRouter = createTRPCRouter({
         orphanCount: report.orphanBindings.length,
       };
     }),
+
+  // Vault-based enrichment — scans ALL BrandDataSource → produces recos
+  enrichFromVault: operatorProcedure
+    .input(z.object({
+      strategyId: z.string(),
+      pillarKey: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const { enrichFromVault } = await import("@/server/services/vault-enrichment");
+      return enrichFromVault(input.strategyId, input.pillarKey as import("@/lib/types/advertis-vector").PillarKey);
+    }),
+
+  // Vault-based enrichment for ALL pillars
+  enrichAllFromVault: operatorProcedure
+    .input(z.object({ strategyId: z.string() }))
+    .mutation(async ({ input }) => {
+      const { enrichAllFromVault } = await import("@/server/services/vault-enrichment");
+      return enrichAllFromVault(input.strategyId);
+    }),
 });
 
 function getArraySafe(val: unknown): unknown[] {

@@ -114,19 +114,24 @@ export function PillarPage({ pageKey }: PillarPageProps) {
   );
 
   const autoFillMutation = trpc.pillar.autoFill.useMutation({
-    onSuccess: () => pillarQuery.refetch(),
+    onSuccess: () => { pillarQuery.refetch(); if (isAdve) recosQuery.refetch(); },
   });
 
   const actualizeMutation = trpc.pillar.actualize.useMutation({
     onSuccess: () => pillarQuery.refetch(),
   });
 
-  // Recommendations (ADVE only)
+  // Vault enrichment — loads ALL sources, scans variables, produces recos
+  const vaultEnrichMutation = trpc.pillar.enrichFromVault.useMutation({
+    onSuccess: () => { pillarQuery.refetch(); if (isAdve) recosQuery.refetch(); },
+  });
+
+  // Recommendations (all pillars — vault can enrich any pillar)
   const isAdve = config.type === "adve";
   const adveKey = config.pillarKey.toUpperCase() as "A" | "D" | "V" | "E";
   const recosQuery = trpc.pillar.getRecos.useQuery(
     { strategyId: strategyId ?? "", key: adveKey },
-    { enabled: !!strategyId && isAdve },
+    { enabled: !!strategyId && isAdve }, // getRecos only works for ADVE keys in the router
   );
   const acceptRecosMutation = trpc.pillar.acceptRecos.useMutation({
     onSuccess: () => { pillarQuery.refetch(); recosQuery.refetch(); },
@@ -167,11 +172,21 @@ export function PillarPage({ pageKey }: PillarPageProps) {
     if (!strategyId) return;
     setIsRegenerating(true);
     try {
-      if (config.type === "adve") {
-        await autoFillMutation.mutateAsync({ strategyId, pillarKey: config.pillarKey });
-      } else {
-        await actualizeMutation.mutateAsync({ strategyId, key: config.pillarKey.toUpperCase() as "A" | "D" | "V" | "E" | "R" | "T" | "I" | "S" });
+      // 1. Vault enrichment first — scans ALL sources → produces recos
+      const vaultResult = await vaultEnrichMutation.mutateAsync({
+        strategyId,
+        pillarKey: config.pillarKey,
+      });
+
+      // 2. If vault had no sources or no recos, fallback to auto-fill / protocol
+      if (vaultResult.vaultSize === 0 || vaultResult.recommendations.length === 0) {
+        if (config.type === "adve") {
+          await autoFillMutation.mutateAsync({ strategyId, pillarKey: config.pillarKey });
+        } else {
+          await actualizeMutation.mutateAsync({ strategyId, key: config.pillarKey.toUpperCase() as "A" | "D" | "V" | "E" | "R" | "T" | "I" | "S" });
+        }
       }
+      // If vault produced recos → they're now in pendingRecos → panel shows them
     } finally {
       setIsRegenerating(false);
     }
