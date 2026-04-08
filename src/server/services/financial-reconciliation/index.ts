@@ -66,12 +66,19 @@ export async function getClientPnL(
   });
   const contractValue = contracts.reduce((s, c) => s + (c.value ?? 0), 0);
 
-  const invoices = await db.invoice.findMany({
-    where: { status: "PAID", paidAt: { gte: from, lte: to } },
-    select: { amount: true },
+  // Link invoices to strategies via commissions → missions → strategyId
+  const commissionInvoiceIds = await db.commission.findMany({
+    where: { mission: { strategyId: { in: strategyIds } }, invoiceId: { not: null } },
+    select: { invoiceId: true },
   });
-  // Filter invoices by strategy — invoices don't have strategyId directly
-  // For now, sum all paid invoices (TODO: link invoices to strategies via commissions)
+  const linkedInvoiceIds = commissionInvoiceIds.map(c => c.invoiceId).filter(Boolean) as string[];
+
+  const invoices = linkedInvoiceIds.length > 0
+    ? await db.invoice.findMany({
+        where: { id: { in: linkedInvoiceIds }, status: "PAID", paidAt: { gte: from, lte: to } },
+        select: { amount: true },
+      })
+    : [];
   const invoicedAmount = invoices.reduce((s, i) => s + (i.amount ?? 0), 0);
 
   // Costs — commissions
@@ -129,11 +136,13 @@ export async function getClientPnL(
       grossPct: totalRevenue > 0 ? Math.round((gross / totalRevenue) * 10000) / 100 : 0,
     },
     breakdown: {
-      byCampaign: campaigns.map(c => ({
-        campaignId: c.id,
-        name: c.name,
-        budget: c.budget ?? 0,
-        spent: 0, // TODO: sum budget lines per campaign
+      byCampaign: await Promise.all(campaigns.map(async c => {
+        const lines = await db.budgetLine.findMany({
+          where: { campaignId: c.id },
+          select: { actual: true },
+        });
+        const spent = lines.reduce((s, l) => s + (l.actual ?? 0), 0);
+        return { campaignId: c.id, name: c.name, budget: c.budget ?? 0, spent };
       })),
     },
   };

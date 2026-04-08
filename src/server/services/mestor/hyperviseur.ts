@@ -399,3 +399,110 @@ export function resolveHumanStep(plan: OrchestrationPlan, stepId: string): void 
     s.result = { resolvedAt: new Date().toISOString(), resolvedBy: "operator" };
   }
 }
+
+// ── Persistence (P1.1) ────────────────────────────────────────────────
+
+/**
+ * Save a plan to DB. Creates or updates.
+ */
+export async function persistPlan(plan: OrchestrationPlan): Promise<string> {
+  const completed = plan.steps.filter(s => s.status === "COMPLETED").length;
+  const allDone = plan.steps.every(s => s.status === "COMPLETED" || s.status === "SKIPPED");
+  const hasFailed = plan.steps.some(s => s.status === "FAILED");
+
+  const dbPlan = await db.orchestrationPlan.upsert({
+    where: { id: plan.strategyId + "-latest" }, // Use a deterministic ID
+    update: {
+      phase: plan.phase,
+      status: allDone ? "COMPLETED" : hasFailed ? "FAILED" : "RUNNING",
+      totalSteps: plan.steps.length,
+      completedSteps: completed,
+      completedAt: allDone ? new Date() : null,
+    },
+    create: {
+      id: plan.strategyId + "-latest",
+      strategyId: plan.strategyId,
+      phase: plan.phase,
+      status: "RUNNING",
+      totalSteps: plan.steps.length,
+      completedSteps: completed,
+      estimatedAiCalls: plan.estimatedAiCalls,
+    },
+  });
+
+  // Upsert each step
+  for (const step of plan.steps) {
+    await db.orchestrationStep.upsert({
+      where: { id: step.id },
+      update: {
+        status: step.status,
+        result: step.result as import("@prisma/client").Prisma.InputJsonValue ?? undefined,
+        error: step.error ?? null,
+        retryCount: step.retryCount,
+        startedAt: step.status === "RUNNING" ? new Date() : undefined,
+        completedAt: step.status === "COMPLETED" ? new Date() : undefined,
+      },
+      create: {
+        id: step.id,
+        planId: dbPlan.id,
+        agent: step.agent,
+        target: step.target,
+        description: step.description,
+        priority: step.priority,
+        dependsOn: step.dependsOn,
+        status: step.status,
+        maxRetries: step.maxRetries,
+      },
+    });
+  }
+
+  return dbPlan.id;
+}
+
+/**
+ * Load a persisted plan from DB. Returns null if not found.
+ */
+export async function loadPlan(strategyId: string): Promise<OrchestrationPlan | null> {
+  const dbPlan = await db.orchestrationPlan.findUnique({
+    where: { id: strategyId + "-latest" },
+    include: { steps: { orderBy: { priority: "desc" } } },
+  });
+
+  if (!dbPlan) return null;
+
+  return {
+    strategyId: dbPlan.strategyId,
+    phase: dbPlan.phase as StrategyPhase,
+    steps: dbPlan.steps.map(s => ({
+      id: s.id,
+      agent: s.agent as StepAgent,
+      target: s.target,
+      description: s.description,
+      priority: s.priority,
+      dependsOn: s.dependsOn,
+      status: s.status as OrchestrationStep["status"],
+      result: s.result as unknown,
+      error: s.error ?? undefined,
+      retryCount: s.retryCount,
+      maxRetries: s.maxRetries,
+    })),
+    pillarHealth: [], // Will be re-assessed on resume
+    estimatedAiCalls: dbPlan.estimatedAiCalls,
+    createdAt: dbPlan.createdAt.toISOString(),
+  };
+}
+
+/**
+ * Resume a persisted plan: load, execute pending steps, persist.
+ */
+export async function resumePlan(strategyId: string): Promise<OrchestrationPlan | null> {
+  const plan = await loadPlan(strategyId);
+  if (!plan) return null;
+
+  const hasPending = plan.steps.some(s => s.status === "PENDING" || s.status === "WAITING");
+  if (!hasPending) return plan; // Already complete
+
+  const executed = await executePlan(plan);
+  await persistPlan(executed);
+  return executed;
+}
