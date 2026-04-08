@@ -18,6 +18,7 @@ import type { PillarKey } from "@/lib/types/advertis-vector";
 import { PILLAR_SCHEMAS } from "@/lib/types/pillar-schemas";
 import {
   RefreshCw, Save, AlertCircle, CheckCircle, Sparkles, Loader2,
+  ThumbsUp, ThumbsDown, ChevronRight, ArrowRight,
 } from "lucide-react";
 
 // ── Config par pilier ─────────────────────────────────────────────────
@@ -120,6 +121,21 @@ export function PillarPage({ pageKey }: PillarPageProps) {
     onSuccess: () => pillarQuery.refetch(),
   });
 
+  // Recommendations (ADVE only)
+  const isAdve = config.type === "adve";
+  const adveKey = config.pillarKey.toUpperCase() as "A" | "D" | "V" | "E";
+  const recosQuery = trpc.pillar.getRecos.useQuery(
+    { strategyId: strategyId ?? "", key: adveKey },
+    { enabled: !!strategyId && isAdve },
+  );
+  const acceptRecosMutation = trpc.pillar.acceptRecos.useMutation({
+    onSuccess: () => { pillarQuery.refetch(); recosQuery.refetch(); },
+  });
+  const rejectRecosMutation = trpc.pillar.rejectRecos.useMutation({
+    onSuccess: () => recosQuery.refetch(),
+  });
+  const [selectedRecos, setSelectedRecos] = useState<Set<number>>(new Set());
+
   if (!strategyId) return <SkeletonPage />;
   if (pillarQuery.isLoading) return <SkeletonPage />;
 
@@ -204,6 +220,90 @@ export function PillarPage({ pageKey }: PillarPageProps) {
         </button>
       </div>
 
+      {/* ── Recommendation review panel (ADVE only) ─────────────── */}
+      {isAdve && recosQuery.data && (recosQuery.data as unknown as Array<Record<string, unknown>>).length > 0 ? (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              <h3 className="text-sm font-semibold text-amber-300">
+                {(recosQuery.data as unknown[]).length} recommandation{(recosQuery.data as unknown[]).length > 1 ? "s" : ""} R+T
+              </h3>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const indices = Array.from(selectedRecos);
+                  if (indices.length === 0) return;
+                  acceptRecosMutation.mutate({ strategyId: strategyId!, key: adveKey, recoIndices: indices });
+                  setSelectedRecos(new Set());
+                }}
+                disabled={selectedRecos.size === 0 || acceptRecosMutation.isPending}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-40"
+              >
+                <ThumbsUp className="h-3 w-3" /> Accepter ({selectedRecos.size})
+              </button>
+              <button
+                onClick={() => rejectRecosMutation.mutate({ strategyId: strategyId!, key: adveKey })}
+                disabled={rejectRecosMutation.isPending}
+                className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium bg-red-600/20 text-red-300 hover:bg-red-600/30 disabled:opacity-40"
+              >
+                <ThumbsDown className="h-3 w-3" /> Tout rejeter
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {(recosQuery.data as unknown as Array<Record<string, unknown>>).map((reco, i) => {
+              const isSelected = selectedRecos.has(i);
+              const accepted = reco.accepted === true;
+              if (accepted) return null;
+              return (
+                <div
+                  key={i}
+                  onClick={() => {
+                    const next = new Set(selectedRecos);
+                    if (isSelected) next.delete(i); else next.add(i);
+                    setSelectedRecos(next);
+                  }}
+                  className={`cursor-pointer rounded-lg border p-3 transition-colors ${
+                    isSelected
+                      ? "border-emerald-500/30 bg-emerald-500/10"
+                      : "border-white/5 bg-white/[0.02] hover:bg-white/5"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                          reco.operation === "ADD" ? "bg-emerald-500/15 text-emerald-300" :
+                          reco.operation === "MODIFY" ? "bg-blue-500/15 text-blue-300" :
+                          reco.operation === "REMOVE" ? "bg-red-500/15 text-red-300" :
+                          reco.operation === "EXTEND" ? "bg-violet-500/15 text-violet-300" :
+                          "bg-white/10 text-foreground-muted"
+                        }`}>{String(reco.operation ?? "SET")}</span>
+                        <span className="text-xs font-medium text-white">{String(reco.field)}</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] ${
+                          reco.impact === "HIGH" ? "bg-red-500/15 text-red-300" :
+                          reco.impact === "MEDIUM" ? "bg-amber-500/15 text-amber-300" :
+                          "bg-white/10 text-foreground-muted"
+                        }`}>{String(reco.impact ?? "")}</span>
+                        {reco.source ? <span className="text-[9px] text-foreground-muted">via {String(reco.source)}</span> : null}
+                      </div>
+                      <p className="text-xs text-foreground-muted">{String(reco.justification ?? "")}</p>
+                    </div>
+                    <div className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border ${
+                      isSelected ? "border-emerald-400 bg-emerald-400 text-black" : "border-white/20"
+                    }`}>
+                      {isSelected ? <CheckCircle className="h-3 w-3" /> : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {/* ── Metadata badges ──────────────────────────────────────── */}
       {inlineFilledKeys.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
@@ -231,9 +331,9 @@ export function PillarPage({ pageKey }: PillarPageProps) {
         );
       })()}
 
-      {/* ── Main content (2-column grid for medium fields) ────────── */}
+      {/* ── Main content — ALL fields in grid, filled + empty IN SITU ── */}
       {(() => {
-        const mainKeys = filledKeys.filter(k => !heroFields.includes(k) && !compactFields.includes(k));
+        const mainKeys = allKeys.filter(k => !inlineKeys.includes(k) && !heroFields.includes(k) && !compactFields.includes(k));
         if (mainKeys.length === 0 && filledFields === 0) {
           return (
             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-white/10 py-12 text-center">
@@ -249,30 +349,22 @@ export function PillarPage({ pageKey }: PillarPageProps) {
         }
         return (
           <div className="grid gap-3 md:grid-cols-2">
-            {mainKeys.map(key => (
-              <FieldRenderer key={key} fieldKey={key} value={content[key]} accent={config.accent} />
-            ))}
+            {mainKeys.map(key => {
+              const value = content[key];
+              if (isFilled(value)) {
+                return <FieldRenderer key={key} fieldKey={key} value={value} accent={config.accent} />;
+              }
+              // Empty field — visible IN SITU with dashed border
+              return (
+                <div key={key} className="flex items-center justify-between rounded-lg border border-dashed border-white/8 bg-white/[0.01] px-4 py-3">
+                  <span className="text-xs text-foreground-muted">{fieldLabel(key)}</span>
+                  <span className="rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-foreground-muted/60">vide</span>
+                </div>
+              );
+            })}
           </div>
         );
       })()}
-
-      {/* ── Empty fields (collapsed, subtle) ─────────────────────── */}
-      {emptyKeys.length > 0 ? (
-        <details className="group">
-          <summary className="cursor-pointer rounded-lg border border-dashed border-white/10 px-4 py-2 text-xs text-foreground-muted hover:bg-white/[0.02]">
-            {emptyKeys.length} champ{emptyKeys.length > 1 ? "s" : ""} a remplir
-            <span className="ml-1 text-[10px] group-open:hidden">&#9654;</span>
-            <span className="ml-1 text-[10px] hidden group-open:inline">&#9660;</span>
-          </summary>
-          <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
-            {emptyKeys.map(key => (
-              <div key={key} className="rounded border border-dashed border-white/5 px-2.5 py-1.5 text-[11px] text-foreground-muted">
-                {fieldLabel(key)}
-              </div>
-            ))}
-          </div>
-        </details>
-      ) : null}
     </div>
   );
 }
@@ -621,7 +713,7 @@ function FieldRenderer({ fieldKey, value, accent }: { fieldKey: string; value: u
     );
   }
 
-  // ── Generic object ────────────────────────────────────────────
+  // ── Generic object — expand nested content ─────────────────
   if (typeof value === "object" && value !== null) {
     const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== null && v !== undefined);
     if (entries.length === 0) return null;
@@ -631,7 +723,37 @@ function FieldRenderer({ fieldKey, value, accent }: { fieldKey: string; value: u
           {entries.map(([k, v]) => (
             <div key={k} className="rounded bg-white/5 px-3 py-2">
               <span className="text-xs font-medium text-foreground-muted">{fieldLabel(k)}</span>
-              <p className="text-sm">{typeof v === "string" ? v : Array.isArray(v) ? `${v.length} items` : JSON.stringify(v)}</p>
+              {typeof v === "string" ? (
+                <p className="text-sm mt-0.5">{v}</p>
+              ) : Array.isArray(v) ? (
+                <div className="mt-1 space-y-1">
+                  {v.slice(0, 8).map((item, i) => (
+                    <div key={i} className="rounded bg-white/5 px-2 py-1 text-xs">
+                      {typeof item === "string" ? item : (
+                        <span className="flex flex-wrap gap-x-2">
+                          {Object.entries(item as Record<string, unknown>)
+                            .filter(([, val]) => val != null && val !== "")
+                            .slice(0, 5)
+                            .map(([ik, iv]) => (
+                              <span key={ik}><span className="text-foreground-muted">{ik}:</span> {String(iv).slice(0, 60)}</span>
+                            ))}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {v.length > 8 ? <p className="text-[10px] text-foreground-muted">+{v.length - 8} autres</p> : null}
+                </div>
+              ) : typeof v === "object" && v !== null ? (
+                <div className="mt-1 space-y-1">
+                  {Object.entries(v as Record<string, unknown>)
+                    .filter(([, val]) => val != null && val !== "")
+                    .map(([ik, iv]) => (
+                      <p key={ik} className="text-xs"><span className="text-foreground-muted">{ik}:</span> {String(iv).slice(0, 100)}</p>
+                    ))}
+                </div>
+              ) : (
+                <p className="text-sm mt-0.5">{String(v)}</p>
+              )}
             </div>
           ))}
         </div>
