@@ -20,6 +20,7 @@
 import { db } from "@/lib/db";
 import { assessAllPillarsHealth, type PillarHealthReport } from "./pillar-director";
 import { ALL_SEQUENCES, type GlorySequenceKey, type GlorySequenceDef } from "./sequences";
+import { assessStrategy } from "@/server/services/pillar-maturity/assessor";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,21 @@ export interface HypervisorPlan {
 
 // ─── Phase Detection ─────────────────────────────────────────────────────────
 
-function detectPhase(composite: number, pillarCount: number): StrategyPhase {
+/**
+ * Phase detection based on maturity stages (primary) with composite fallback.
+ * Uses the maturity contract as the authoritative source.
+ */
+function detectPhase(composite: number, pillarCount: number, maturityOverallStage?: string): StrategyPhase {
+  // Maturity-based detection (preferred)
+  if (maturityOverallStage) {
+    switch (maturityOverallStage) {
+      case "EMPTY": return "QUICK_INTAKE";
+      case "INTAKE": return pillarCount >= 4 ? "BOOT" : "QUICK_INTAKE";
+      case "ENRICHED": return "ACTIVE";
+      case "COMPLETE": return "GROWTH";
+    }
+  }
+  // Fallback to composite-based detection
   if (pillarCount < 4) return "QUICK_INTAKE";
   if (composite < 50) return "BOOT";
   if (composite < 120) return "ACTIVE";
@@ -102,10 +117,18 @@ export async function analyzeAndRecommend(strategyId: string): Promise<Hyperviso
   const vec = (strategy.advertis_vector as Record<string, number>) ?? {};
   const composite = vec.composite ?? 0;
 
-  // Assess all pillar health
+  // Assess all pillar health + maturity
   const pillarHealth = await assessAllPillarsHealth(strategyId);
   const filledPillars = pillarHealth.filter((h) => h.completeness > 20).length;
-  const phase = detectPhase(composite, filledPillars);
+
+  // Get maturity-based phase detection
+  let maturityStage: string | undefined;
+  try {
+    const maturityReport = await assessStrategy(strategyId);
+    maturityStage = maturityReport.overallStage;
+  } catch { /* fallback to composite-based */ }
+
+  const phase = detectPhase(composite, filledPillars, maturityStage);
 
   // Find completed sequences (all GLORY steps have outputs)
   const executedSlugs = new Set(strategy.gloryOutputs.map((g) => g.toolSlug));

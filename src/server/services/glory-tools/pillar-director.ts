@@ -24,6 +24,9 @@ import { db } from "@/lib/db";
 import { PillarResolver } from "./pillar-resolver";
 import { ALL_SEQUENCES, type GlorySequenceKey } from "./sequences";
 import { ALL_GLORY_TOOLS, type GloryToolDef } from "./registry";
+import { assessPillar } from "@/server/services/pillar-maturity/assessor";
+import { getContract } from "@/server/services/pillar-maturity/contracts-loader";
+import type { MaturityStage } from "@/lib/types/pillar-maturity";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,7 +34,9 @@ export type PillarKey = "a" | "d" | "v" | "e" | "r" | "t" | "i" | "s";
 
 export interface PillarHealthReport {
   pillarKey: PillarKey;
-  /** Total atomic fields in the schema */
+  /** Maturity stage from the contract */
+  maturityStage: MaturityStage | "EMPTY";
+  /** Total atomic fields in the COMPLETE contract */
   totalFields: number;
   /** Fields that have non-empty values */
   filledFields: number;
@@ -39,16 +44,18 @@ export interface PillarHealthReport {
   completeness: number;
   /** DB confidence score */
   confidence: number;
-  /** Missing critical fields (should block downstream) */
+  /** Missing fields required for COMPLETE (blocks Glory) */
   criticalGaps: string[];
-  /** Missing optional fields (nice to have) */
-  optionalGaps: string[];
+  /** Missing fields that are auto-derivable */
+  derivableGaps: string[];
   /** Sequences that READ this pillar */
   consumedBy: GlorySequenceKey[];
   /** Sequences that WRITE to this pillar */
   enrichedBy: GlorySequenceKey[];
   /** GLORY tools that bind to this pillar */
   boundTools: string[];
+  /** True when maturityStage === "COMPLETE" */
+  readyForGlory: boolean;
 }
 
 export interface WritebackVerdict {
@@ -61,29 +68,7 @@ export interface WritebackVerdict {
   conflicts: Array<{ field: string; existing: unknown; proposed: unknown; reason: string }>;
 }
 
-// ─── Pillar Field Maps (critical fields per pillar from Zod schemas) ─────────
-
-const CRITICAL_FIELDS: Record<PillarKey, string[]> = {
-  a: ["archetype", "noyauIdentitaire", "ikigai", "valeurs", "herosJourney", "citationFondatrice"],
-  d: ["personas", "promesseMaitre", "positionnement", "tonDeVoix", "paysageConcurrentiel", "directionArtistique"],
-  v: ["produitsCatalogue", "productLadder", "unitEconomics", "promesseDeValeur"],
-  e: ["touchpoints", "rituels", "aarrr", "kpis"],
-  r: ["globalSwot", "probabilityImpactMatrix", "mitigationPriorities"],
-  t: ["triangulation", "hypothesisValidation", "tamSamSom"],
-  i: ["sprint90Days", "annualCalendar", "globalBudget"],
-  s: ["syntheseExecutive", "facteursClesSucces", "recommandationsPrioritaires", "axesStrategiques"],
-};
-
-const OPTIONAL_FIELDS: Record<PillarKey, string[]> = {
-  a: ["prophecy", "enemy", "doctrine", "livingMythology", "equipeDirigeante", "timelineNarrative", "hierarchieCommunautaire"],
-  d: ["assetsLinguistiques", "sacredObjects", "proofPoints", "symboles"],
-  v: ["mvp", "proprieteIntellectuelle", "valeurMarqueTangible", "valeurClientTangible"],
-  e: ["gamification", "sacredCalendar", "commandments", "ritesDePassage", "sacraments", "principesCommunautaires", "taboos"],
-  r: ["microSWOTs", "riskScore"],
-  t: ["marketReality", "brandMarketFitScore", "weakSignalAnalysis", "traction"],
-  i: ["syntheses", "teamStructure", "brandPlatform", "copyStrategy", "bigIdea", "mediaPlan", "budgetBreakdown"],
-  s: ["visionStrategique", "coherencePiliers", "kpiDashboard", "coherenceScore", "sprint90Recap"],
-};
+// ─── Pillar Field Maps: derived from Maturity Contracts (single source of truth) ─
 
 const PILLAR_LABELS: Record<PillarKey, string> = {
   a: "Authenticité",
@@ -114,15 +99,10 @@ export class PillarDirector {
     const resolver = await PillarResolver.forStrategy(strategyId);
     const content = resolver.getPillarContent(this.key) ?? {};
     const confidence = resolver.getConfidence(this.key);
+    const contract = getContract(this.key);
 
-    const critical = CRITICAL_FIELDS[this.key];
-    const optional = OPTIONAL_FIELDS[this.key];
-
-    const criticalGaps = critical.filter((f) => !hasValue(content[f]));
-    const optionalGaps = optional.filter((f) => !hasValue(content[f]));
-
-    const totalFields = critical.length + optional.length;
-    const filledFields = totalFields - criticalGaps.length - optionalGaps.length;
+    // Use the maturity contract as the single source of truth
+    const assessment = assessPillar(this.key, content as Record<string, unknown>, contract ?? undefined);
 
     // Find sequences that consume this pillar (have PILLAR steps for this key)
     const consumedBy = ALL_SEQUENCES
@@ -141,15 +121,17 @@ export class PillarDirector {
 
     return {
       pillarKey: this.key,
-      totalFields,
-      filledFields,
-      completeness: Math.round((filledFields / totalFields) * 100),
+      maturityStage: assessment.currentStage,
+      totalFields: assessment.satisfied.length + assessment.missing.length,
+      filledFields: assessment.satisfied.length,
+      completeness: assessment.completionPct,
       confidence,
-      criticalGaps,
-      optionalGaps,
+      criticalGaps: assessment.missing,
+      derivableGaps: assessment.derivable,
       consumedBy,
       enrichedBy,
       boundTools,
+      readyForGlory: assessment.readyForGlory,
     };
   }
 
@@ -196,18 +178,16 @@ export class PillarDirector {
   }
 
   /**
-   * Get all atomic variable paths available in this pillar.
-   * Useful for documentation and UI.
+   * Get all atomic variable paths from the maturity contract.
    */
   getAtomicPaths(): string[] {
-    return [
-      ...CRITICAL_FIELDS[this.key].map((f) => `${this.key}.${f}`),
-      ...OPTIONAL_FIELDS[this.key].map((f) => `${this.key}.${f}`),
-    ];
+    const contract = getContract(this.key);
+    if (!contract) return [];
+    return contract.stages.COMPLETE.map((r) => `${this.key}.${r.path}`);
   }
 
   /**
-   * Get critical fields that are empty — these block downstream tools.
+   * Get fields that block Glory execution (missing COMPLETE requirements).
    */
   async getCriticalGaps(strategyId: string): Promise<string[]> {
     const health = await this.assessHealth(strategyId);

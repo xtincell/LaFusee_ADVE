@@ -350,6 +350,9 @@ export type ActualizeResult = {
   pillarKey: string;
   updated: boolean;
   scoreResult?: ReturnType<typeof scoreAllPillarsSemantic>;
+  maturityStage?: string;
+  maturityCompletionPct?: number;
+  maturityMissing?: string[];
   error?: string;
 };
 
@@ -467,7 +470,20 @@ Retourne le pilier ${pillarKey} complet en JSON.`;
     // Recalc scores
     const scoreResult = await recalcScores(strategyId);
 
-    return { pillarKey, updated: true, scoreResult };
+    // Assess maturity after update
+    let maturityStage: string | undefined;
+    let maturityCompletionPct: number | undefined;
+    let maturityMissing: string[] | undefined;
+    try {
+      const { assessPillar: assess } = await import("@/server/services/pillar-maturity/assessor");
+      const { getContract } = await import("@/server/services/pillar-maturity/contracts-loader");
+      const assessment = assess(pillarKey.toLowerCase(), newContent, getContract(pillarKey.toLowerCase()) ?? undefined);
+      maturityStage = assessment.currentStage;
+      maturityCompletionPct = assessment.completionPct;
+      maturityMissing = assessment.missing;
+    } catch { /* non-fatal */ }
+
+    return { pillarKey, updated: true, scoreResult, maturityStage, maturityCompletionPct, maturityMissing };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { pillarKey, updated: false, error: msg };
