@@ -85,6 +85,38 @@ async function executePillarStep(
   return { [`pillar_${ref}`]: content, ...content };
 }
 
+/**
+ * Global Common Bindings — resolves frequently-needed fields that many tools
+ * use but don't each bind individually (sector, platforms, market, etc.).
+ * These are resolved ONCE per sequence and injected as Layer 0.
+ */
+const GLOBAL_BINDINGS: Record<string, string> = {
+  sector: "t.triangulation.competitiveAnalysis",
+  market: "t.triangulation.som",
+  platforms: "e.touchpoints",
+  platform: "e.touchpoints",
+  channel: "e.touchpoints",
+  channels: "e.touchpoints",
+  usage_contexts: "d.directionArtistique",
+  frequency: "e.kpis",
+  deadline: "s.roadmap",
+  timeline: "s.roadmap",
+  references: "d.directionArtistique.moodboard",
+  campaign_results: "t.traction",
+  hourly_cost: "v.unitEconomics",
+};
+
+function resolveGlobalBindings(resolver: PillarResolver): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [field, path] of Object.entries(GLOBAL_BINDINGS)) {
+    const value = resolver.resolve(path);
+    if (value !== undefined && value !== null) {
+      result[field] = typeof value === "string" ? value : JSON.stringify(value);
+    }
+  }
+  return result;
+}
+
 async function executeGloryStep(
   ref: string,
   strategyId: string,
@@ -92,6 +124,9 @@ async function executeGloryStep(
   resolver: PillarResolver
 ): Promise<Record<string, unknown>> {
   const tool = getGloryTool(ref);
+
+  // Layer 0 (GLOBAL): Common bindings for frequently-needed fields
+  const globalValues = resolveGlobalBindings(resolver);
 
   // Layer 3 (ATOMIC): Resolve pillarBindings to concrete values
   // These are the precise ADVE-RTIS variables each tool needs.
@@ -110,9 +145,8 @@ async function executeGloryStep(
     }
   }
 
-  // Merge: atomic bindings take precedence over sequence context
-  // (specific pillar values override generic accumulated data)
-  const input: Record<string, string> = { ...sequenceValues, ...atomicValues };
+  // Merge priority: atomic > sequence > global (most specific wins)
+  const input: Record<string, string> = { ...globalValues, ...sequenceValues, ...atomicValues };
 
   // Lazy import to avoid circular dependency (index.ts re-exports us)
   const { executeTool } = await import("./index");

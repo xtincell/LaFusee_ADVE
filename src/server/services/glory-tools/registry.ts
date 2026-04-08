@@ -83,7 +83,7 @@ const CR_TOOLS: GloryToolDef[] = [
     inputFields: ["brief", "brand_dna", "target", "tone", "constraints"],
     pillarBindings: {
       brand_dna: "a.noyauIdentitaire",
-      brief: "a.promesseMaitre",
+      brief: "d.promesseMaitre",
       tone: "d.tonDeVoix.personnalite",
       target: "d.personas",
       constraints: "r.mitigationPriorities",
@@ -296,7 +296,7 @@ Catégories : jeux de mots, références pop culture, expressions locales, doubl
     pillarBindings: {
       target: "d.personas",
       key_message: "d.promesseMaitre",
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
     },
     outputFormat: "creative_brief",
     promptTemplate: `Brief créatif interne :
@@ -324,7 +324,7 @@ const DC_TOOLS: GloryToolDef[] = [
     description: "Structure l'architecture créative d'une campagne à partir des objectifs et canaux",
     inputFields: ["campaign_objectives", "budget", "timeline", "channels", "creative_territory"],
     pillarBindings: {
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
       channels: "i.catalogueParCanal",
       timeline: "s.roadmap",
       creative_territory: "d.directionArtistique.moodboard.theme",
@@ -374,7 +374,7 @@ Score chaque proposition sur 10 par critère, avec justification.`,
     pillarBindings: {
       brand_fit: "d.positionnement",
       market_context: "t.triangulation",
-      budget_reality: "i.globalBudget",
+      budget_reality: "s.globalBudget",
     },
     outputFormat: "idea_triage",
     promptTemplate: `Triage les idées créatives :
@@ -463,7 +463,7 @@ Format : manifeste court, principes directeurs, exemples, anti-exemples.`,
     inputFields: ["client_brief", "agency_strengths", "creative_proposal", "budget"],
     pillarBindings: {
       agency_strengths: "r.globalSwot.strengths",
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
     },
     outputFormat: "pitch_structure",
     promptTemplate: `Structure le pitch :
@@ -558,7 +558,7 @@ const HYBRID_TOOLS: GloryToolDef[] = [
     description: "Simule l'impact d'une campagne — projections reach, engagement, ROI par canal",
     inputFields: ["campaign_plan", "budget", "channels", "historical_data"],
     pillarBindings: {
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
       channels: "i.catalogueParCanal",
       historical_data: "t.traction",
     },
@@ -582,7 +582,7 @@ Projections : reach, engagement, conversions par canal, ROI estimé, risques.`,
     inputFields: ["deliverables", "budget", "quality_requirements", "timeline"],
     pillarBindings: {
       deliverables: "i.assetsProduisibles",
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
       timeline: "s.sprint90Days",
     },
     outputFormat: "budget_optimization",
@@ -604,7 +604,7 @@ Allocation par livrable, alternatives économiques, points de négociation.`,
     description: "Assemble les specs en brief fournisseur structuré",
     inputFields: ["deliverable", "specs", "deadline", "budget", "quality_criteria"],
     pillarBindings: {
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
       quality_criteria: "d.directionArtistique.brandGuidelines",
     },
     outputFormat: "vendor_brief",
@@ -671,7 +671,7 @@ Par semaine : jours de publication, plateforme, type de contenu, thème, CTA.`,
     description: "Définit les workflows d'approbation à partir des parties prenantes et SLA",
     inputFields: ["deliverable_type", "stakeholders", "sla", "escalation_rules"],
     pillarBindings: {
-      stakeholders: "i.teamStructure",
+      stakeholders: "s.teamStructure",
     },
     outputFormat: "workflow_definition",
     promptTemplate: `Workflow d'approbation pour {{deliverable_type}} :
@@ -757,7 +757,7 @@ Par référence : marque, campagne, ce qui fonctionne, applicabilité, source.`,
     inputFields: ["campaign_results", "objectives", "budget_spent", "timeline"],
     pillarBindings: {
       objectives: "s.axesStrategiques",
-      budget_spent: "i.globalBudget",
+      budget_spent: "s.globalBudget",
     },
     outputFormat: "post_campaign_report",
     promptTemplate: `Analyse post-campagne :
@@ -1236,7 +1236,7 @@ const PHASE2_TOOLS: GloryToolDef[] = [
     pillarBindings: {
       brand_positioning: "d.positionnement",
       key_benefit: "d.promesseMaitre",
-      proof_points: "v.proofPoints",
+      proof_points: "d.proofPoints",
       competitors: "d.paysageConcurrentiel",
       target: "d.personas",
     },
@@ -1290,7 +1290,7 @@ Livrable : grille tarifaire, packages (3 tiers), ancrage psychologique, prix psy
     pillarBindings: {
       value_proposition: "v.promesseDeValeur",
       pricing: "v.productLadder",
-      proof_points: "v.proofPoints",
+      proof_points: "d.proofPoints",
     },
     outputFormat: "sales_deck",
     promptTemplate: `Deck commercial :
@@ -1428,7 +1428,7 @@ Livrable : matrice visuelle (probabilité × impact), catégorisation (réputati
     pillarBindings: {
       top_risks: "r.probabilityImpactMatrix",
       tone: "d.tonDeVoix",
-      stakeholders: "i.teamStructure",
+      stakeholders: "s.teamStructure",
       brand_values: "a.valeurs",
     },
     outputFormat: "crisis_plan",
@@ -1583,9 +1583,9 @@ Livrable : agenda atelier (warm-up 10min, divergence 30min, convergence 20min, s
     description: "Charge par profil, planning capacitaire, interne vs. sous-traitance",
     inputFields: ["team_structure", "sprint_actions", "budget", "timeline"],
     pillarBindings: {
-      team_structure: "i.teamStructure",
+      team_structure: "s.teamStructure",
       sprint_actions: "i.sprint90Days",
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
       timeline: "s.roadmap",
     },
     outputFormat: "resource_plan",
@@ -1611,7 +1611,7 @@ Livrable : charge par profil (jours/mois), planning capacitaire (Gantt), ratio i
     inputFields: ["global_swot", "adve_vector", "coherence_score", "market_fit", "risk_score"],
     pillarBindings: {
       global_swot: "r.globalSwot",
-      adve_vector: "s.coherencePiliers",
+      adve_vector: "s.axesStrategiques",
       coherence_score: "s.coherenceScore",
       market_fit: "t.brandMarketFitScore",
       risk_score: "r.riskScore",
@@ -1639,7 +1639,7 @@ Livrable : SWOT augmenté (scoring 1-5 par item), matrice croisée (forces×oppo
       axes_strategiques: "s.axesStrategiques",
       kpis_existing: "s.kpiDashboard",
       channels: "i.catalogueParCanal",
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
     },
     outputFormat: "kpi_framework",
     promptTemplate: `Framework KPI :
@@ -1664,8 +1664,8 @@ Livrable : KPIs par axe (leading + lagging), source de données, fréquence (dai
       roadmap: "s.roadmap",
       sprint_90: "s.sprint90Days",
       annual_calendar: "i.annualCalendar",
-      budget: "i.globalBudget",
-      team: "i.teamStructure",
+      budget: "s.globalBudget",
+      team: "s.teamStructure",
     },
     outputFormat: "roadmap_milestones",
     promptTemplate: `Roadmap à jalons :
@@ -1946,7 +1946,7 @@ Livrable : zones (marque, claim, visuel, infos légales, code-barres), hiérarch
       target_persona: "d.personas",
       tone: "d.tonDeVoix",
       brand_guidelines: "d.directionArtistique.brandGuidelines",
-      budget: "i.globalBudget",
+      budget: "s.globalBudget",
     },
     outputFormat: "influencer_brief",
     promptTemplate: `Brief influenceur :
@@ -2021,8 +2021,8 @@ Livrable : répartition ATL/BTL/Digital (%), allocation par canal, GRP cibles, C
     description: "Rétro-planning J-90 à J+30 — milestones, dépendances, go/no-go",
     inputFields: ["launch_date", "campaign_architecture", "team", "budget", "roadmap"],
     pillarBindings: {
-      team: "i.teamStructure",
-      budget: "i.globalBudget",
+      team: "s.teamStructure",
+      budget: "s.globalBudget",
       roadmap: "s.roadmap",
     },
     outputFormat: "launch_timeline",
@@ -2048,7 +2048,7 @@ Livrable : rétro-planning J-90→J+30 (semaine par semaine), milestones clés, 
     pillarBindings: {
       new_guidelines: "d.directionArtistique.brandGuidelines",
       touchpoints: "e.touchpoints",
-      team: "i.teamStructure",
+      team: "s.teamStructure",
     },
     outputFormat: "migration_playbook",
     promptTemplate: `Playbook migration de marque :
@@ -2072,7 +2072,7 @@ Livrable : phases de migration (3-4), touchpoints par ordre de priorité (digita
     inputFields: ["agency_strengths", "case_studies", "team", "methodology", "client_sector"],
     pillarBindings: {
       agency_strengths: "r.globalSwot.strengths",
-      team: "i.teamStructure",
+      team: "s.teamStructure",
     },
     outputFormat: "credentials_deck",
     promptTemplate: `Deck credentials :
@@ -2119,8 +2119,8 @@ Livrable : 12 thèmes mensuels, chacun avec : temps fort (fête/événement/sais
     description: "Ratio pillar/hero/hygiene, répartition par format, budgets prod par type",
     inputFields: ["content_calendar", "budget", "platforms", "team_capacity"],
     pillarBindings: {
-      budget: "i.globalBudget",
-      team_capacity: "i.teamStructure",
+      budget: "s.globalBudget",
+      team_capacity: "s.teamStructure",
     },
     outputFormat: "content_mix",
     promptTemplate: `Mix contenus :
@@ -2150,7 +2150,7 @@ const PHASE6_TOOLS: GloryToolDef[] = [
     description: "Coût par engagement, earned media value, brand lift estimé, corrélation investissement/résultat",
     inputFields: ["campaign_results", "budget_spent", "impressions", "engagements", "conversions"],
     pillarBindings: {
-      budget_spent: "i.globalBudget",
+      budget_spent: "s.globalBudget",
     },
     outputFormat: "roi_metrics",
     promptTemplate: `ROI créatif :
@@ -2267,7 +2267,7 @@ Par poste : création (heures*taux), production, post-production, achat média, 
     description: "Budget réel vs. estimé — consommé, engagé, reste à facturer, alertes dépassement",
     inputFields: ["estimated_budget", "spent_to_date", "committed", "invoiced", "remaining_tasks"],
     pillarBindings: {
-      estimated_budget: "i.globalBudget",
+      estimated_budget: "s.globalBudget",
     },
     outputFormat: "budget_tracking",
     promptTemplate: `Suivi budgétaire :
@@ -2336,7 +2336,7 @@ Calculs : marge_cumulée = revenus-coûts, marge_pct = marge/revenus*100, revenu
     description: "Heures productives / heures disponibles par profil et par période",
     inputFields: ["team_members", "available_hours", "billable_hours", "non_billable_hours", "period"],
     pillarBindings: {
-      team_members: "i.teamStructure",
+      team_members: "s.teamStructure",
     },
     outputFormat: "utilization",
     promptTemplate: `Taux d'utilisation :

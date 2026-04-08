@@ -17,6 +17,16 @@ import { getContracts } from "./contracts-loader";
  * Known sequence-context fields — these are outputs from previous steps,
  * NOT pillar data. They're intentionally unbound.
  */
+/**
+ * Fields resolved by the GLOBAL_BINDINGS layer in sequence-executor.ts.
+ * These are automatically resolved from pillar data for every tool.
+ */
+const GLOBAL_BINDING_FIELDS = new Set([
+  "sector", "market", "platforms", "platform", "channel", "channels",
+  "usage_contexts", "frequency", "deadline", "timeline", "references",
+  "campaign_results", "hourly_cost",
+]);
+
 const KNOWN_SEQUENCE_FIELDS = new Set([
   "concept", "concepts_list", "script", "dialogue", "storyboard",
   "casting_brief", "sound_brief", "voiceover_brief", "social_copy_set",
@@ -99,6 +109,18 @@ export function validateAllBindings(): BindingValidationReport {
           bindingPath,
           schemaValid,
           contractCovered,
+          classification: "pillar_bound",
+        });
+        pillarBound++;
+
+      } else if (GLOBAL_BINDING_FIELDS.has(field)) {
+        // Resolved by the global bindings layer in sequence-executor
+        entries.push({
+          toolSlug: tool.slug,
+          inputField: field,
+          bindingPath: `(global: ${field})`,
+          schemaValid: true,
+          contractCovered: true,
           classification: "pillar_bound",
         });
         pillarBound++;
