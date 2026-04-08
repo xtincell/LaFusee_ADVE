@@ -136,4 +136,25 @@ export const ingestionRouter = createTRPCRouter({
       const { fillPillar } = await import("@/server/services/ingestion-pipeline/ai-filler");
       return fillPillar(input.strategyId, input.pillarKey, sourceIds);
     }),
+
+  // Add a manual text source (note, description, analysis)
+  addManualSource: protectedProcedure
+    .input(z.object({
+      strategyId: z.string(),
+      title: z.string().min(1),
+      content: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.brandDataSource.create({
+        data: {
+          strategyId: input.strategyId,
+          sourceType: "MANUAL_INPUT",
+          fileName: input.title,
+          rawContent: input.content,
+          rawData: { title: input.title, content: input.content, addedBy: ctx.session.user.id },
+          processingStatus: "EXTRACTED", // Ready for enrichment
+          pillarMapping: { a: true, d: true, v: true, e: true, r: true, t: true, i: true, s: true },
+        },
+      });
+    }),
 });

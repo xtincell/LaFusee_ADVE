@@ -148,8 +148,11 @@ export function PillarPage({ pageKey }: PillarPageProps) {
   const schema = PILLAR_SCHEMAS[schemaKey];
   const allSchemaKeys = schema ? Object.keys((schema as { shape?: Record<string, unknown> }).shape ?? {}) : [];
 
-  // Merge: schema keys + any extra keys in content
-  const allKeys = [...new Set([...allSchemaKeys, ...Object.keys(content)])];
+  // Schema keys are the source of truth. Extra keys in content that aren't in schema are ignored
+  // (they're legacy data that shouldn't be displayed)
+  const contentKeys = Object.keys(content);
+  const extraKeys = contentKeys.filter(k => !allSchemaKeys.includes(k) && isFilled(content[k]));
+  const allKeys = [...allSchemaKeys, ...extraKeys]; // Schema first, then any filled extras
 
   const isFilled = (v: unknown) => v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
   const filledFields = allKeys.filter(k => isFilled(content[k])).length;
@@ -174,10 +177,13 @@ export function PillarPage({ pageKey }: PillarPageProps) {
     }
   };
 
+  // Deduplicate keys (in case schema + content have different casing or overlap)
+  const dedupedKeys = [...new Set(allKeys.map(k => k.trim()))];
+
   // Split fields into filled vs empty, exclude inline metadata
-  const filledKeys = allKeys.filter(k => !inlineKeys.includes(k) && isFilled(content[k]));
-  const emptyKeys = allKeys.filter(k => !inlineKeys.includes(k) && !isFilled(content[k]));
-  const inlineFilledKeys = allKeys.filter(k => inlineKeys.includes(k) && isFilled(content[k]));
+  const filledKeys = dedupedKeys.filter(k => !inlineKeys.includes(k) && isFilled(content[k]));
+  const emptyKeys = dedupedKeys.filter(k => !inlineKeys.includes(k) && !isFilled(content[k]));
+  const inlineFilledKeys = dedupedKeys.filter(k => inlineKeys.includes(k) && isFilled(content[k]));
 
   // Classify fields for grid layout: "hero" (large), "card" (medium), "compact" (small)
   const heroFields = ["nomMarque", "fenetreOverton", "globalSwot"];

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 /**
  * Sources de marque — Le dossier complet des données brutes
  *
@@ -54,11 +56,24 @@ function renderPillarMapping(mapping: unknown): React.ReactNode {
 
 export default function SourcesPage() {
   const strategyId = useCurrentStrategyId();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteContent, setNoteContent] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const sourcesQuery = trpc.ingestion.listSources.useQuery(
     { strategyId: strategyId ?? "" },
     { enabled: !!strategyId },
   );
+
+  const addSourceMutation = trpc.ingestion.addManualSource.useMutation({
+    onSuccess: () => {
+      sourcesQuery.refetch();
+      setShowAddForm(false);
+      setNoteTitle("");
+      setNoteContent("");
+    },
+  });
 
   if (!strategyId) return <SkeletonPage />;
   if (sourcesQuery.isLoading) return <SkeletonPage />;
@@ -67,12 +82,66 @@ export default function SourcesPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Sources de marque</h1>
-        <p className="mt-1 text-sm text-foreground-muted">
-          Tous les documents, notes et donnees qui nourrissent votre strategie.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Sources de marque</h1>
+          <p className="mt-1 text-sm text-foreground-muted">
+            Tous les documents, notes et donnees qui nourrissent votre strategie.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-1.5 rounded-lg bg-violet-600/20 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-600/30"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          Ajouter une note
+        </button>
       </div>
+
+      {/* Add manual source form */}
+      {showAddForm ? (
+        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-4 space-y-3">
+          <input
+            type="text"
+            placeholder="Titre (ex: Notes de reunion client, Brief initial, Analyse concurrentielle...)"
+            value={noteTitle}
+            onChange={e => setNoteTitle(e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500"
+          />
+          <textarea
+            placeholder="Collez ici toute information utile sur la marque : description, historique, positionnement, concurrents, chiffres cles, verbatims clients, notes de reunion..."
+            value={noteContent}
+            onChange={e => setNoteContent(e.target.value)}
+            rows={6}
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:border-violet-500 resize-y"
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setShowAddForm(false)} className="rounded px-3 py-1.5 text-xs text-foreground-muted hover:bg-white/5">
+              Annuler
+            </button>
+            <button
+              onClick={async () => {
+                if (!strategyId || !noteContent.trim()) return;
+                setIsSubmitting(true);
+                try {
+                  await addSourceMutation.mutateAsync({
+                    strategyId,
+                    title: noteTitle.trim() || "Note manuelle",
+                    content: noteContent.trim(),
+                  });
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              disabled={!noteContent.trim() || isSubmitting}
+              className="flex items-center gap-1.5 rounded bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+            >
+              {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              Sauvegarder
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {sources.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-white/10 py-16 text-center">
