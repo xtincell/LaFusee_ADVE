@@ -28,6 +28,7 @@ import { db } from "@/lib/db";
 // Import directly from source files to avoid circular dependency (index.ts re-exports us)
 import { getGloryTool } from "./registry";
 import { PillarResolver } from "./pillar-resolver";
+import { createJournal } from "./execution-journal";
 import {
   ALL_SEQUENCES,
   getSequence,
@@ -490,6 +491,9 @@ export async function executeSequence(
     throw new Error(`Sequence inconnue: ${key}`);
   }
 
+  const journal = createJournal();
+  journal.begin(key, strategyId);
+
   const startTime = Date.now();
 
   // Layer 1 (SYSTEM): Load full ADVE-RTIS context — general narrative for LLM system prompts.
@@ -504,6 +508,7 @@ export async function executeSequence(
   // This is a passive DB read (resolver is already loaded) — no AI calls.
   // If critical bindings are missing, we know BEFORE executing.
   const preflight = preflightScan(seq, resolver);
+  journal.preflight(preflight.blockers.length, preflight.gaps.length, preflight.readiness);
   if (preflight.blockers.length > 0) {
     // Don't abort — execute anyway but attach the scan report.
     // Steps with missing bindings will use empty strings / fallbacks.
@@ -522,6 +527,7 @@ export async function executeSequence(
 
     // Skip PLANNED steps — they don't exist yet
     if (step.status === "PLANNED") {
+      journal.stepSkip(i, step.ref, "Tool not yet implemented (PLANNED)");
       stepResults.push({
         stepIndex: i,
         ref: step.ref,
@@ -533,6 +539,8 @@ export async function executeSequence(
       });
       continue;
     }
+
+    journal.stepStart(i, step.ref, step.type);
 
     try {
       let output: Record<string, unknown>;
@@ -563,6 +571,10 @@ export async function executeSequence(
           output = {};
       }
 
+      const stepDuration = Date.now() - stepStart;
+      const outputKeyCount = Object.keys(output).filter(k => !k.startsWith("_")).length;
+      journal.stepOk(i, step.ref, step.type, stepDuration, { outputKeys: outputKeyCount });
+
       // Merge step output into accumulative context
       for (const key of step.outputKeys) {
         if (output[key] !== undefined) {
@@ -578,9 +590,12 @@ export async function executeSequence(
         type: step.type,
         status: "SUCCESS",
         output,
-        durationMs: Date.now() - stepStart,
+        durationMs: stepDuration,
       });
     } catch (error) {
+      const stepDuration = Date.now() - stepStart;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      journal.stepFail(i, step.ref, step.type, stepDuration, errMsg);
       hasFailure = true;
       stepResults.push({
         stepIndex: i,
@@ -588,8 +603,8 @@ export async function executeSequence(
         type: step.type,
         status: "FAILED",
         output: {},
-        durationMs: Date.now() - stepStart,
-        error: error instanceof Error ? error.message : String(error),
+        durationMs: stepDuration,
+        error: errMsg,
       });
       // Continue with remaining steps — partial execution is better than nothing
     }
@@ -598,18 +613,24 @@ export async function executeSequence(
   // Recalculate ADVE vector after sequence completion
   try {
     const { scoreObject } = await import("@/server/services/advertis-scorer");
-    await scoreObject("strategy", strategyId);
+    const scoreResult = await scoreObject("strategy", strategyId);
+    journal.score(scoreResult?.composite ?? null);
   } catch (err) {
-    console.warn("[sequence-executor] Score recalc failed:", err instanceof Error ? err.message : err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    journal.score(null, errMsg);
+    console.warn("[sequence-executor] Score recalc failed:", errMsg);
   }
 
   const successCount = stepResults.filter((s) => s.status === "SUCCESS").length;
   const totalActive = seq.steps.filter((s) => s.status === "ACTIVE").length;
+  const finalStatus = hasFailure ? (successCount > 0 ? "PARTIAL" : "FAILED") : "COMPLETED";
+
+  journal.end(finalStatus, Date.now() - startTime, successCount, seq.steps.length);
 
   return {
     sequenceKey: key,
     strategyId,
-    status: hasFailure ? (successCount > 0 ? "PARTIAL" : "FAILED") : "COMPLETED",
+    status: finalStatus,
     steps: stepResults,
     finalContext: context,
     totalDurationMs: Date.now() - startTime,

@@ -161,10 +161,14 @@ export async function executeTool(
   const tool = getGloryTool(toolSlug);
   if (!tool) throw new Error(`GLORY tool inconnu: ${toolSlug}`);
 
-  // Validate required inputs
+  // Validate inputs — warn on missing fields but don't block execution
   const missingFields = tool.inputFields.filter((f) => !input[f]);
   if (missingFields.length > 0) {
-    throw new Error(`Champs manquants: ${missingFields.join(", ")}`);
+    console.warn(`[glory:${toolSlug}] Champs manquants (fallback actif): ${missingFields.join(", ")}`);
+    // Fill missing fields with contextual fallback instead of throwing
+    for (const f of missingFields) {
+      input[f] = `(${f} non disponible)`;
+    }
   }
 
   // Build prompt from template

@@ -83,6 +83,7 @@ const CR_TOOLS: GloryToolDef[] = [
     inputFields: ["brief", "brand_dna", "target", "tone", "constraints"],
     pillarBindings: {
       brand_dna: "a.noyauIdentitaire",
+      brief: "a.promesseMaitre",
       tone: "d.tonDeVoix.personnalite",
       target: "d.personas",
       constraints: "r.mitigationPriorities",
@@ -182,6 +183,7 @@ Message clé à intégrer naturellement : {{key_message}}`,
       brand_positioning: "d.positionnement",
       key_benefit: "d.promesseMaitre",
       tone: "d.tonDeVoix.personnalite",
+      constraints: "r.mitigationPriorities",
     },
     outputFormat: "claims_list",
     promptTemplate: `Génère 10 claims/baselines pour cette marque :
@@ -270,6 +272,8 @@ Pour chaque épisode : titre, hook, contenu, cliffhanger, CTA.`,
     pillarBindings: {
       brand_name: "a.noyauIdentitaire",
       cultural_context: "a.doctrine.dogmas",
+      market: "t.triangulation.som",
+      language: "d.assetsLinguistiques.languePrincipale",
     },
     outputFormat: "wordplay_bank",
     promptTemplate: `Génère une banque de jeux de mots et références culturelles :
@@ -1138,6 +1142,7 @@ expressions interdites, do/don't par canal (social, print, corporate, customer s
       brand_dna: "a.noyauIdentitaire",
       prophecy: "a.prophecy",
       enemy: "a.enemy",
+      tone_charter: "d.tonDeVoix",
       values: "a.valeurs",
       baseline: "d.assetsLinguistiques.slogan",
     },
