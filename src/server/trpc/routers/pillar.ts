@@ -28,11 +28,13 @@
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { createTRPCRouter, protectedProcedure, operatorProcedure } from "../init";
-import * as pillarVersioning from "@/server/services/pillar-versioning";
-import { PILLAR_SCHEMAS, validatePillarContent, validatePillarPartial, type PillarKey } from "@/lib/types/pillar-schemas";
+import { validatePillarContent, validatePillarPartial, type PillarKey } from "@/lib/types/pillar-schemas";
 import { validateCrossReferences, getCrossRefSummary } from "@/server/services/cross-validator";
-import { scoreObject } from "@/server/services/advertis-scorer";
+import * as pillarVersioning from "@/server/services/pillar-versioning";
 import { propagateFromPillar } from "@/server/services/staleness-propagator";
+import { scoreObject } from "@/server/services/advertis-scorer";
+import { writePillarAndScore, writePillar } from "@/server/services/pillar-gateway";
+import type { PillarKey as PK } from "@/lib/types/advertis-vector";
 import { triggerNextStageFrameworks } from "@/server/services/artemis";
 import {
   actualizePillar, runRTISCascade,
@@ -99,66 +101,32 @@ export const pillarRouter = createTRPCRouter({
         return { success: false, errors: validation.errors };
       }
 
-      // Version history: snapshot before change
-      const existingForVersion = await ctx.db.pillar.findUnique({
-        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
-      });
-      if (existingForVersion) {
-        await pillarVersioning.createVersion({
-          pillarId: existingForVersion.id,
-          content: sanitizedContent as Record<string, unknown>,
-          author: ctx.session.user.id,
-          reason: "manual_edit",
-        }).catch((err) => { console.warn("[pillar-versioning] snapshot failed:", err instanceof Error ? err.message : err); });
-      }
-
-      await ctx.db.pillar.upsert({
-        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
-        update: { content: sanitizedContent as Prisma.InputJsonValue, confidence: 0.8, staleAt: null },
-        create: { strategyId: input.strategyId, key: input.key.toLowerCase(), content: sanitizedContent as Prisma.InputJsonValue, confidence: 0.8 },
+      // Gateway handles: versioning, staleness propagation, scoring, validation status
+      const result = await writePillarAndScore({
+        strategyId: input.strategyId,
+        pillarKey: input.key.toLowerCase() as PK,
+        operation: { type: "REPLACE_FULL", content: sanitizedContent as Record<string, unknown> },
+        author: { system: "OPERATOR", userId: ctx.session.user.id, reason: "manual_edit" },
+        options: { confidenceDelta: 0.1 },
       });
 
-      // Trigger staleness propagation
-      await propagateFromPillar(input.strategyId, input.key).catch((err) => { console.warn("[staleness] propagation failed:", err instanceof Error ? err.message : err); });
-
-      // Recalculate score via unified scorer (Chantier 2)
-      const scoreResult = await scoreObject("strategy", input.strategyId).catch(() => null);
-
-      return { success: true, score: scoreResult };
+      return { success: result.success, score: null, warnings: result.warnings, error: result.error };
     }),
 
   /** Partial/draft update — lenient validation, saves even if incomplete */
   updatePartial: protectedProcedure
     .input(z.object({ strategyId: z.string(), key: pillarKeyEnum, content: z.record(z.unknown()) }))
     .mutation(async ({ ctx, input }) => {
-      // Merge with existing content
-      const existing = await ctx.db.pillar.findUnique({
-        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
-      });
-      const merged = { ...(existing?.content as Record<string, unknown> ?? {}), ...input.content };
-
-      const validation = validatePillarPartial(input.key, merged);
-
-      // Version history: snapshot before change
-      if (existing) {
-        await pillarVersioning.createVersion({
-          pillarId: existing.id,
-          content: merged as Record<string, unknown>,
-          author: ctx.session.user.id,
-          reason: "partial_edit",
-        }).catch((err) => { console.warn("[pillar-versioning] snapshot failed:", err instanceof Error ? err.message : err); });
-      }
-
-      await ctx.db.pillar.upsert({
-        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
-        update: { content: merged as Prisma.InputJsonValue, staleAt: null },
-        create: { strategyId: input.strategyId, key: input.key.toLowerCase(), content: merged as Prisma.InputJsonValue, confidence: 0.5 },
+      // Gateway handles merge, versioning, staleness, scoring
+      const result = await writePillarAndScore({
+        strategyId: input.strategyId,
+        pillarKey: input.key.toLowerCase() as PK,
+        operation: { type: "MERGE_DEEP", patch: input.content as Record<string, unknown> },
+        author: { system: "OPERATOR", userId: ctx.session.user.id, reason: "partial_edit" },
       });
 
-      // Recalculate score via unified scorer (Chantier 2)
-      const scoreResult = await scoreObject("strategy", input.strategyId).catch(() => null);
-
-      return { success: true, validation, score: scoreResult, merged };
+      const validation = validatePillarPartial(input.key, result.newContent);
+      return { success: result.success, validation, score: null, merged: result.newContent };
     }),
 
   /** Dry-run validation — no save */
@@ -209,20 +177,17 @@ export const pillarRouter = createTRPCRouter({
       }),
     }))
     .mutation(async ({ ctx, input }) => {
-      const pillar = await ctx.db.pillar.findUnique({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "v" } },
-      });
+      // Read current array, append, write via Gateway
+      const pillar = await ctx.db.pillar.findUnique({ where: { strategyId_key: { strategyId: input.strategyId, key: "v" } } });
       const content = (pillar?.content as Record<string, unknown>) ?? {};
       const catalogue = getArraySafe(content.produitsCatalogue);
       catalogue.push(input.product);
-      content.produitsCatalogue = catalogue;
 
-      await ctx.db.pillar.upsert({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "v" } },
-        update: { content: content as Prisma.InputJsonValue },
-        create: { strategyId: input.strategyId, key: "v", content: content as Prisma.InputJsonValue },
+      await writePillar({
+        strategyId: input.strategyId, pillarKey: "v",
+        operation: { type: "SET_FIELDS", fields: [{ path: "produitsCatalogue", value: catalogue }] },
+        author: { system: "OPERATOR", userId: ctx.session.user.id, reason: "addProduct" },
       });
-
       return { success: true, productCount: catalogue.length };
     }),
 
@@ -237,20 +202,16 @@ export const pillarRouter = createTRPCRouter({
       }),
     }))
     .mutation(async ({ ctx, input }) => {
-      const pillar = await ctx.db.pillar.findUnique({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "d" } },
-      });
+      const pillar = await ctx.db.pillar.findUnique({ where: { strategyId_key: { strategyId: input.strategyId, key: "d" } } });
       const content = (pillar?.content as Record<string, unknown>) ?? {};
       const personas = getArraySafe(content.personas);
       personas.push(input.persona);
-      content.personas = personas;
 
-      await ctx.db.pillar.upsert({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "d" } },
-        update: { content: content as Prisma.InputJsonValue },
-        create: { strategyId: input.strategyId, key: "d", content: content as Prisma.InputJsonValue },
+      await writePillar({
+        strategyId: input.strategyId, pillarKey: "d",
+        operation: { type: "SET_FIELDS", fields: [{ path: "personas", value: personas }] },
+        author: { system: "OPERATOR", userId: ctx.session.user.id, reason: "addPersona" },
       });
-
       return { success: true, personaCount: personas.length };
     }),
 
@@ -264,20 +225,16 @@ export const pillarRouter = createTRPCRouter({
       }),
     }))
     .mutation(async ({ ctx, input }) => {
-      const pillar = await ctx.db.pillar.findUnique({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "e" } },
-      });
+      const pillar = await ctx.db.pillar.findUnique({ where: { strategyId_key: { strategyId: input.strategyId, key: "e" } } });
       const content = (pillar?.content as Record<string, unknown>) ?? {};
       const touchpoints = getArraySafe(content.touchpoints);
       touchpoints.push(input.touchpoint);
-      content.touchpoints = touchpoints;
 
-      await ctx.db.pillar.upsert({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "e" } },
-        update: { content: content as Prisma.InputJsonValue },
-        create: { strategyId: input.strategyId, key: "e", content: content as Prisma.InputJsonValue },
+      await writePillar({
+        strategyId: input.strategyId, pillarKey: "e",
+        operation: { type: "SET_FIELDS", fields: [{ path: "touchpoints", value: touchpoints }] },
+        author: { system: "OPERATOR", userId: ctx.session.user.id, reason: "addTouchpoint" },
       });
-
       return { success: true, touchpointCount: touchpoints.length };
     }),
 
@@ -291,20 +248,16 @@ export const pillarRouter = createTRPCRouter({
       }),
     }))
     .mutation(async ({ ctx, input }) => {
-      const pillar = await ctx.db.pillar.findUnique({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "e" } },
-      });
+      const pillar = await ctx.db.pillar.findUnique({ where: { strategyId_key: { strategyId: input.strategyId, key: "e" } } });
       const content = (pillar?.content as Record<string, unknown>) ?? {};
       const rituels = getArraySafe(content.rituels);
       rituels.push(input.ritual);
-      content.rituels = rituels;
 
-      await ctx.db.pillar.upsert({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "e" } },
-        update: { content: content as Prisma.InputJsonValue },
-        create: { strategyId: input.strategyId, key: "e", content: content as Prisma.InputJsonValue },
+      await writePillar({
+        strategyId: input.strategyId, pillarKey: "e",
+        operation: { type: "SET_FIELDS", fields: [{ path: "rituels", value: rituels }] },
+        author: { system: "OPERATOR", userId: ctx.session.user.id, reason: "addRitual" },
       });
-
       return { success: true, ritualCount: rituels.length };
     }),
 
@@ -330,14 +283,12 @@ export const pillarRouter = createTRPCRouter({
       }
 
       valeurs.push(input.value);
-      content.valeurs = valeurs;
 
-      await ctx.db.pillar.upsert({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "a" } },
-        update: { content: content as Prisma.InputJsonValue },
-        create: { strategyId: input.strategyId, key: "a", content: content as Prisma.InputJsonValue },
+      await writePillar({
+        strategyId: input.strategyId, pillarKey: "a",
+        operation: { type: "SET_FIELDS", fields: [{ path: "valeurs", value: valeurs }] },
+        author: { system: "OPERATOR", userId: ctx.session.user.id, reason: "addValue" },
       });
-
       return { success: true, valueCount: valeurs.length };
     }),
 
@@ -421,6 +372,7 @@ export const pillarRouter = createTRPCRouter({
         }
       }
 
+      // validationStatus is a state machine transition, not content — direct write OK
       await ctx.db.pillar.update({
         where: { id: pillar.id },
         data: { validationStatus: input.targetStatus },
@@ -484,27 +436,18 @@ export const pillarRouter = createTRPCRouter({
       // Strip _meta from the output before applying
       const { _meta, ...cleanOutput } = output;
 
-      // Load or create D pillar
-      const pillar = await ctx.db.pillar.findUnique({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "d" } },
-      });
-      const content = (pillar?.content as Record<string, unknown>) ?? {};
-      const directionArtistique = (content.directionArtistique as Record<string, unknown>) ?? {};
-
-      // Apply the output with gloryOutputId reference
-      directionArtistique[input.targetField] = {
-        ...cleanOutput,
-        gloryOutputId: input.gloryOutputId,
-      };
-      content.directionArtistique = directionArtistique;
-
-      await ctx.db.pillar.upsert({
-        where: { strategyId_key: { strategyId: input.strategyId, key: "d" } },
-        update: { content: content as Prisma.InputJsonValue },
-        create: { strategyId: input.strategyId, key: "d", content: content as Prisma.InputJsonValue, confidence: 0.6 },
+      // Apply via Gateway — SET_FIELDS on D.directionArtistique.targetField
+      const result = await writePillar({
+        strategyId: input.strategyId, pillarKey: "d",
+        operation: {
+          type: "SET_FIELDS",
+          fields: [{ path: `directionArtistique.${input.targetField}`, value: { ...cleanOutput, gloryOutputId: input.gloryOutputId } }],
+        },
+        author: { system: "GLORY", userId: ctx.session.user.id, reason: `applyGloryOutput → D.directionArtistique.${input.targetField}` },
+        options: { confidenceDelta: 0.02 },
       });
 
-      return { success: true, field: input.targetField };
+      return { success: result.success, field: input.targetField };
     }),
 
   /** Get version history for a pillar */
@@ -612,6 +555,7 @@ export const pillarRouter = createTRPCRouter({
 
       const merged = { ...(existing?.commentary as Record<string, string> ?? {}), ...input.commentary };
 
+      // commentary is metadata (separate field), not pillar content — direct write OK
       await ctx.db.pillar.upsert({
         where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
         update: { commentary: merged as Prisma.InputJsonValue },

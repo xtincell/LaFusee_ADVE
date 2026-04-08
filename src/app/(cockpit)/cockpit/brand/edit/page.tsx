@@ -103,7 +103,7 @@ export default function PillarEditorPage() {
         content: localContent[activePillar],
       });
       if (result.success) {
-        setSaveMessage({ type: "success", text: `Pilier ${activePillar} sauvegardé — Score: ${result.score?.composite.toFixed(0)}/200` });
+        setSaveMessage({ type: "success", text: `Pilier ${activePillar} sauvegarde` });
         refetch();
       } else {
         setSaveMessage({ type: "error", text: `Erreurs de validation: ${result.validation?.errors?.length ?? 0}` });
