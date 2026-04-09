@@ -95,7 +95,8 @@ ${tContent ? JSON.stringify(tContent, null, 2) : "Non disponible"}
 Produis les recommandations d'enrichissement pour ${pillarKey.toUpperCase()}.`,
     maxTokens: 6000,
     strategyId,
-  }, `commandant-recos-${pillarKey}`);
+    caller: `commandant-recos-${pillarKey}`,
+  });
 
   const recos = Array.isArray(result) ? result : (result as Record<string, unknown>).recommendations;
 
@@ -138,7 +139,8 @@ Demande de l'outil:
 ${toolPrompt}`,
     maxTokens: 4000,
     strategyId,
-  }, `commandant-assist-${toolSlug}`);
+    caller: `commandant-assist-${toolSlug}`,
+  });
 }
 
 // ── Strategic Insight Generation ──────────────────────────────────────
@@ -175,7 +177,8 @@ Composite: ${vec.composite ?? 0}/200
 Piliers:\n${pillarSummary}`,
       maxTokens: 2000,
       strategyId,
-    }, "commandant-insights");
+      caller: "commandant-insights",
+    });
 
     return Array.isArray(result) ? result as Array<Record<string, unknown>> : [];
   } catch {
@@ -223,5 +226,6 @@ Paramètres: ${JSON.stringify(input.parameters)}
 Simule l'impact de ce scénario sur la stratégie.`,
     maxTokens: 4000,
     strategyId: input.strategyId,
-  }, "commandant-scenario");
+    caller: "commandant-scenario",
+  });
 }

@@ -335,7 +335,8 @@ Pour chaque champ rempli, verifie la coherence et propose une amelioration si ju
 RESPECTE LE FORMAT DE LA BIBLE pour chaque proposedValue.`,
       maxTokens: 6000,
       strategyId,
-    }, `vault-enrichment:${pillarKey}`);
+      caller: `vault-enrichment:${pillarKey}`,
+    });
 
     const llmRecos = (Array.isArray(result) ? result : (result as Record<string, unknown>).recommendations ?? []) as VaultRecommendation[];
 

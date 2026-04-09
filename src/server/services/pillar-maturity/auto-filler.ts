@@ -516,7 +516,8 @@ async function extractFromSources(
           prompt: `Texte source:\n${allText.slice(0, 8000)}\n\nChamps à extraire pour le pilier ${pillarKey.toUpperCase()}:\n${stillMissing.map(p => `- ${p}`).join("\n")}\n\nRetourne UNIQUEMENT les champs que tu TROUVES dans le texte.`,
           maxTokens: 3000,
           strategyId,
-        }, `source-extraction:${pillarKey}`);
+          caller: `source-extraction:${pillarKey}`,
+        });
 
         for (const path of stillMissing) {
           if (aiExtracted[path] !== undefined && aiExtracted[path] !== null) {
