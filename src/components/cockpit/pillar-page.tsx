@@ -354,6 +354,7 @@ export function PillarPage({ pageKey }: PillarPageProps) {
             value={content[key]}
             accent={config.accent}
             onFocus={setFocusedItem}
+            pillarKey={config.pillarKey}
           />
         ))}
       </div>

@@ -58,10 +58,24 @@ export const ingestionRouter = createTRPCRouter({
     }),
 
   // Delete a data source
-  deleteSource: adminProcedure
+  deleteSource: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       return ctx.db.brandDataSource.delete({ where: { id: input.id } });
+    }),
+
+  // Update a manual source (title + content)
+  updateSource: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      title: z.string().min(1).optional(),
+      content: z.string().min(1).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const data: Record<string, unknown> = {};
+      if (input.title !== undefined) data.fileName = input.title;
+      if (input.content !== undefined) data.rawContent = input.content;
+      return ctx.db.brandDataSource.update({ where: { id: input.id }, data });
     }),
 
   // Launch the full processing pipeline

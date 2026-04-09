@@ -66,6 +66,10 @@ export default function SourcesPage() {
     { enabled: !!strategyId },
   );
 
+  const deleteMutation = trpc.ingestion.deleteSource.useMutation({
+    onSuccess: () => sourcesQuery.refetch(),
+  });
+
   const addSourceMutation = trpc.ingestion.addManualSource.useMutation({
     onSuccess: () => {
       sourcesQuery.refetch();
@@ -173,9 +177,20 @@ export default function SourcesPage() {
                       </p>
                     </div>
                   </div>
-                  <div className={`flex items-center gap-1 text-xs ${status.color}`}>
-                    <StatusIcon className="h-3 w-3" />
-                    {status.label}
+                  <div className="flex items-center gap-2">
+                    <div className={`flex items-center gap-1 text-xs ${status.color}`}>
+                      <StatusIcon className="h-3 w-3" />
+                      {status.label}
+                    </div>
+                    {source.sourceType === "MANUAL_INPUT" ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteMutation.mutate({ id: source.id as string }); }}
+                        className="rounded p-1 text-foreground-muted/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Supprimer cette source"
+                      >
+                        <AlertCircle className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 

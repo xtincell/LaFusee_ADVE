@@ -1,9 +1,16 @@
 /**
- * @deprecated Use @/server/services/mestor/hyperviseur instead.
- * The sequence recommendation functions (analyzeAndRecommend, etc.) have been
- * merged into the mestor hyperviseur during the v4 restructuration.
+ * @deprecated Use @/server/services/neteru-shared/hyperviseur instead.
+ * This file exists for backward compatibility.
  */
 export {
+  // Sequence recommendation API
+  analyzeAndRecommend,
+  getNextSequences,
+  shouldExecuteSequence,
+  type HypervisorRecommendation,
+  type HypervisorPlan,
+  type StrategyPhase,
+  // Orchestration API
   buildPlan,
   executePlan,
   executeNextStep,
@@ -13,6 +20,5 @@ export {
   resumePlan,
   type OrchestrationPlan,
   type OrchestrationStep,
-  type StrategyPhase,
   type StepAgent,
-} from "@/server/services/mestor/hyperviseur";
+} from "@/server/services/neteru-shared/hyperviseur";

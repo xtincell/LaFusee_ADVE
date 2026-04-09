@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { getVariableSpec } from "@/lib/types/variable-bible";
 import {
   ChevronRight, AlertCircle, Quote, Target, Zap, Shield, Flame,
   Star, Clock, DollarSign, Users, Lightbulb, BookOpen, Swords,
@@ -1409,17 +1410,29 @@ export function InlineBadge({ label, value }: { label: string; value: string }) 
   );
 }
 
-export function AutoField({ fieldKey, value, accent, onFocus }: {
+export function AutoField({ fieldKey, value, accent, onFocus, pillarKey }: {
   fieldKey: string;
   value: unknown;
   accent: string;
   onFocus?: (item: Record<string, unknown>) => void;
+  pillarKey?: string;
 }) {
   const label = getFieldLabel(fieldKey);
   const isFilled = value != null && value !== "" && !(Array.isArray(value) && value.length === 0);
+  const spec = pillarKey ? getVariableSpec(pillarKey, fieldKey) : undefined;
 
-  // Empty field
-  if (!isFilled) return <Empty label={label} />;
+  // Empty field — show bible description as hint
+  if (!isFilled) {
+    return (
+      <div className="flex flex-col rounded-lg border border-dashed border-white/8 bg-white/[0.01] px-4 py-3 gap-1">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-foreground-muted">{label}</span>
+          <span className="rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-foreground-muted/60">vide</span>
+        </div>
+        {spec?.description ? <p className="text-[10px] text-foreground-muted/40 italic">{spec.description}</p> : null}
+      </div>
+    );
+  }
 
   // Inline fields
   if (INLINE_FIELDS.has(fieldKey)) {
