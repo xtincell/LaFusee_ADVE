@@ -645,6 +645,52 @@ export async function executeSequence(
         case "CALC":
           output = await executeCalcStep(step.ref, strategyId, context);
           break;
+        case "SEQUENCE": {
+          // Encapsulate a sub-sequence — recursive call with current context
+          const subResult = await executeSequence(
+            step.ref as GlorySequenceKey,
+            strategyId,
+            { ...context }, // pass current context as initial
+          );
+          // Merge sub-sequence outputs into parent context
+          output = subResult.finalContext;
+          // Collect sub-sequence glory outputs
+          gloryOutputIds.push(...subResult.gloryOutputIds);
+          break;
+        }
+        case "ASSET": {
+          // Inject accepted BrandAsset from vault
+          // ref format: "SEQUENCE_KEY:asset_field" or just "SEQUENCE_KEY"
+          const [seqKey, assetField] = step.ref.split(":");
+          try {
+            const { getAcceptedExecution } = await import("@/server/services/sequence-vault");
+            const accepted = await getAcceptedExecution(strategyId, seqKey!);
+            if (accepted) {
+              // Inject all promoted assets + glory outputs into context
+              output = {
+                _sourceExecution: accepted.id,
+                _assets: accepted.promotedAssets,
+              };
+              for (const a of accepted.promotedAssets) {
+                output[a.name] = a.fileUrl ?? a.pillarTags;
+              }
+              // If specific field requested, extract from glory outputs
+              if (assetField && accepted.gloryOutputs) {
+                for (const go of accepted.gloryOutputs) {
+                  const goOutput = go.output as Record<string, unknown> | null;
+                  if (goOutput?.[assetField]) {
+                    output[assetField] = goOutput[assetField];
+                  }
+                }
+              }
+            } else {
+              output = { _warning: `No accepted execution found for ${seqKey}` };
+            }
+          } catch {
+            output = { _warning: `Asset injection failed for ${step.ref}` };
+          }
+          break;
+        }
         default:
           output = {};
       }

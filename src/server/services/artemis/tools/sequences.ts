@@ -26,7 +26,7 @@ import { getGloryTool } from "./registry";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type SequenceStepType = "GLORY" | "ARTEMIS" | "SESHAT" | "MESTOR" | "PILLAR" | "CALC";
+export type SequenceStepType = "GLORY" | "ARTEMIS" | "SESHAT" | "MESTOR" | "PILLAR" | "CALC" | "SEQUENCE" | "ASSET";
 
 export type GlorySequenceFamily = "PILLAR" | "PRODUCTION" | "STRATEGIC" | "OPERATIONAL";
 
@@ -114,6 +114,14 @@ const calc = (ref: string, name: string, outputs: string[] = []): SequenceStep =
 });
 const planned = (type: SequenceStepType, ref: string, name: string, outputs: string[] = []): SequenceStep => ({
   type, ref, name, outputKeys: outputs, status: "PLANNED",
+});
+/** Encapsulate an entire sub-sequence as a step. The ref is the sub-sequence key. */
+const sequence = (ref: string, name: string, outputs: string[] = []): SequenceStep => ({
+  type: "SEQUENCE", ref, name, outputKeys: outputs, status: "ACTIVE",
+});
+/** Inject accepted BrandAsset from vault. Format: "SEQUENCE_KEY:asset_field" */
+const asset = (ref: string, name: string, outputs: string[] = []): SequenceStep => ({
+  type: "ASSET", ref, name, outputKeys: outputs, status: "ACTIVE",
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -839,28 +847,23 @@ const NETERU_SEQUENCES: GlorySequenceDef[] = [
     ],
   },
 
-  // ── T1 MASCOTTE (integre CHARACTER-LSI + branding) ─────────────────────────
+  // ── T1 MASCOTTE (combo : sous-sequence CHARACTER-LSI + raccords branding) ──
   {
     key: "MASCOTTE",
     family: "PRODUCTION",
     name: "Creation de Mascotte",
-    description: "Pipeline complet de creation de mascotte de marque. Integre le framework LSI (character design) puis ajoute : coherence avec l'identite visuelle BRAND, declinaisons (poses, expressions, formats), guidelines d'utilisation, integration touchpoints. Recommande pour CHARACTER_IP mais applicable a toute marque.",
+    description: "Combo sequence : encapsule CHARACTER-LSI (character design LSI) puis ajoute les outils de raccord marque (brand guardian, guidelines). Recommande pour CHARACTER_IP mais applicable a toute marque avec mascotte.",
     steps: [
-      // Phase 0 : Contexte marque
-      pillar("a", "Injection ADN marque", ["brand_dna", "archetype", "values", "prophecy"]),
-      pillar("d", "Injection identite visuelle", ["directionArtistique", "chromatique", "brand_personality"]),
+      // Raccord amont : contexte marque
+      pillar("a", "Injection ADN marque", ["brand_dna", "archetype", "values"]),
+      pillar("d", "Injection identite visuelle", ["directionArtistique", "chromatique"]),
       pillar("e", "Injection touchpoints", ["touchpoints", "rituels"]),
       seshat("mascot-refs", "References mascottes secteur + IP", ["mascot_references"]),
-      // Phase 1-3 : Pipeline LSI (character design pur)
-      glory("lsi-universe-setup", ["universe_setup"]),
-      glory("lsi-symbol-alchemy", ["artifacts"]),
-      glory("lsi-distribution-matrix", ["distribution_matrix"]),
-      glory("lsi-sublimation", ["sublimation_report"]),
-      glory("lsi-morpho-semantic", ["morpho_semantic"]),
-      glory("lsi-character-sheet", ["character_sheet"]),
-      // Phase 4 : Coherence marque
+      asset("BRAND:brand_guidelines", "Guidelines visuelles acceptees", ["brand_guidelines_ref"]),
+      // Sous-sequence : CHARACTER-LSI (9 steps encapsules)
+      sequence("CHARACTER-LSI", "Character Design LSI (6 phases)", ["character_sheet", "morpho_semantic", "artifacts", "universe_setup"]),
+      // Raccord aval : coherence + integration marque
       glory("brand-guardian", ["brand_coherence_report"]),
-      // Phase 5 : Declinaisons & integration
       glory("brand-guidelines-generator", ["mascot_guidelines"]),
     ],
     aiPowered: true,
