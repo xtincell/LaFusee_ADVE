@@ -164,6 +164,29 @@ export const BIBLE_A: Record<string, VariableSpec> = {
     format: "Array d'objets { nom, role, bio (2-3 phrases), experiencePasse[], competencesCles[], credentials[] }",
     rules: ["1 minimum, 10 maximum", "Chaque profil doit avoir au moins nom + role + bio"],
   },
+  archetypeSecondary: {
+    description: "Archétype jungien secondaire (nuance le primaire)",
+    format: "Un des 12 archétypes (meme enum que archetype). Optionnel.",
+    rules: ["Doit être différent de l archetype primaire", "Apporte une nuance, pas une contradiction"],
+  },
+  hierarchieCommunautaire: {
+    description: "Les niveaux de la communauté de marque, mappés sur la Devotion Ladder",
+    format: "Array de 4-6 objets { level (enum Devotion), description (40+ chars), privileges (30+ chars), entryCriteria }",
+    rules: ["4 niveaux minimum", "Chaque niveau a un nom mémorable propre à la marque (pas 'Niveau 1')", "Les privilèges sont cumulatifs (chaque niveau a ce que le précédent n'a pas)"],
+    feedsInto: ["e.gamification", "e.ladderProductAlignment"],
+  },
+  timelineNarrative: {
+    description: "L histoire de la marque en 4 époques : origines, transformation, présent, futur",
+    format: "Objet { origine (60+ chars), transformation (60+ chars), present (60+ chars), futur (60+ chars) }",
+    rules: ["Au moins 3 des 4 sections remplies", "Cohérent avec le Hero's Journey (les 4 temps correspondent aux 5 actes)"],
+    minLength: 60,
+  },
+  equipeComplementarite: {
+    description: "Score de complémentarité de l'équipe dirigeante (dérivé automatiquement)",
+    format: "Objet { scoreGlobal (0-10), couvertureTechnique (bool), couvertureCommerciale (bool), couvertureOperationnelle (bool), capaciteExecution (enum), lacunes[], verdict (1-2 phrases) }",
+    rules: ["Calculé depuis equipeDirigeante", "Les lacunes sont les compétences manquantes"],
+    derivedFrom: "a.equipeDirigeante (calcul)",
+  },
 };
 
 // ── PILIER D — DISTINCTION ────────────────────────────────────────────
@@ -202,6 +225,43 @@ export const BIBLE_D: Record<string, VariableSpec> = {
     rules: ["3 minimum", "Chaque concurrent doit avoir au moins 1 avantage et 1 faiblesse"],
     feedsInto: ["t.triangulation.competitiveAnalysis", "t.competitorOvertonPositions"],
   },
+  archetypalExpression: {
+    description: "Comment l archetype A se traduit en expression visuelle et verbale",
+    format: "Objet { visualTranslation (description visuelle), verbalTranslation (ton verbal), emotionalRegister (registre émotionnel) }",
+    derivedFrom: "a.archetype",
+    feedsInto: ["d.directionArtistique"],
+  },
+  sousPromesses: {
+    description: "Déclinaisons de la promesse maître pour chaque segment/produit/contexte",
+    format: "Array de 2+ strings. Chaque sous-promesse est 1 phrase qui décline la promesseMaitre.",
+    rules: ["2 minimum", "Chaque sous-promesse cible un segment ou usage différent"],
+    feedsInto: ["v.productLadder"],
+  },
+  assetsLinguistiques: {
+    description: "Le vocabulaire propriétaire de la marque — slogan, tagline, mantras, lexique",
+    format: "Objet { languePrincipale, languesSecondaires[], slogan (≤50 chars), tagline (≤100 chars), motto, mantras[] (≥1), lexiquePropre[] (≥3 termes { word, definition }) }",
+    rules: ["Le slogan est publicitaire (pas l'accroche de A)", "Les mantras sont internes", "Le lexique crée un dialecte de marque (≥3 termes)"],
+  },
+  directionArtistique: {
+    description: "Système de production visuelle — 11 sous-composites produits par le pipeline BRAND GLORY",
+    format: "Objet avec 11 sous-objets : semioticAnalysis, visualLandscape, moodboard, chromaticStrategy, typographySystem, logoTypeRecommendation, logoValidation, designTokens, motionIdentity, brandGuidelines, lsiMatrix",
+    rules: ["Rempli progressivement par les outils GLORY", "Les sous-composites #1-#4 + LSI doivent être complétés pour un score DA non-nul", "Chaque sous-objet a un gloryOutputId qui trace l'outil qui l'a produit"],
+  },
+  sacredObjects: {
+    description: "Les objets sacrés de la marque — artefacts qui incarnent son identité",
+    format: "Array d'objets { name, form, narrative, stage, socialSignal }",
+    rules: ["≥1 objet avec nom + narrative non vides", "L'objet doit incarner une valeur ou un mythe de la marque"],
+  },
+  proofPoints: {
+    description: "Les preuves tangibles des promesses de la marque",
+    format: "Array d'objets { type, claim, evidence, source }",
+    rules: ["≥2 preuves avec claim + evidence non vides", "type = le type de preuve (chiffre, témoignage, certification, test, etc.)"],
+  },
+  symboles: {
+    description: "Les symboles visuels et culturels associés à la marque",
+    format: "Array d'objets { symbol, meanings[], usageContexts[] }",
+    rules: ["≥1 symbole avec meanings non vides"],
+  },
 };
 
 // ── PILIER V — VALEUR ─────────────────────────────────────────────────
@@ -227,6 +287,59 @@ export const BIBLE_V: Record<string, VariableSpec> = {
     format: "Texte 1-3 phrases qui lie D.positionnement → V.prix",
     examples: ["Notre premium de 15-20% est justifié par la garantie qualité blockchain et le réseau de 5000 distributeurs experts"],
     derivedFrom: "d.positionnement",
+  },
+  economicModels: {
+    description: "Les modèles économiques de capture de valeur",
+    format: "Array de strings : VENTE_DIRECTE, ABONNEMENT, COMMISSION, FREEMIUM, PUBLICITE, LICENCE, etc.",
+    derivedFrom: "Strategy.businessContext",
+  },
+  positioningArchetype: {
+    description: "L'archétype de positionnement prix (de ultra-luxe à low-cost)",
+    format: "String enum : ULTRA_LUXE, LUXE, PREMIUM, MASSTIGE, MAINSTREAM, VALUE, LOW_COST",
+    derivedFrom: "Strategy.businessContext",
+  },
+  salesChannel: {
+    description: "Le canal de vente principal",
+    format: "String enum : DIRECT, INTERMEDIATED, HYBRID",
+    derivedFrom: "Strategy.businessContext",
+  },
+  freeLayer: {
+    description: "Pour les modèles freemium : ce qui est gratuit vs payant",
+    format: "Objet { whatIsFree, whatIsPaid, conversionLever }",
+    rules: ["Rempli uniquement si le modèle est freemium"],
+  },
+  personaSegmentMap: {
+    description: "Quel persona (D) achète quel produit (V) à quel niveau Devotion",
+    format: "Array d'objets { personaName (ref D.personas), productNames[] (ref V.produits), devotionLevel (enum), revenueContributionPct }",
+    derivedFrom: "d.personas + v.produitsCatalogue",
+    rules: ["Chaque persona de D doit avoir au moins 1 produit", "La somme des revenueContributionPct ≈ 100%"],
+  },
+  productLadder: {
+    description: "L'échelle de produits par tier (entrée de gamme → premium)",
+    format: "Array de 2-5 objets { tier (nom, pas 'Tier 1'), prix, produitIds[], cible (ref persona), position (rang) }",
+    rules: ["2 minimum", "Prix croissants", "Chaque tier cible un persona ou un usage distinct"],
+    feedsInto: ["e.ladderProductAlignment"],
+  },
+  promesseDeValeur: {
+    description: "La proposition de valeur globale de la marque (synthèse V)",
+    format: "Texte 1-3 phrases, orienté bénéfice client global",
+    maxLength: 300,
+  },
+  valeurMarqueTangible: { description: "Valeurs tangibles créées pour la marque", format: "Array de strings, ≥1 item", rules: ["Avantages concrets, mesurables"] },
+  valeurMarqueIntangible: { description: "Valeurs intangibles créées pour la marque", format: "Array de strings, ≥1 item", rules: ["Réputation, image, capital marque"] },
+  valeurClientTangible: { description: "Bénéfices fonctionnels pour le client", format: "Array de strings, ≥1 item", rules: ["Gains concrets : temps, argent, qualité"] },
+  valeurClientIntangible: { description: "Bénéfices émotionnels et sociaux pour le client", format: "Array de strings, ≥1 item", rules: ["Statut, appartenance, sérénité, fierté"] },
+  coutMarqueTangible: { description: "Coûts tangibles pour la marque (CAPEX, production)", format: "Array de strings, ≥1 item" },
+  coutMarqueIntangible: { description: "Coûts cachés pour la marque (complexité, risques)", format: "Array de strings, ≥1 item" },
+  coutClientTangible: { description: "Frictions pour le client (prix, délai, effort)", format: "Array de strings avec solutions, ≥1 item" },
+  coutClientIntangible: { description: "Coûts psychologiques pour le client (peur, honte, doute)", format: "Array de strings, ≥1 item" },
+  mvp: {
+    description: "Statut du produit/prototype (Berkus: Product/Prototype milestone)",
+    format: "Objet { exists (bool), stage (IDEA→POC→PROTOTYPE→MVP→PRODUCT→SCALED), description, features[], launchDate, userCount, feedbackSummary }",
+  },
+  proprieteIntellectuelle: {
+    description: "Brevets, secrets commerciaux, barrières à l'entrée (Berkus: IP milestone)",
+    format: "Objet { brevets[], secretsCommerciaux[], technologieProprietary, barrieresEntree[], licences[], protectionScore (0-10) }",
   },
 };
 
@@ -255,6 +368,21 @@ export const BIBLE_E: Record<string, VariableSpec> = {
     format: "Array d'objets { nom, type (enum), frequency (enum), description (texte), devotionLevels[], aarrPrimary (enum), kpiMeasure }",
     rules: ["3 minimum", "Chaque rituel doit cibler au moins 1 niveau Devotion"],
   },
+  primaryChannel: { description: "Canal principal d'engagement de la marque", format: "Enum canal : INSTAGRAM, FACEBOOK, TIKTOK, WEBSITE, EVENT, etc.", derivedFrom: "Strategy.primaryChannel" },
+  productExperienceMap: { description: "Comment chaque produit (V) se traduit en expérience", format: "Array d'objets { productRef (ref V.produit), experienceDescription, touchpointRefs[], emotionalOutcome }", derivedFrom: "v.produitsCatalogue" },
+  ladderProductAlignment: { description: "Mapping Devotion Ladder ↔ Product Ladder", format: "Array d'objets { devotionLevel (enum), productTierRef (ref V.productLadder), entryAction, upgradeAction }", derivedFrom: "v.productLadder + e.touchpoints" },
+  channelTouchpointMap: { description: "Quels touchpoints sur quels canaux de vente", format: "Array d'objets { salesChannel (DIRECT|INTERMEDIATED|HYBRID), touchpointRefs[] }", derivedFrom: "v.salesChannel" },
+  conversionTriggers: { description: "Ce qui fait passer quelqu'un d'un niveau Devotion au suivant", format: "Array d'objets { fromLevel (enum), toLevel (enum), trigger (texte), channel }", rules: ["1 trigger par transition de niveau"] },
+  barriersEngagement: { description: "Ce qui bloque la montée dans la Devotion Ladder", format: "Array d'objets { level (enum), barrier (texte), mitigation }", rules: ["Identifier les points de friction par niveau"] },
+  principesCommunautaires: { description: "Les règles de la communauté de marque", format: "Array d'objets { principle (texte), enforcement (comment c'est appliqué) }", rules: ["3 minimum"] },
+  gamification: { description: "Système de progression ludique", format: "Objet { niveaux[] (3+ objets { niveau, condition, reward, duration }), recompenses[] }", rules: ["3 niveaux minimum", "Doit correspondre aux niveaux de A.hierarchieCommunautaire"] },
+  aarrr: { description: "Le funnel AARRR appliqué à la marque", format: "Objet { acquisition (80+ chars), activation (80+ chars), retention (80+ chars), revenue (80+ chars), referral (80+ chars) }", rules: ["Chaque étape doit être spécifique à la marque, pas générique"], minLength: 80 },
+  kpis: { description: "Les KPIs de mesure d'engagement", format: "Array de 6+ objets { name, metricType (ENGAGEMENT|FINANCIAL|BEHAVIORAL|SATISFACTION), target (nombre), frequency (DAILY|WEEKLY|MONTHLY) }", rules: ["6 minimum"] },
+  taboos: { description: "Les tabous de la communauté — ce qu'on ne fait JAMAIS", format: "Array d'objets { taboo (texte), consequence }", rules: ["Ce qui est interdit dans l'écosystème de la marque"] },
+  sacredCalendar: { description: "Le calendrier sacré de la marque — dates et moments clés", format: "Array de 4+ objets { date, name, significance }", rules: ["4 minimum", "Les dates qui rythment la vie de la communauté"] },
+  commandments: { description: "Les commandements de la marque — règles non-négociables", format: "Array de max 10 objets { commandment, justification }", rules: ["Formulés comme des impératifs", "Justifiés par les valeurs"] },
+  ritesDePassage: { description: "Les rituels de transition entre niveaux Devotion", format: "Array d'objets { fromStage (enum), toStage (enum), rituelEntree, symboles[] }", rules: ["Un rite par transition de niveau"] },
+  sacraments: { description: "Les sacrements de la marque — moments d'engagement profond", format: "Array de 5+ objets { nomSacre, trigger, action, reward, kpi, aarrStage (enum) }", rules: ["5 minimum", "Chaque sacrement doit être lié à un stade AARRR"] },
 };
 
 // ── PILIER R — RISK ───────────────────────────────────────────────────
@@ -276,6 +404,12 @@ export const BIBLE_R: Record<string, VariableSpec> = {
     rules: ["Calculable automatiquement depuis probabilityImpactMatrix"],
     derivedFrom: "r.probabilityImpactMatrix (calcul)",
   },
+  pillarGaps: { description: "Diagnostic par pilier ADVE — score + lacunes", format: "Objet { a: { score, gaps[] }, d: {...}, v: {...}, e: {...} }", derivedFrom: "Maturity assessment des piliers ADVE (calcul)" },
+  coherenceRisks: { description: "Contradictions détectées entre piliers", format: "Array d'objets { pillar1, pillar2, field1, field2, contradiction, severity (LOW|MEDIUM|HIGH) }", rules: ["Ex: A dit 'premium' mais V a des prix low-cost"] },
+  devotionVulnerabilities: { description: "Niveaux de la Devotion Ladder où la marque perd du monde", format: "Array d'objets { level (enum Devotion), churnCause (texte), mitigation }" },
+  microSWOTs: { description: "SWOT détaillé par pilier ADVE", format: "Record { pillarKey: { strengths[], weaknesses[], opportunities[], threats[] } }", rules: ["1 micro-SWOT par pilier ADVE"] },
+  probabilityImpactMatrix: { description: "Matrice de risques avec probabilité × impact", format: "Array de 5+ objets { risk (texte), probability (LOW|MEDIUM|HIGH), impact (LOW|MEDIUM|HIGH), mitigation (texte 40+ chars) }", rules: ["5 minimum", "Chaque risque a une mitigation concrète"] },
+  mitigationPriorities: { description: "Actions de mitigation prioritaires", format: "Array de 5+ objets { action (40+ chars), owner, timeline, investment }", rules: ["5 minimum", "Chaque action est concrète et assignable"] },
 };
 
 // ── PILIER T — TRACK ──────────────────────────────────────────────────
@@ -298,6 +432,17 @@ export const BIBLE_T: Record<string, VariableSpec> = {
     format: "Objet { tam { value, description, source }, sam { value, description, source }, som { value, description, source } }",
     rules: ["TAM > SAM > SOM toujours", "Chaque valeur doit avoir source: 'ai_estimate' ou 'verified'", "Les estimations IA doivent être marquées comme telles"],
   },
+  riskValidation: { description: "Chaque risque R confronté au marché", format: "Array d'objets { riskRef (ref R.matrix), marketEvidence, status (CONFIRMED|DENIED|UNKNOWN), source (ai_estimate|verified) }", rules: ["T ne met JAMAIS status=VALIDATED sans source externe"] },
+  competitorOvertonPositions: { description: "Position des concurrents sur la Fenêtre d'Overton", format: "Array d'objets { competitorName (ref D.concurrents), overtonPosition (texte), relativeToUs (AHEAD|BEHIND|PARALLEL|DIVERGENT) }", derivedFrom: "d.paysageConcurrentiel" },
+  triangulation: { description: "Croisement de 4 sources de données marché", format: "Objet { customerInterviews (100+ chars), competitiveAnalysis (100+ chars), trendAnalysis (100+ chars), financialBenchmarks (100+ chars) }", rules: ["Chaque source doit être spécifique, pas générique", "Citer les données réelles extraites de ADVE"], minLength: 100 },
+  hypothesisValidation: { description: "Hypothèses de marché à valider", format: "Array de 5+ objets { hypothesis, validationMethod, status (HYPOTHESIS|TESTING|VALIDATED|INVALIDATED), evidence }", rules: ["5 minimum", "VALIDATED uniquement avec source externe", "Le LLM peut produire HYPOTHESIS ou TESTING, jamais VALIDATED"] },
+  marketReality: { description: "Macro-tendances et signaux faibles du marché", format: "Objet { macroTrends[] (3+), weakSignals[] (2+) }", rules: ["macroTrends = tendances lourdes vérifiables", "weakSignals = signaux émergents à surveiller"] },
+  brandMarketFitScore: { description: "Score d'adéquation marque-marché (0-100)", format: "Nombre 0-100, calculé depuis les hypothèses validées + triangulation", derivedFrom: "t.hypothesisValidation + t.triangulation (calcul)" },
+  weakSignalAnalysis: { description: "Analyse des signaux faibles avec chaînes causales (TARSIS)", format: "Array d'objets { thesis, rawEvent, causalChain[], impactCategory, brandImpact, confidence, urgency, recommendedAction }" },
+  marketDataSources: { description: "Sources de données marché utilisées", format: "Array d'objets { sourceType, title, reliability (0-1) }" },
+  lastMarketDataRefresh: { description: "Date de dernière actualisation des données marché", format: "ISO date string" },
+  sectorKnowledgeReused: { description: "Si les données sectorielles cross-brand ont été réutilisées", format: "Boolean" },
+  traction: { description: "Preuves de traction marché (Berkus: Business Relationships)", format: "Objet { loisSignees[], utilisateursInscrits, utilisateursActifs, croissanceHebdo, revenusRecurrents, metriqueCle { nom, valeur, tendance }, preuvesTraction[], tractionScore (0-10) }" },
 };
 
 // ── PILIER I — INNOVATION ─────────────────────────────────────────────
@@ -319,6 +464,19 @@ export const BIBLE_I: Record<string, VariableSpec> = {
     rules: ["Doit couvrir les 6 niveaux", "Chaque action doit être dans le bon niveau"],
     derivedFrom: "i.catalogueParCanal (re-tri par devotionImpact)",
   },
+  actionsByOvertonPhase: { description: "Actions groupées par phase de déplacement Overton", format: "Array d'objets { phase (early adopters|mainstream|résistants), actions[] }" },
+  riskMitigationActions: { description: "Actions qui mitigent spécifiquement les risques R", format: "Array d'objets { riskRef (ref R.matrix), action, canal, expectedImpact }", derivedFrom: "r.mitigationPriorities × i.catalogueParCanal" },
+  hypothesisTestActions: { description: "Actions qui testent les hypothèses T non-validées", format: "Array d'objets { hypothesisRef (ref T.hypotheses), testAction, expectedOutcome, cost (LOW|MEDIUM|HIGH) }", derivedFrom: "t.hypothesisValidation (status=HYPOTHESIS|TESTING)" },
+  assetsProduisibles: { description: "Tous les assets créatifs que la marque peut produire", format: "Array de 15+ objets { asset, type (VIDEO|PRINT|DIGITAL|PHOTO|AUDIO|PACKAGING|EXPERIENCE), usage }", rules: ["15 minimum", "Couvrir tous les types"] },
+  activationsPossibles: { description: "Toutes les activations terrain/digitales possibles", format: "Array de 10+ objets { activation, canal, cible, budgetEstime (LOW|MEDIUM|HIGH) }", rules: ["10 minimum"] },
+  formatsDisponibles: { description: "Tous les formats créatifs possibles", format: "Array de 10+ strings (reels, billboards, podcasts, etc.)", rules: ["10 minimum"] },
+  totalActions: { description: "Compteur total d'actions dans le catalogue", format: "Nombre entier", derivedFrom: "i.catalogueParCanal (somme)" },
+  brandPlatform: { description: "Plateforme de marque — synthèse stratégique", format: "Objet { name, benefit, target, competitiveAdvantage, emotionalBenefit, functionalBenefit, supportedBy }", derivedFrom: "a.noyauIdentitaire + d.positionnement + d.promesseMaitre" },
+  copyStrategy: { description: "Stratégie de copywriting — promesse, RTB, ton, messages clés", format: "Objet { promise, rtb, tonOfVoice, keyMessages[], doNot[] }" },
+  bigIdea: { description: "Le concept central de la marque", format: "Objet { concept, mechanism, insight, adaptations[] }" },
+  potentielBudget: { description: "Fourchettes budgétaires pour le potentiel identifié", format: "Objet { production, media, talent, logistics, technology, total } (en XAF)" },
+  mediaPlan: { description: "Plan média potentiel", format: "Objet { totalBudget, channels[] { channel, budget, percentage, objective, kpi } }" },
+  generationMeta: { description: "Métadonnées de génération du pilier I", format: "Objet { gloryToolsUsed[], qualityScore (0-100), generatedAt (ISO date) }" },
 };
 
 // ── PILIER S — STRATEGY ───────────────────────────────────────────────
@@ -347,6 +505,21 @@ export const BIBLE_S: Record<string, VariableSpec> = {
     rules: ["Toujours orienté Devotion Ladder", "Le target doit être quantifié"],
     examples: ["{ name: 'Progression Devotion Ladder', target: '+10% d'évangélistes par trimestre', frequency: 'MONTHLY' }"],
   },
+  visionStrategique: { description: "La vision stratégique à long terme", format: "Texte 200+ chars qui décrit le futur stratégique de la marque", minLength: 200, derivedFrom: "a.prophecy" },
+  syntheseExecutive: { description: "Résumé exécutif de la stratégie complète", format: "Texte 400+ chars qui répond à : 'Comment on déplace la perception pour transformer des spectateurs en évangélistes'", minLength: 400 },
+  axesStrategiques: { description: "Les 3+ axes stratégiques de la marque", format: "Array de 3+ objets { axe, pillarsLinked[] (A|D|V|E|R|T|I|S, min 2), kpis[] }", rules: ["3 minimum", "Chaque axe lie au moins 2 piliers"] },
+  facteursClesSucces: { description: "Les facteurs clés de succès de la stratégie", format: "Array de 3+ strings", rules: ["3 minimum", "Facteurs spécifiques, pas génériques"] },
+  sprint90Days: { description: "Les actions prioritaires des 90 prochains jours", format: "Array de 5+ objets { action, owner, kpi, priority (rang), devotionImpact (enum Devotion), sourceRef (ref I.catalogue), isRiskMitigation (bool) }", rules: ["5 minimum", "Chaque action a un owner et un KPI", "sourceRef trace l'origine dans I"] },
+  roadmap: { description: "La roadmap en 3-4 phases avec objectifs Devotion", format: "Array de 3+ objets { phase, objectif, objectifDevotion (ex: 'spectateur→intéressé'), actions[], budget, duree }", rules: ["3 phases minimum", "Chaque phase a un objectifDevotion explicite"] },
+  globalBudget: { description: "Budget total de la stratégie", format: "Nombre en XAF" },
+  budgetBreakdown: { description: "Ventilation du budget par poste", format: "Objet { production, media, talent, logistics, technology, contingency, agencyFees } (en XAF)" },
+  teamStructure: { description: "L'équipe mobilisée pour exécuter la stratégie", format: "Array d'objets { name, title, responsibility }", rules: ["1 minimum"] },
+  kpiDashboard: { description: "Tableau de bord KPIs — 1 KPI par pilier minimum", format: "Array de 5+ objets { name, pillar (A|D|V|E|R|T|I|S), target, frequency (DAILY|WEEKLY|MONTHLY|QUARTERLY) }", rules: ["5 minimum", "Le KPI de S est toujours la progression Devotion"] },
+  coherenceScore: { description: "Score de cohérence entre les piliers (0-100)", format: "Nombre 0-100", derivedFrom: "Cross-pillar coherence analysis (calcul)" },
+  rejectedFromI: { description: "Actions de I explicitement non-sélectionnées pour la roadmap", format: "Array d'objets { sourceRef (path dans I), reason }", rules: ["Permet de revoir les choix plus tard"] },
+  overtonMilestones: { description: "Jalons de déplacement de la Fenêtre d'Overton par phase", format: "Array d'objets { phase, currentPerception, targetPerception, measurementMethod }" },
+  budgetByDevotion: { description: "Répartition du budget par objectif Devotion Ladder", format: "Objet { acquisition, conversion, retention, evangelisation } (en XAF)" },
+  recommandationsPrioritaires: { description: "Recommandations stratégiques prioritaires", format: "Array d'objets { recommendation, source (A|D|V|E|R|T|I|S), priority (rang) }" },
 };
 
 // ── Master map ────────────────────────────────────────────────────────
