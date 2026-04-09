@@ -412,7 +412,14 @@ export function ObjectCard({ label, obj, onFocus }: { label: string; obj: Record
             ) : typeof v === "number" ? (
               <span className="text-xs text-white font-medium">{v.toLocaleString()}</span>
             ) : typeof v === "object" && v !== null ? (
-              <p className="text-[10px] text-foreground-muted mt-0.5">{Object.keys(v as Record<string, unknown>).join(", ")}</p>
+              <div className="mt-0.5 space-y-0.5">
+                {Object.entries(v as Record<string, unknown>).filter(([, sv]) => sv != null && sv !== "").slice(0, 6).map(([sk, sv]) => (
+                  <div key={sk} className="flex gap-1.5 text-[10px]">
+                    <span className="text-foreground-muted/60 shrink-0">{getFieldLabel(sk)}:</span>
+                    <span className="text-white/60 truncate">{typeof sv === "string" ? sv.slice(0, 80) : Array.isArray(sv) ? sv.slice(0, 3).map(x => typeof x === "string" ? x : extractLabel(x as Record<string, unknown>)).join(", ") + (sv.length > 3 ? ` +${sv.length - 3}` : "") : typeof sv === "number" ? sv.toLocaleString() : String(sv)}</span>
+                  </div>
+                ))}
+              </div>
             ) : (
               <p className="text-xs text-white/80 mt-0.5">{String(v)}</p>
             )}
@@ -1392,6 +1399,12 @@ const SPECIAL_FIELDS: Record<string, string> = {
   activationsPossibles: "activations",
   innovationsProduit: "innovations",
   livingMythology: "living-mythology",
+  // R pillar
+  mitigationPriorities: "risk-matrix",
+  // S pillar
+  kpiDashboard: "kpi-dashboard",
+  // E pillar
+  conversionTriggers: "conversion-triggers",
 };
 
 // Inline metadata fields (rendered as badges, not cards)
@@ -1472,6 +1485,8 @@ export function AutoField({ fieldKey, value, accent, onFocus, pillarKey }: {
       case "activations": return <ActivationsCard activations={value as Array<Record<string, unknown>>} onFocus={onFocus} />;
       case "innovations": return <InnovationsCard innovations={value as Array<Record<string, unknown>>} onFocus={onFocus} />;
       case "living-mythology": return <LivingMythologyCard myth={value as Record<string, unknown>} />;
+      case "kpi-dashboard": return <ItemList label={label} items={value as Array<Record<string, unknown>>} onFocus={onFocus} nameKey="name" />;
+      case "conversion-triggers": return <ItemList label={label} items={value as Array<Record<string, unknown>>} onFocus={onFocus} nameKey="trigger" />;
     }
   }
 

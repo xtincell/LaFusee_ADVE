@@ -187,7 +187,7 @@ export async function enrichFromVault(
     const filledFields = allFieldKeys.filter(k => isFld(currentContent[k]));
 
     if (emptyFields.length === 0 && sourceCount === 0) {
-      return { pillarKey, recommendations: [], vaultSize: 0, error: "Pilier complet et vault vide." };
+      return { pillarKey, recommendations: [], vaultSize: 0, error: "Aucune source dans le Vault. Ajoutez des documents ou URLs dans Sources pour enrichir ce pilier." };
     }
 
     // ── ÉTAPE 1 : Dérivation cross-pilier DÉTERMINISTE (zéro LLM) ──
