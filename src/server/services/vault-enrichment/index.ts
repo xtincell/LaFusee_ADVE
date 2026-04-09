@@ -247,12 +247,47 @@ Ne propose RIEN qui ne soit pas justifie par une source du vault.`,
 
     const recos = (Array.isArray(result) ? result : (result as Record<string, unknown>).recommendations ?? []) as VaultRecommendation[];
 
-    // Tag all with source: "VAULT"
+    // Sanitize: ensure operation is always set + tag source
     for (const r of recos) {
       r.source = "VAULT";
+      // Fix missing operation — infer from context
+      if (!r.operation) {
+        if (r.verdict === "ADD") {
+          r.operation = "SET"; // Default ADD verdict to SET (fill empty field)
+        } else if (r.verdict === "CHALLENGE" || r.verdict === "INFIRM") {
+          r.operation = "SET";
+        } else {
+          r.operation = "SET";
+        }
+      }
     }
 
-    // Store as pendingRecos on the pillar
+    // Validate each reco's proposedValue against the Zod schema field type
+    const schemaKey = pillarKey.toUpperCase() as keyof typeof PILLAR_SCHEMAS;
+    const schema = PILLAR_SCHEMAS[schemaKey];
+    if (schema) {
+      const shape = (schema as { shape?: Record<string, { safeParse?: (v: unknown) => { success: boolean } }> }).shape ?? {};
+      for (const reco of recos) {
+        const fieldSchema = shape[reco.field];
+        if (fieldSchema?.safeParse && reco.proposedValue !== undefined) {
+          const validation = fieldSchema.safeParse(reco.proposedValue);
+          if (!validation.success) {
+            // Try coercion: if schema expects string and we have array → join
+            if (Array.isArray(reco.proposedValue)) {
+              const joined = reco.proposedValue.map((v: unknown) => typeof v === "string" ? v : JSON.stringify(v)).join(", ");
+              const retry = fieldSchema.safeParse(joined);
+              if (retry.success) {
+                reco.proposedValue = joined;
+              } else {
+                (reco as Record<string, unknown>).validationWarning = "Format incorrect — sera coerce a l'application";
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Store as pendingRecos on the pillar (type-validated)
     if (recos.length > 0) {
       await db.pillar.update({
         where: { strategyId_key: { strategyId, key: pillarKey } },

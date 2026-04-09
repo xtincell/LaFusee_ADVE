@@ -140,6 +140,23 @@ function coerceValue(existing: unknown, proposed: unknown): unknown {
     return isNaN(n) ? existing : n;
   }
 
+  // If existing is an array and proposed is a single item (string/object) → wrap in array
+  if (Array.isArray(existing) && !Array.isArray(proposed)) {
+    // For ADD operations, the proposed should be a single item
+    // For SET operations on array fields, wrap it
+    if (typeof proposed === "string") {
+      // If existing array has objects, try to wrap string into expected object format
+      if (existing.length > 0 && typeof existing[0] === "object" && existing[0] !== null) {
+        const firstKeys = Object.keys(existing[0] as Record<string, unknown>);
+        const nameKey = firstKeys.find(k => ["name", "nom", "value", "title", "action"].includes(k)) ?? firstKeys[0];
+        if (nameKey) {
+          return { [nameKey]: proposed };
+        }
+      }
+    }
+    return proposed; // Trust it — ADD operation will append
+  }
+
   // If field doesn't exist yet (new field), trust the proposed value
   if (existing === undefined || existing === null || existing === "") return proposed;
 
