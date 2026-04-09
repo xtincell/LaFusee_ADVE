@@ -15,7 +15,7 @@
 
 import { db } from "@/lib/db";
 import { PILLAR_KEYS, type PillarKey } from "@/lib/types/advertis-vector";
-import { assessAllDirectors, type PillarHealthReport } from "./pillar-directors";
+import { assessAllDirectors, type PillarHealthReport } from "@/server/services/neteru-shared/pillar-directors";
 import { assessStrategy } from "@/server/services/pillar-maturity/assessor";
 
 // ── Types ──────────────────────────────────────────────────────────────

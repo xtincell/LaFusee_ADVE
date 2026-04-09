@@ -49,66 +49,28 @@ export interface RecoDecision {
 
 /**
  * Generate per-field recommendations for an ADVE pillar from R+T insights.
- * This is a DECISION — the Commandant uses LLM judgment.
- * Results are stored as pendingRecos for operator review (never auto-applied).
+ * Delegates to rtis-cascade.generateADVERecommendations (canonical, richer: Zod validation, schema-aware).
+ * This adapter converts between lowercase keys (used by hyperviseur) and uppercase (used by rtis-cascade).
  */
 export async function generateADVERecommendations(
   strategyId: string,
   pillarKey: "a" | "d" | "v" | "e",
 ): Promise<RecoDecision> {
-  // Load all pillars
-  const pillars = await db.pillar.findMany({ where: { strategyId } });
-  const pillarMap: Record<string, Record<string, unknown>> = {};
-  for (const p of pillars) {
-    pillarMap[p.key] = (p.content ?? {}) as Record<string, unknown>;
-  }
-
-  const currentContent = pillarMap[pillarKey] ?? {};
-  const rContent = pillarMap.r;
-  const tContent = pillarMap.t;
-
-  if (!rContent && !tContent) {
-    return { pillarKey, recommendations: [] };
-  }
-
-  const result = await callLLMAndParse({
-    system: `Tu es le Commandant de l'essaim MESTOR. Tu analyses les piliers R (Risk) et T (Track) pour produire des recommandations GRANULAIRES destinées à enrichir le pilier ${pillarKey.toUpperCase()}.
-
-Pour CHAQUE modification, choisis l'opération la plus précise :
-- SET : remplacer le champ entier
-- ADD : ajouter un élément à un array
-- MODIFY : modifier un élément spécifique (inclure targetMatch)
-- REMOVE : supprimer un élément (inclure targetMatch)
-- EXTEND : enrichir un objet avec de nouvelles clés
-
-Retourne un JSON array de recommandations. 5 à 20 items, triés par impact décroissant.
-Ne propose QUE des modifications justifiées par des données R ou T concrètes.`,
-    prompt: `Pilier ${pillarKey.toUpperCase()} actuel:
-${JSON.stringify(currentContent, null, 2)}
-
-Pilier R (Risk):
-${rContent ? JSON.stringify(rContent, null, 2) : "Non disponible"}
-
-Pilier T (Track):
-${tContent ? JSON.stringify(tContent, null, 2) : "Non disponible"}
-
-Produis les recommandations d'enrichissement pour ${pillarKey.toUpperCase()}.`,
-    maxTokens: 6000,
-    strategyId,
-    caller: `commandant-recos-${pillarKey}`,
-  });
-
-  const recos = Array.isArray(result) ? result : (result as Record<string, unknown>).recommendations;
-
-  // pendingRecos is metadata — not routed through Gateway
-  await db.pillar.update({
-    where: { strategyId_key: { strategyId, key: pillarKey } },
-    data: { pendingRecos: (recos ?? []) as unknown as import("@prisma/client").Prisma.InputJsonValue },
-  });
+  const { generateADVERecommendations: cascadeRecos } = await import("./rtis-cascade");
+  const uppercaseKey = pillarKey.toUpperCase() as "A" | "D" | "V" | "E";
+  const result = await cascadeRecos(strategyId, uppercaseKey);
 
   return {
     pillarKey,
-    recommendations: (recos ?? []) as RecoDecision["recommendations"],
+    recommendations: (result.recommendations ?? []).map(r => ({
+      field: r.field,
+      operation: r.operation ?? "SET",
+      proposedValue: r.proposedValue,
+      targetMatch: r.targetMatch,
+      justification: r.justification,
+      source: r.source as "R" | "T" | "R+T",
+      impact: r.impact,
+    })),
   };
 }
 

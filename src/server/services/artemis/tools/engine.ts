@@ -1,24 +1,6 @@
 // ============================================================================
-// MODULE M03 — Glory Tools (39 outils, 4 layers)
-// Score: 75/100 | Priority: P1 | Status: FUNCTIONAL
-// Spec: Annexe B + §6.2 | Division: La Fusée (GLORY)
-// ============================================================================
-//
-// CdC REQUIREMENTS (V1):
-// [x] REQ-1  39 outils en 4 layers: CR(10), DC(8), HYBRID(11), BRAND(10)
-// [x] REQ-2  Point d'entrée unique generateGloryOutput(toolSlug, strategyId, params)
-// [x] REQ-3  AI execution via Claude (system prompt expert + pillar context)
-// [x] REQ-4  Persistable outputs (21/39) saved in DB with refNumber
-// [x] REQ-5  BRAND pipeline séquentiel 10 outils avec dépendances (semiotique→visuel→moodboard→...)
-// [x] REQ-6  executeBrandPipeline() with auto-apply to D.directionArtistique
-// [x] REQ-7  Slug-to-field mapping corrected (7 fixes applied)
-// [ ] REQ-8  Lien aux Drivers (un Driver déclenche les GLORY tools pertinents)
-// [ ] REQ-9  Contexte ADVE hérité (le profil ADVE du client injecté dans chaque tool)
-// [ ] REQ-10 Usage stats tracking (quel tool utilisé combien de fois, par quel client)
-// [ ] REQ-11 Feedback: GloryOutput → QualityReview → Publication → BrandAsset cycle
-//
-// EXPORTS: generateGloryOutput, executeBrandPipeline, getToolBySlug
-// LAYERS: CR=concepteur-rédacteur, DC=direction-création, HYBRID=opérationnel, BRAND=identité-visuelle
+// GLORY Tools — Execution Engine
+// Moved from glory-tools/index.ts to artemis/tools/engine.ts (Phase 3)
 // ============================================================================
 
 /**
@@ -29,40 +11,6 @@
 import { callLLM } from "@/server/services/llm-gateway";
 import { db } from "@/lib/db";
 import { ALL_GLORY_TOOLS, getGloryTool, getBrandPipelineDependencyOrder, type GloryToolDef } from "./registry";
-
-export { ALL_GLORY_TOOLS, getGloryTool, getToolsByLayer, getToolsByPillar, getToolsByDriver, getToolsByExecutionType, getBrandPipeline } from "./registry";
-export type { GloryLayer, GloryExecutionType, GloryToolStatus, GloryToolDef } from "./registry";
-
-// Sequence exports
-export { ALL_SEQUENCES, getSequence, getSequencesByFamily, getSequencesByPillar, getSequencesForTool, getAllPlannedSteps, getUniquePlannedSlugs, getSequenceGloryTools } from "./sequences";
-export type { SequenceStepType, GlorySequenceFamily, GlorySequenceKey, SequenceStep, GlorySequenceDef } from "./sequences";
-
-// Sequence executor exports
-export { executeSequence, executeSequenceBatch, executeAllPillarSequences, scanSequence, scanAllSequences } from "./sequence-executor";
-export type { SequenceContext, StepResult, SequenceResult, SequenceProgressCallback, PreflightReport } from "./sequence-executor";
-
-// Pillar resolver exports
-export { PillarResolver } from "./pillar-resolver";
-export type { PillarData, ResolvedBindings } from "./pillar-resolver";
-
-// Pillar director exports
-export { PillarDirector, PILLAR_DIRECTORS, getDirector, assessAllPillarsHealth } from "./pillar-director";
-export type { PillarKey, PillarHealthReport, WritebackVerdict } from "./pillar-director";
-
-// Hypervisor exports (v4: functions merged into mestor/hyperviseur buildPlan())
-export type { StrategyPhase, OrchestrationPlan, OrchestrationStep, StepAgent } from "./hypervisor";
-
-// Sequence queue exports
-export { buildQueue, getReadySequences, getCompletedSequences } from "./sequence-queue";
-export type { QueueItemStatus, QueueItem } from "./sequence-queue";
-
-// Auto-complete exports
-export { autoCompleteGaps } from "./auto-complete";
-export type { AutoCompleteResult } from "./auto-complete";
-
-// Deliverable compiler exports
-export { compileDeliverable, listCompilableDeliverables, exportDeliverable } from "./deliverable-compiler";
-export type { DeliverableFormat, DeliverableManifest, DeliverableSection } from "./deliverable-compiler";
 
 /**
  * Load full strategy context for enriching GLORY tool prompts.

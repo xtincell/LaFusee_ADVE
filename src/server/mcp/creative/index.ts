@@ -377,9 +377,9 @@ export const tools: ToolDefinition[] = [
       limit: z.number().optional().describe("Nombre max de recommandations (défaut: 5)"),
     }),
     handler: async (input) => {
-      const { getNextSequences } = await import("@/server/services/glory-tools");
-      const recs = await getNextSequences(input.strategyId as string, (input.limit ?? 5) as number);
-      return { recommendations: recs };
+      const { buildPlan } = await import("@/server/services/mestor/hyperviseur");
+      const plan = await buildPlan(input.strategyId as string);
+      return { recommendations: plan.steps.slice(0, (input.limit ?? 5) as number) };
     },
   },
 

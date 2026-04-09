@@ -348,3 +348,10 @@ export async function triggerNextStageFrameworks(
     console.warn(`[artemis] Auto-trigger failed for ${completedPillarKey}:`, err instanceof Error ? err.message : err);
   });
 }
+
+// ============================================================================
+// GLORY Tools — Artemis's arsenal (Phase 3 migration)
+// Re-export everything from tools/ so Artemis exposes both frameworks AND tools
+// ============================================================================
+export * from "./tools";
+
