@@ -307,12 +307,12 @@ export default function GloryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="GLORY Tools"
-        description={`${allTools.length} outils | 31 sequences | 4 familles — superviseur global`}
+        title="Artemis — Outils GLORY"
+        description={`${allTools.length} outils | 40 sequences | 4 familles — arsenal du Neter du Protocole`}
         breadcrumbs={[
           { label: "Console", href: "/console" },
-          { label: "Fusee" },
-          { label: "GLORY" },
+          { label: "Artemis", href: "/console/artemis" },
+          { label: "Outils GLORY" },
         ]}
       />
 
@@ -330,7 +330,7 @@ export default function GloryPage() {
           Marques ({strategies.length})
         </button>
         <button onClick={() => setView("catalogue")} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${view === "catalogue" ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:text-white"}`}>
-          Catalogue (31 seq.)
+          Catalogue (40 seq.)
         </button>
         <button onClick={() => setView("tools")} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${view === "tools" ? "bg-white text-black" : "bg-zinc-800 text-zinc-400 hover:text-white"}`}>
           Outils ({allTools.length})
