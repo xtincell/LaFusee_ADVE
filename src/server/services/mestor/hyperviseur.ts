@@ -27,7 +27,13 @@ export type StepAgent =
   | "COMMANDANT"
   | "ARTEMIS_SEQUENCE"
   | "SCORE"
-  | "WAIT_HUMAN";
+  | "WAIT_HUMAN"
+  // Brief Ingest agents (NETERU-governed pipeline)
+  | "SEED_ADVE"
+  | "SESHAT_ENRICH"
+  | "CREATE_CAMPAIGN"
+  | "SPAWN_MISSIONS"
+  | "ARTEMIS_SUGGEST";
 
 export interface OrchestrationStep {
   id: string;
@@ -208,6 +214,131 @@ export async function buildPlan(strategyId: string): Promise<OrchestrationPlan> 
   };
 }
 
+// ── Brief Ingest Plan Builder ────────────────────────────────────────
+
+/**
+ * Build an orchestration plan for brief ingestion.
+ * Takes a ParsedBrief and produces a full plan that:
+ *   1. Seeds ADVE pillars via Pillar Gateway
+ *   2. Enriches via Seshat (competitors, sector knowledge)
+ *   3. Creates Campaign + CampaignBrief
+ *   4. Spawns Missions from deliverables
+ *   5. WAIT_HUMAN for operator review
+ *   6. Triggers RTIS cascade (R → T → Recos → I → S)
+ *   7. Suggests Artemis sequences
+ *   8. Final score
+ *
+ * Deterministic — no LLM calls in plan building.
+ * The ParsedBrief is attached to step targets as serialized JSON.
+ */
+export async function buildBriefIngestPlan(
+  strategyId: string,
+  parsedBrief: import("@/server/services/brief-ingest/types").ParsedBrief,
+): Promise<OrchestrationPlan> {
+  const pillarHealth = await assessAllDirectors(strategyId);
+  const briefPayload = JSON.stringify(parsedBrief);
+
+  const steps: OrchestrationStep[] = [];
+  let aiCalls = 0;
+
+  // ── Phase A: Ingest (creation) ────────────────────────────────────
+
+  // 1. Seed ADVE pillars via Pillar Gateway
+  steps.push(step("seed-adve", "SEED_ADVE", briefPayload,
+    "Seed piliers A/D/V/E depuis le brief client", [], 10));
+
+  // 2. Seshat enrichment (competitors, sector knowledge)
+  if (parsedBrief.context.competitors.length > 0) {
+    steps.push(step("seshat-enrich", "SESHAT_ENRICH", briefPayload,
+      `Enrichissement Seshat — concurrents: ${parsedBrief.context.competitors.join(", ")}`,
+      ["seed-adve"], 9));
+  }
+
+  // 3. Create Campaign + CampaignBrief
+  steps.push(step("create-campaign", "CREATE_CAMPAIGN", briefPayload,
+    `Création campagne ${parsedBrief.campaignType}: ${parsedBrief.campaignName}`,
+    ["seed-adve"], 9));
+
+  // 4. Spawn Missions from deliverables
+  steps.push(step("spawn-missions", "SPAWN_MISSIONS", briefPayload,
+    `Création de ${parsedBrief.deliverables.length} mission(s) depuis les livrables`,
+    ["create-campaign"], 8));
+
+  // 5. Operator review before RTIS cascade
+  steps.push(step("wait-brief-review", "WAIT_HUMAN", "review_brief_ingest",
+    "Opérateur review les missions et la campagne créée",
+    ["spawn-missions"], 7));
+
+  // ── Phase B: RTIS Cascade (reuses existing protocol agents) ───────
+
+  const rHealth = pillarHealth.find(p => p.pillarKey === "r");
+  if (!rHealth || rHealth.completeness < 50) {
+    steps.push(step("rtis-r", "PROTOCOLE_R", "r",
+      "Protocole Risk — diagnostic depuis brief",
+      ["wait-brief-review"], 6));
+    aiCalls++;
+  }
+
+  const tHealth = pillarHealth.find(p => p.pillarKey === "t");
+  if (!tHealth || tHealth.completeness < 50) {
+    steps.push(step("rtis-t", "PROTOCOLE_T", "t",
+      "Protocole Track — confrontation marché",
+      steps.some(s => s.id === "rtis-r") ? ["rtis-r"] : ["wait-brief-review"], 5));
+    aiCalls++;
+  }
+
+  // Commandant recommendations (from R+T)
+  const recoDeps = ["rtis-r", "rtis-t"].filter(id => steps.some(s => s.id === id));
+  if (recoDeps.length === 0) recoDeps.push("wait-brief-review");
+  steps.push(step("recos-adve", "COMMANDANT", "recos:ADVE",
+    "Commandant — recommandations ADVE depuis R+T",
+    recoDeps, 4));
+  aiCalls++;
+
+  // Wait for operator to accept/reject recommendations
+  steps.push(step("wait-recos", "WAIT_HUMAN", "accept_recos",
+    "Opérateur review recommandations",
+    ["recos-adve"], 3));
+
+  // I + S cascade
+  const iHealth = pillarHealth.find(p => p.pillarKey === "i");
+  if (!iHealth || iHealth.completeness < 50) {
+    steps.push(step("rtis-i", "PROTOCOLE_I", "i",
+      "Protocole Innovation — potentiel total",
+      ["wait-recos"], 2));
+    aiCalls++;
+  }
+
+  const sHealth = pillarHealth.find(p => p.pillarKey === "s");
+  if (!sHealth || sHealth.completeness < 50) {
+    steps.push(step("rtis-s", "PROTOCOLE_S", "s",
+      "Protocole Strategy — roadmap",
+      steps.some(s => s.id === "rtis-i") ? ["rtis-i"] : ["wait-recos"], 1));
+    aiCalls++;
+  }
+
+  // ── Phase C: Finalization ─────────────────────────────────────────
+
+  // Suggest Artemis sequences based on deliverables
+  steps.push(step("artemis-suggest", "ARTEMIS_SUGGEST", briefPayload,
+    "Suggestion séquences Artemis depuis livrables",
+    steps.filter(s => s.id.startsWith("rtis-")).map(s => s.id), 1));
+
+  // Final score
+  steps.push(step("score-final", "SCORE", "recalculate",
+    "Recalcul score ADVERTIS",
+    steps.map(s => s.id), 0));
+
+  return {
+    strategyId,
+    phase: "BOOT" as StrategyPhase,
+    steps,
+    pillarHealth,
+    estimatedAiCalls: aiCalls,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 // ── Plan execution ────────────────────────────────────────────────────
 
 /**
@@ -348,6 +479,114 @@ export async function executeNextStep(
         const { scoreObject } = await import("@/server/services/advertis-scorer");
         const vector = await scoreObject("strategy", plan.strategyId);
         nextStep.result = { composite: vector.composite, confidence: vector.confidence };
+        nextStep.status = "COMPLETED";
+        break;
+      }
+
+      // ── Brief Ingest Agents ──────────────────────────────────────
+
+      case "SEED_ADVE": {
+        const briefData = JSON.parse(nextStep.target) as import("@/server/services/brief-ingest/types").ParsedBrief;
+        const { writePillar } = await import("@/server/services/pillar-gateway");
+        const seeds: Array<{ key: string; content: Record<string, unknown> }> = [
+          { key: "a", content: { briefSeed: true, marketContext: briefData.context.marketContext, ambition: briefData.context.ambition, brandPersonality: briefData.creative.brandPersonality, toneAndStyle: briefData.creative.toneAndStyle } },
+          { key: "d", content: { briefSeed: true, competitors: briefData.context.competitors, targeting: briefData.targeting.corePrimary, toneAndStyle: briefData.creative.toneAndStyle } },
+          { key: "v", content: { briefSeed: true, primaryObjective: briefData.objectives.primary, keyMessage: briefData.context.keyMessage, consumerInsight: briefData.targeting.consumerInsight, kpis: briefData.objectives.kpis } },
+          { key: "e", content: { briefSeed: true, corePrimary: briefData.targeting.corePrimary, secondaryTargets: briefData.targeting.secondary, deliverables: briefData.deliverables.map(d => d.type), campaignType: briefData.campaignType } },
+        ];
+        for (const seed of seeds) {
+          await writePillar({
+            strategyId: plan.strategyId,
+            pillarKey: seed.key as import("@/lib/types/advertis-vector").PillarKey,
+            operation: { type: "MERGE_DEEP", patch: seed.content },
+            author: { system: "BRIEF_INGEST", reason: `Seed from brief — ${briefData.campaignName}` },
+            options: { targetStatus: "AI_PROPOSED", confidenceDelta: 0.03 },
+          });
+        }
+        nextStep.result = { seeded: ["a", "d", "v", "e"] };
+        nextStep.status = "COMPLETED";
+        break;
+      }
+
+      case "SESHAT_ENRICH": {
+        try {
+          const briefData = JSON.parse(nextStep.target) as import("@/server/services/brief-ingest/types").ParsedBrief;
+          const { enrichBrief } = await import("@/server/services/seshat/references");
+          const refs = await enrichBrief({
+            channel: briefData.campaignType ?? "ATL",
+            sector: briefData.client.sector ?? undefined,
+            market: briefData.client.country ?? undefined,
+          });
+          nextStep.result = { referencesFound: Array.isArray(refs) ? refs.length : 0 };
+          nextStep.status = "COMPLETED";
+        } catch {
+          // Seshat enrichment is non-critical — don't block pipeline
+          nextStep.result = { referencesFound: 0, warning: "Seshat unavailable" };
+          nextStep.status = "COMPLETED";
+        }
+        break;
+      }
+
+      case "CREATE_CAMPAIGN": {
+        const briefData = JSON.parse(nextStep.target) as import("@/server/services/brief-ingest/types").ParsedBrief;
+        const { generateCampaignCode } = await import("@/server/services/campaign-manager");
+        const campaign = await db.campaign.create({
+          data: {
+            strategyId: plan.strategyId,
+            name: briefData.campaignName,
+            code: generateCampaignCode(),
+            state: "BRIEF_DRAFT",
+            objectives: [briefData.objectives.primary, ...briefData.objectives.secondary],
+            budget: briefData.budget?.total ?? 0,
+            budgetCurrency: briefData.budget?.currency ?? "XAF",
+            startDate: briefData.timeline?.startDate ? new Date(briefData.timeline.startDate) : null,
+            endDate: briefData.timeline?.endDate ? new Date(briefData.timeline.endDate) : null,
+          },
+        });
+        // Store CampaignBrief
+        await db.campaignBrief.create({
+          data: {
+            campaignId: campaign.id,
+            title: `Brief — ${briefData.campaignName}`,
+            content: briefData as unknown as import("@prisma/client").Prisma.InputJsonValue,
+            briefType: briefData.campaignType,
+            generatedBy: "brief-ingest-v1",
+            status: "DRAFT",
+          },
+        });
+        nextStep.result = { campaignId: campaign.id };
+        nextStep.status = "COMPLETED";
+        break;
+      }
+
+      case "SPAWN_MISSIONS": {
+        const briefData = JSON.parse(nextStep.target) as import("@/server/services/brief-ingest/types").ParsedBrief;
+        // Find campaign created in previous step
+        const campaignStep = plan.steps.find(s => s.id === "create-campaign");
+        const campaignId = (campaignStep?.result as { campaignId?: string })?.campaignId;
+        if (!campaignId) {
+          nextStep.status = "FAILED";
+          nextStep.error = "No campaignId from CREATE_CAMPAIGN step";
+          break;
+        }
+        const { spawnMissions } = await import("@/server/services/brief-ingest/mission-spawner");
+        const { missionIds, suggestedSequences } = await spawnMissions(briefData, plan.strategyId, campaignId);
+        nextStep.result = { missionIds, suggestedSequences, count: missionIds.length };
+        nextStep.status = "COMPLETED";
+        break;
+      }
+
+      case "ARTEMIS_SUGGEST": {
+        // Suggest sequences based on deliverable types
+        const briefData = JSON.parse(nextStep.target) as import("@/server/services/brief-ingest/types").ParsedBrief;
+        const { DELIVERABLE_SEQUENCE_MAP } = await import("@/server/services/brief-ingest/types");
+        const suggestions = new Set<string>();
+        if (briefData.deliverables.length > 1) suggestions.add("CAMPAIGN-360");
+        for (const d of briefData.deliverables) {
+          const seq = DELIVERABLE_SEQUENCE_MAP[d.type.toUpperCase()];
+          if (seq) suggestions.add(seq);
+        }
+        nextStep.result = { suggestedSequences: Array.from(suggestions) };
         nextStep.status = "COMPLETED";
         break;
       }

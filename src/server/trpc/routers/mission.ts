@@ -190,6 +190,44 @@ export const missionRouter = createTRPCRouter({
       return matchingEngine.suggest(input.missionId);
     }),
 
+  /** Self-assign: creator/agency claims a mission from the wall */
+  claim: protectedProcedure
+    .input(z.object({ missionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const mission = await ctx.db.mission.findUniqueOrThrow({
+        where: { id: input.missionId },
+      });
+
+      if (mission.status !== "DRAFT") {
+        throw new Error("Mission déjà prise ou non disponible");
+      }
+      if (mission.assigneeId) {
+        throw new Error("Mission déjà assignée");
+      }
+
+      const talent = await ctx.db.talentProfile.findUnique({ where: { userId } });
+      if (!talent) {
+        throw new Error("Profil talent requis pour prendre une mission");
+      }
+
+      const updated = await ctx.db.mission.update({
+        where: { id: input.missionId },
+        data: { assigneeId: userId, status: "IN_PROGRESS" },
+      });
+
+      auditTrail.log({
+        userId,
+        action: "UPDATE",
+        entityType: "Mission",
+        entityId: input.missionId,
+        newValue: { assigneeId: userId, status: "IN_PROGRESS", action: "CLAIM" },
+      }).catch((err) => { console.warn("[audit-trail] mission claim log failed:", err instanceof Error ? err.message : err); });
+
+      return updated;
+    }),
+
   /** Assign a talent to a mission (dispatch) */
   assign: protectedProcedure
     .input(z.object({ missionId: z.string(), assigneeId: z.string() }))

@@ -29,7 +29,7 @@ import * as auditTrail from "@/server/services/audit-trail";
 
 type ValidationStatus = "DRAFT" | "AI_PROPOSED" | "VALIDATED" | "LOCKED";
 
-type AuthorSystem = "OPERATOR" | "MESTOR" | "ARTEMIS" | "GLORY" | "AUTO_FILLER" | "INGESTION" | "PROTOCOLE_R" | "PROTOCOLE_T" | "PROTOCOLE_I" | "PROTOCOLE_S";
+type AuthorSystem = "OPERATOR" | "MESTOR" | "ARTEMIS" | "GLORY" | "AUTO_FILLER" | "INGESTION" | "BRIEF_INGEST" | "PROTOCOLE_R" | "PROTOCOLE_T" | "PROTOCOLE_I" | "PROTOCOLE_S";
 
 interface PillarWriteAuthor {
   system: AuthorSystem;
