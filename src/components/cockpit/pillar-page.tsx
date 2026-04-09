@@ -41,6 +41,52 @@ const PILLAR_CONFIG: Record<string, {
   roadmap:      { title: "Strategie",                subtitle: "Votre plan d'action vers le superfan.",                  pillarKey: "s", type: "rtis", accent: "text-pink-400" },
 };
 
+// ── RecoValuePreview — compact preview of proposed/current value ──────
+
+function RecoValuePreview({ value }: { value: unknown }) {
+  if (value == null || value === "") return <span className="text-[10px] text-foreground-muted/50 italic">vide</span>;
+  if (typeof value === "string") return <p className="text-[11px] text-white/80 line-clamp-3">{value}</p>;
+  if (typeof value === "number") return <span className="text-[11px] text-white font-medium">{value.toLocaleString()}</span>;
+  if (typeof value === "boolean") return <span className={`text-[11px] ${value ? "text-emerald-300" : "text-red-300"}`}>{value ? "Oui" : "Non"}</span>;
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-[10px] text-foreground-muted/50 italic">vide</span>;
+    if (typeof value[0] === "string") {
+      return (
+        <div className="flex flex-wrap gap-1">
+          {(value as string[]).slice(0, 5).map((v, i) => (
+            <span key={i} className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-white/70">{v}</span>
+          ))}
+          {value.length > 5 ? <span className="text-[10px] text-foreground-muted">+{value.length - 5}</span> : null}
+        </div>
+      );
+    }
+    // Array of objects — show count + first item preview
+    const first = value[0] as Record<string, unknown>;
+    const nameKey = ["name", "nom", "action", "title", "axe", "phase", "risk", "activation"].find(k => typeof first[k] === "string");
+    return (
+      <div className="text-[11px] text-white/70">
+        <span className="text-foreground-muted">{value.length} elements</span>
+        {nameKey ? <span className="ml-1 text-white/50">({(value as Array<Record<string, unknown>>).slice(0, 3).map(v => String(v[nameKey])).join(", ")}{value.length > 3 ? "..." : ""})</span> : null}
+      </div>
+    );
+  }
+  if (typeof value === "object" && value !== null) {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v != null && v !== "");
+    return (
+      <div className="space-y-0.5">
+        {entries.slice(0, 4).map(([k, v]) => (
+          <div key={k} className="flex gap-1.5 text-[10px]">
+            <span className="text-foreground-muted shrink-0">{getFieldLabel(k)}:</span>
+            <span className="text-white/70 truncate">{typeof v === "string" ? v.slice(0, 80) : typeof v === "number" ? v.toLocaleString() : Array.isArray(v) ? `${v.length} elements` : "..."}</span>
+          </div>
+        ))}
+        {entries.length > 4 ? <p className="text-[9px] text-foreground-muted/50">+{entries.length - 4} champs</p> : null}
+      </div>
+    );
+  }
+  return <span className="text-[11px] text-white/70">{String(value)}</span>;
+}
+
 // ── Component ─────────────────────────────────────────────────────────
 
 interface PillarPageProps { pageKey: keyof typeof PILLAR_CONFIG }
@@ -221,26 +267,62 @@ export function PillarPage({ pageKey }: PillarPageProps) {
               </button>
             </div>
           </div>
-          <div className="space-y-1.5 max-h-72 overflow-y-auto">
+          <div className="space-y-2 max-h-[32rem] overflow-y-auto">
             {pendingRecos.map((reco, i) => {
               const realIdx = recos.indexOf(reco);
               const isSelected = selectedRecos.has(realIdx);
+              const op = String(reco.operation ?? "SET");
+              const opLabel = op === "SET" ? "Remplacer" : op === "ADD" ? "Ajouter" : op === "MODIFY" ? "Modifier" : op === "REMOVE" ? "Supprimer" : op === "EXTEND" ? "Enrichir" : op;
+              const opColor = op === "SET" ? "bg-orange-500/15 text-orange-300" :
+                              op === "ADD" ? "bg-emerald-500/15 text-emerald-300" :
+                              op === "MODIFY" ? "bg-blue-500/15 text-blue-300" :
+                              op === "REMOVE" ? "bg-red-500/15 text-red-300" :
+                              op === "EXTEND" ? "bg-violet-500/15 text-violet-300" :
+                              "bg-white/10 text-foreground-muted";
+              const fieldName = String(reco.field ?? "");
+              const currentValue = content[fieldName];
+              const hasProposed = reco.proposedValue != null && reco.proposedValue !== "";
+
               return (
                 <div key={i} onClick={() => { const s = new Set(selectedRecos); if (isSelected) s.delete(realIdx); else s.add(realIdx); setSelectedRecos(s); }}
                   className={`cursor-pointer rounded-lg border p-3 transition-colors ${isSelected ? "border-emerald-500/30 bg-emerald-500/10" : "border-white/5 bg-white/[0.02] hover:bg-white/5"}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                          reco.operation === "ADD" ? "bg-emerald-500/15 text-emerald-300" :
-                          reco.operation === "MODIFY" ? "bg-blue-500/15 text-blue-300" :
-                          reco.operation === "REMOVE" ? "bg-red-500/15 text-red-300" :
-                          "bg-white/10 text-foreground-muted"
-                        }`}>{String(reco.operation ?? "SET")}</span>
-                        <span className="text-xs font-medium text-white">{getFieldLabel(String(reco.field))}</span>
+                      {/* Operation badge + field name + impact */}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${opColor}`}>{opLabel}</span>
+                        <span className="text-xs font-medium text-white">{getFieldLabel(fieldName)}</span>
                         {reco.impact ? <span className={`rounded-full px-1.5 py-0.5 text-[9px] ${reco.impact === "HIGH" ? "bg-red-500/15 text-red-300" : reco.impact === "MEDIUM" ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-foreground-muted"}`}>{String(reco.impact)}</span> : null}
                       </div>
-                      <p className="text-[11px] text-foreground-muted line-clamp-2">{String(reco.justification ?? "")}</p>
+                      {/* Justification */}
+                      <p className="text-[11px] text-foreground-muted mb-2">{String(reco.justification ?? "")}</p>
+                      {/* Diff: current → proposed */}
+                      {hasProposed ? (
+                        <div className="rounded border border-white/5 bg-black/20 p-2 space-y-1.5">
+                          {/* Current value (compact) */}
+                          {currentValue != null && currentValue !== "" && op !== "ADD" ? (
+                            <div>
+                              <p className="text-[9px] text-red-400/70 uppercase tracking-wide mb-0.5">Actuel</p>
+                              <RecoValuePreview value={currentValue} />
+                            </div>
+                          ) : null}
+                          {/* Arrow separator for replacements */}
+                          {currentValue != null && currentValue !== "" && op !== "ADD" ? (
+                            <div className="flex items-center gap-1 text-foreground-muted/40">
+                              <div className="flex-1 border-t border-dashed border-foreground-muted/20" />
+                              <ChevronRight className="h-3 w-3" />
+                              <div className="flex-1 border-t border-dashed border-foreground-muted/20" />
+                            </div>
+                          ) : null}
+                          {/* Proposed value */}
+                          <div>
+                            <p className="text-[9px] text-emerald-400/70 uppercase tracking-wide mb-0.5">
+                              {op === "ADD" ? "A ajouter" : "Propose"}
+                            </p>
+                            <RecoValuePreview value={reco.proposedValue} />
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                     <div className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border ${isSelected ? "border-emerald-400 bg-emerald-400 text-black" : "border-white/20"}`}>
                       {isSelected ? <CheckCircle className="h-3 w-3" /> : null}

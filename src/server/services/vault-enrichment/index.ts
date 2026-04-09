@@ -159,93 +159,194 @@ export async function enrichFromVault(
   pillarKey: PillarKey,
 ): Promise<VaultEnrichmentResult> {
   try {
-    // 1. Load full vault
-    const { text: vaultText, sourceCount } = await loadVault(strategyId);
-
-    if (sourceCount === 0) {
-      return {
-        pillarKey,
-        recommendations: [],
-        vaultSize: 0,
-        error: "Aucune source dans le vault. Ajoutez des notes ou documents dans l'onglet Sources.",
-      };
-    }
-
-    // 2. Load current pillar content
+    // ── Load data ──────────────────────────────────────────────────
     const pillar = await db.pillar.findUnique({
       where: { strategyId_key: { strategyId, key: pillarKey } },
     });
     const currentContent = (pillar?.content ?? {}) as Record<string, unknown>;
 
-    // 3. Load all other pillars for cross-context
     const allPillars = await db.pillar.findMany({ where: { strategyId } });
-    const otherPillarsContext = allPillars
-      .filter(p => p.key !== pillarKey)
-      .map(p => `[${p.key.toUpperCase()}] ${JSON.stringify(p.content, null, 2).slice(0, 1000)}`)
-      .join("\n\n");
+    const otherPillars: Record<string, Record<string, unknown>> = {};
+    for (const p of allPillars) {
+      if (p.key !== pillarKey) {
+        otherPillars[p.key] = (p.content ?? {}) as Record<string, unknown>;
+      }
+    }
 
-    // 4. Get schema fields for this pillar (with types + fill status)
+    const { text: vaultText, sourceCount } = await loadVault(strategyId);
+
+    // ── Schema analysis ────────────────────────────────────────────
+    const schemaKey = pillarKey.toUpperCase() as keyof typeof PILLAR_SCHEMAS;
+    const schema = PILLAR_SCHEMAS[schemaKey];
+    const shape = schema ? (schema as { shape?: Record<string, unknown> }).shape ?? {} : {};
+    const allFieldKeys = Object.keys(shape);
+
+    const isFld = (v: unknown) => v != null && v !== "" && !(Array.isArray(v) && v.length === 0);
+    const emptyFields = allFieldKeys.filter(k => !isFld(currentContent[k]));
+    const filledFields = allFieldKeys.filter(k => isFld(currentContent[k]));
+
+    if (emptyFields.length === 0 && sourceCount === 0) {
+      return { pillarKey, recommendations: [], vaultSize: 0, error: "Pilier complet et vault vide." };
+    }
+
+    // ── ÉTAPE 1 : Dérivation cross-pilier DÉTERMINISTE (zéro LLM) ──
+    const crossDerived: Record<string, { value: unknown; source: string }> = {};
+
+    // Table de correspondance : champ du pilier cible ← champ d'un autre pilier
+    const CROSS_MAP: Record<string, Record<string, string>> = {
+      a: { publicCible: "d.personas", promesseFondamentale: "d.positionnement", description: "a.noyauIdentitaire" },
+      d: { archetypalExpression: "a.archetype", "assetsLinguistiques.languePrincipale": "a.langue" },
+      v: { pricingJustification: "d.positionnement", personaSegmentMap: "d.personas" },
+      e: { promesseExperience: "d.promesseMaitre", primaryChannel: "v.salesChannel" },
+      r: { pillarGaps: "_calc" },
+      t: { perceptionGap: "_calc" },
+      i: { brandPlatform: "a.noyauIdentitaire+d.positionnement+d.promesseMaitre" },
+      s: { visionStrategique: "a.prophecy" },
+    };
+
+    const crossMapForPillar = CROSS_MAP[pillarKey] ?? {};
+    for (const emptyField of emptyFields) {
+      const sourceRef = crossMapForPillar[emptyField];
+      if (!sourceRef || sourceRef === "_calc") continue;
+
+      // Parse "d.personas" → pillar d, field personas
+      const parts = sourceRef.split("+")[0]!.split(".");
+      const srcPillar = parts[0]!;
+      const srcField = parts.slice(1).join(".");
+
+      const srcContent = otherPillars[srcPillar];
+      if (!srcContent) continue;
+
+      const srcValue = srcField.includes(".") ? undefined : srcContent[srcField]; // Simple lookup
+      if (!isFld(srcValue)) continue;
+
+      // Derive a value based on the source
+      let derivedValue: unknown;
+      if (typeof srcValue === "string") {
+        derivedValue = srcValue; // Direct copy for strings
+      } else if (Array.isArray(srcValue) && srcValue.length > 0) {
+        // For arrays, extract a summary
+        const first = srcValue[0] as Record<string, unknown>;
+        if (typeof first === "object" && first.name) {
+          derivedValue = srcValue.map((item: Record<string, unknown>) => String(item.name ?? item.nom ?? "")).join(", ");
+        } else {
+          derivedValue = srcValue;
+        }
+      } else {
+        derivedValue = srcValue;
+      }
+
+      if (derivedValue != null) {
+        crossDerived[emptyField] = { value: derivedValue, source: `Derive de ${srcPillar.toUpperCase()}.${srcField}` };
+      }
+    }
+
+    // ── ÉTAPE 2 : LLM CIBLÉ — scan intégral et méthodique ──────────
+    //    Input ciblé : uniquement les champs non-résolus + contexte pertinent
+    //    Pas de dump intégral — contexte structuré par pertinence
+    const unresolvedEmpty = emptyFields.filter(k => !crossDerived[k]);
     const schemaFields = describeSchemaFields(pillarKey, currentContent);
 
-    // 5. Mestor scans vault vs current content → produces recos
+    // Build a structured brief of ALL available data (other pillars + vault)
+    const dataBrief: string[] = [];
+
+    // Other pillars: list each field with value summary
+    for (const [key, pContent] of Object.entries(otherPillars)) {
+      const entries = Object.entries(pContent)
+        .filter(([, v]) => isFld(v))
+        .map(([k, v]) => {
+          if (typeof v === "string") return `${k} = "${v.slice(0, 120)}"`;
+          if (typeof v === "number") return `${k} = ${v}`;
+          if (Array.isArray(v)) {
+            const preview = v.slice(0, 2).map((item: unknown) => {
+              if (typeof item === "string") return item.slice(0, 50);
+              if (typeof item === "object" && item) {
+                const o = item as Record<string, unknown>;
+                return o.name ?? o.nom ?? o.action ?? o.title ?? Object.values(o)[0];
+              }
+              return String(item);
+            }).join(", ");
+            return `${k} = [${v.length} items: ${preview}${v.length > 2 ? "..." : ""}]`;
+          }
+          if (typeof v === "object" && v) return `${k} = {${Object.keys(v as Record<string, unknown>).join(", ")}}`;
+          return `${k} = ${String(v).slice(0, 60)}`;
+        });
+      if (entries.length > 0) {
+        dataBrief.push(`[${key.toUpperCase()}]\n${entries.join("\n")}`);
+      }
+    }
+
+    // Vault text (full, not keyword-extracted)
+    if (vaultText.length > 0) {
+      dataBrief.push(`[VAULT — ${sourceCount} source(s)]\n${vaultText.slice(0, 6000)}`);
+    }
+
+    // Mestor scan — intégral et méthodique
     const result = await callLLMAndParse({
-      system: `Tu es le Commandant MESTOR. On te donne :
-1. Le VAULT complet de la marque (toutes les sources brutes : notes, intake, documents)
-2. Le contenu ACTUEL du pilier ${pillarKey.toUpperCase()}
-3. Les VARIABLES ATTENDUES du pilier avec leur TYPE et leur STATUT (REMPLI ou VIDE)
-4. Le contexte des autres piliers
+      system: `Tu es le Commandant MESTOR. Tu fais un AUDIT INTEGRAL du pilier ${pillarKey.toUpperCase()}.
 
-Tu dois traiter TOUS les champs — vides ET remplis :
+METHODE : Pour CHAQUE variable du pilier (listees ci-dessous avec type et statut), tu fais :
+1. Si VIDE : cherche dans les AUTRES PILIERS et le VAULT une information pour la remplir
+2. Si REMPLI : verifie que la valeur est coherente avec les autres piliers et le vault
+3. Si ameliorable : propose une modification
+4. Si correcte : ne la mentionne PAS
 
-CHAMPS VIDES (marques "← A REMPLIR") :
-  Cherche dans le vault et les autres piliers une information pour les remplir.
-  verdict = "ADD", operation = "SET" (pour string/number/object) ou "ADD" (pour array item)
+SOURCES (par ordre de fiabilite) :
+- Les 7 AUTRES PILIERS sont ta source principale (donnees deja validees)
+- Le VAULT (sources brutes) est ta source secondaire
+- Cite TOUJOURS ta source : "Derive de D.positionnement" ou "Source vault: interview client"
 
-CHAMPS REMPLIS (marques "[REMPLI]") :
-  Verifie si le vault contient une info MEILLEURE, plus precise, ou contradictoire.
-  Si oui : verdict = "CHALLENGE" ou "INFIRM", operation = "SET" ou "MODIFY"
-  Si le champ est incomplet (ex: un array avec 2 items qui pourrait en avoir 5) : verdict = "CHALLENGE", operation = "ADD"
-  Si le champ est bon : ne le mentionne PAS (pas de reco CONFIRM inutile)
+REGLES DE FORMAT :
+- (string) → proposedValue = une string
+- (array) → proposedValue = UN SEUL item a ajouter (pas le tableau)
+- (object) → proposedValue = un objet avec les sous-champs attendus
+- (number) → proposedValue = un nombre
 
-REGLES DE FORMAT CRITIQUES :
-- Si le schema dit "(string)" → proposedValue DOIT etre une string, pas un array ni un objet
-- Si le schema dit "(array)" → proposedValue DOIT etre un SEUL item a ajouter (pas le tableau complet)
-- Si le schema dit "(object)" → proposedValue DOIT etre un objet avec les sous-champs requis
-- Si le schema dit "(number)" → proposedValue DOIT etre un nombre
-- Pour les operations ADD sur un array → proposedValue = UN SEUL nouvel item
-- Pour les operations SET sur un string → proposedValue = la string complete
-
-Retourne un JSON array. Chaque item :
+Retourne un JSON array :
 {
   "field": "nom_du_champ",
-  "operation": "SET" (pour string/number/object vide) | "ADD" (pour ajouter a un array) | "MODIFY" | "EXTEND",
-  "currentSummary": "resume actuel (20 mots max) ou 'Vide'",
+  "operation": "SET" | "ADD" | "MODIFY" | "EXTEND",
+  "currentSummary": "valeur actuelle resumee ou 'Vide'",
   "proposedValue": <RESPECTE LE TYPE DU SCHEMA>,
   "justification": "Source du vault qui justifie + raisonnement",
   "impact": "HIGH" (champ vide) | "MEDIUM" (challenge) | "LOW" (confirm),
   "verdict": "ADD" (champ vide) | "CHALLENGE" | "INFIRM" | "CONFIRM"
 }
 
-Produis au moins 1 reco par champ VIDE si le vault ou les autres piliers contiennent l'info.`,
-      prompt: `=== VAULT DE LA MARQUE (${sourceCount} sources) ===
-${vaultText.slice(0, 12000)}
-
-=== PILIER ${pillarKey.toUpperCase()} — CONTENU ACTUEL ===
-${JSON.stringify(currentContent, null, 2).slice(0, 4000)}
-
-=== VARIABLES ATTENDUES DU PILIER ${pillarKey.toUpperCase()} ===
+Produis au moins 1 reco par champ VIDE. Cite toujours la source.`,
+      prompt: `=== VARIABLES DU PILIER ${pillarKey.toUpperCase()} (type + statut) ===
 ${schemaFields}
 
-=== CONTEXTE AUTRES PILIERS ===
-${otherPillarsContext.slice(0, 3000)}
+=== CONTENU ACTUEL DU PILIER ${pillarKey.toUpperCase()} ===
+${JSON.stringify(currentContent, null, 2).slice(0, 3000)}
 
-Produis les recommandations d'enrichissement basees sur le vault.
-Ne propose RIEN qui ne soit pas justifie par une source du vault.`,
+=== DONNÉES DISPONIBLES (autres piliers + vault) ===
+${dataBrief.join("\n\n").slice(0, 10000)}
+
+${unresolvedEmpty.length > 0 ? `\nCHAMPS PRIORITAIRES A REMPLIR : ${unresolvedEmpty.join(", ")}` : ""}
+${filledFields.length > 0 ? `\nCHAMPS A VERIFIER (ameliorables ?) : ${filledFields.slice(0, 15).join(", ")}` : ""}
+
+Scan integral — pour chaque champ vide, propose une valeur derivee des donnees disponibles.
+Pour chaque champ rempli, verifie la coherence et propose une amelioration si justifie.`,
       maxTokens: 6000,
       strategyId,
     }, `vault-enrichment:${pillarKey}`);
 
-    const recos = (Array.isArray(result) ? result : (result as Record<string, unknown>).recommendations ?? []) as VaultRecommendation[];
+    const llmRecos = (Array.isArray(result) ? result : (result as Record<string, unknown>).recommendations ?? []) as VaultRecommendation[];
+
+    // Prepend cross-derived recos (étape 1, deterministic, highest confidence)
+    const crossRecos: VaultRecommendation[] = Object.entries(crossDerived).map(([field, { value, source }]) => ({
+      field,
+      operation: "SET" as const,
+      currentSummary: "Vide",
+      proposedValue: value,
+      justification: source,
+      source: "VAULT" as const,
+      impact: "HIGH" as const,
+      verdict: "ADD" as const,
+    }));
+
+    const recos = [...crossRecos, ...llmRecos];
 
     // Sanitize: ensure operation is always set + tag source
     for (const r of recos) {
@@ -263,8 +364,6 @@ Ne propose RIEN qui ne soit pas justifie par une source du vault.`,
     }
 
     // Validate each reco's proposedValue against the Zod schema field type
-    const schemaKey = pillarKey.toUpperCase() as keyof typeof PILLAR_SCHEMAS;
-    const schema = PILLAR_SCHEMAS[schemaKey];
     if (schema) {
       const shape = (schema as { shape?: Record<string, { safeParse?: (v: unknown) => { success: boolean } }> }).shape ?? {};
       for (const reco of recos) {
