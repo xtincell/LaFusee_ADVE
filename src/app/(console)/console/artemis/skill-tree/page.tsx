@@ -379,9 +379,12 @@ export default function SkillTreePage() {
                   return (
                     <div key={seq.key} className="rounded-xl border border-border-subtle bg-card overflow-hidden">
                       {/* Header — click to expand */}
-                      <button
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => toggleExpand(seq.key)}
-                        className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-card-hover"
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(seq.key); } }}
+                        className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-card-hover cursor-pointer"
                       >
                         {isExpanded
                           ? <ChevronDown className="h-4 w-4 shrink-0 text-foreground-muted" />
@@ -426,7 +429,7 @@ export default function SkillTreePage() {
                             </button>
                           )}
                         </div>
-                      </button>
+                      </div>
 
                       {/* Expanded: steps + prerequisites */}
                       {isExpanded && (
