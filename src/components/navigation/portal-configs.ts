@@ -253,6 +253,7 @@ export const consoleNavGroups: NavGroup[] = [
     items: [
       { href: "/console/oracle/clients", label: "Clients", icon: Building },
       { href: "/console/oracle/ingestion", label: "Ingestion IA", icon: Brain },
+      { href: "/console/oracle/brief-ingest", label: "Brief Ingest", icon: Inbox },
       { href: "/console/oracle/intake", label: "Pipeline Intake", icon: Filter },
       { href: "/console/oracle/boot", label: "Boot Sequence", icon: Rocket },
       { href: "/console/oracle/diagnostics", label: "Diagnostics", icon: Stethoscope },
