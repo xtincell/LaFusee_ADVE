@@ -1,4 +1,4 @@
-# CAHIER DE CHARGES — LaFusée Industry OS
+# CAHIER DE CHARGES — La Fusée (Industry OS)
 # PARTIE 1/3 — VISION & DATA MODEL (Sections 1-2)
 
 **Version** : 2.1 (standalone)
@@ -33,15 +33,17 @@ Les groupes internationaux (Havas, Publicis, WPP) maintiennent des bureaux à Ab
 
 Les agences locales n'ont pas de méthode propriétaire. Elles ont du talent, de l'intuition, de la débrouillardise. Mais rien de codifié, rien de reproductible, rien de mesurable. Chaque projet est un artisanat. C'est ce qui empêche le marché de scaler, de professionnaliser, de facturer à sa vraie valeur.
 
-Le freelance créatif reçoit des briefs vagues, est payé au lance-pierres, n'a aucune visibilité sur sa prochaine mission, et n'a aucun pouvoir de négociation.
+Le freelance créatif reçoit des briefs vagues, est payé au lance-pierres, n'a aucune visibilité sur sa prochaine mission, et n'a aucun pouvoir de négociation. Le DA dans une agence sous-dimensionnée porte la vision créative de 8 clients en même temps sans méthode formalisée, sans outil pour mesurer si un livrable est "on-brand", sans moyen de transférer son savoir à un junior. Le chef de marque jongle entre prestataires qui ne se parlent pas, reçoit des livrables incohérents, et ne peut pas prouver la valeur de son budget com auprès de sa direction.
 
-Le DA dans une agence sous-dimensionnée porte la vision créative de 8 clients en même temps sans méthode formalisée, sans outil pour mesurer si un livrable est "on-brand", sans moyen de transférer son savoir à un junior.
+La Fusée est la réponse : un **Industry OS pour le marché créatif africain**, propulsé par l'agence **UPgraders** — la colonne vertébrale technologique qui structure, mesure et accélère toute la chaîne de valeur.
 
-Le chef de marque jongle entre prestataires qui ne se parlent pas, reçoit des livrables incohérents, et ne peut pas prouver la valeur de son budget com auprès de sa direction.
+### 1.2 UPgraders — l'agence
 
-### 1.2 UPgraders — l'écosystème
+**UPgraders** est l'agence qui a construit et propulse La Fusée. Elle apporte la méthodologie ADVE-RTIS, l'expertise terrain, et la vision produit.
 
-UPgraders est un écosystème à 5 divisions qui forme un flywheel :
+### 1.3 Les divisions de l'OS
+
+La Fusée est organisé en divisions qui forment un flywheel :
 
 ```
 L'ORACLE (stratégie) → LE SIGNAL (intelligence) → L'ARÈNE (communauté)

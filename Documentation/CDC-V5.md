@@ -1,4 +1,4 @@
-# CAHIER DE CHARGES — LaFusée Industry OS
+# CAHIER DE CHARGES — La Fusée (Industry OS)
 # Version 5.0 — Architecture NETERU
 
 **Version** : 5.0
@@ -53,29 +53,23 @@
 
 ### 1.1 Le problème
 
-Aucune structure de classe mondiale ne sert correctement le marché créatif en Afrique francophone. Les agences locales n'ont pas de méthode propriétaire. Les freelances sont sous-payés et invisibles. Les marques jonglent entre prestataires incohérents.
+Aucune structure de classe mondiale ne sert correctement le marché créatif en Afrique francophone.
 
-### 1.2 UPgraders — L'écosystème
+Les groupes internationaux (Havas, Publicis, WPP) maintiennent des bureaux à Abidjan, Douala, Dakar — des boîtes aux lettres. Leurs méthodologies (Meaningful Brands, BrandZ) restent à Paris ou Londres. Les équipes locales exécutent sans framework. Le client africain reçoit un service de tier 3 au prix du tier 1.
 
-UPgraders est un écosystème à 5 divisions qui forme un flywheel :
+Les agences locales ont du talent, de l'intuition, de la débrouillardise. Mais rien de codifié, rien de reproductible, rien de mesurable. Chaque projet est un artisanat. C'est ce qui empêche le marché de scaler, de professionnaliser, de facturer à sa vraie valeur.
 
-```
-L'ORACLE (stratégie) → LE SIGNAL (intelligence) → L'ARÈNE (communauté)
-       ↑                                                    ↓
-L'ACADÉMIE (transmission) ←←←← LA FUSÉE (ingénierie) ←←←←←←
-```
+Le freelance créatif reçoit des briefs vagues, est payé au lance-pierres, n'a aucune visibilité sur sa prochaine mission, et n'a aucun pouvoir de négociation. Le DA dans une agence sous-dimensionnée porte la vision créative de 8 clients en même temps sans méthode formalisée. Le chef de marque jongle entre prestataires qui ne se parlent pas, reçoit des livrables incohérents, et ne peut pas prouver la valeur de son budget com auprès de sa direction.
 
-| Division | Métier | Motto |
-|---|---|---|
-| **L'Oracle** | Architecture et stratégie de marque | "Voir ce que les autres ne voient pas" |
-| **Le Signal** | Intelligence marché et production éditoriale | "Rendre visible ce que personne ne mesure" |
-| **L'Arène** | Communauté et événements | "Créer l'appartenance" |
-| **La Fusée** | Technologie, outils, infrastructure | "Construire le moteur" |
-| **L'Académie** | Transmission, formation, certification | "Rendre chaque professionnel capable" |
+La Fusée est la réponse : un Industry OS pour le marché créatif africain, propulsé par l'agence **UPgraders** — la colonne vertébrale technologique qui structure, mesure et accélère toute la chaîne de valeur.
 
-### 1.3 LaFusée — L'Industry OS
+### 1.2 UPgraders — L'agence
 
-LaFusée est l'OS de l'industrie créative. 4 portails, 4 audiences :
+**UPgraders** est l'agence qui a construit et propulse La Fusée. Elle apporte la méthodologie ADVE-RTIS, l'expertise terrain, et la vision produit.
+
+### 1.3 La Fusée — L'Industry OS
+
+La Fusée est l'Industry OS du marché créatif africain. 4 portails, 4 audiences :
 
 ```
                     ┌──────────────────────┐

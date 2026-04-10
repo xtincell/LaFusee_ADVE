@@ -1,179 +1,203 @@
-# LaFusee OS
+# La Fusee `v3.3.0`
 
-**Plateforme SaaS de gestion de marque IA-powered** — Methodologie ADVE-RTIS, 42 modules, 6 serveurs MCP, 3 portails.
+**L'Industry OS du marche creatif africain.** Construit par l'agence **UPgraders**.
 
-> *"Chaque marque a un ADN. On le decode, on le protege, on le fait performer."*
-
----
-
-## Vue d'ensemble
-
-LaFusee OS est le systeme d'exploitation de l'agence LaFusee. Il orchestre la gestion complete du cycle de vie des marques — du diagnostic initial au suivi de performance continu — via la methodologie proprietaire **ADVE-RTIS** (8 piliers, score /200).
-
-### Chiffres cles
-
-| Metrique | Valeur |
-|---|---|
-| Modules | 42 |
-| Pages (routes) | 96 |
-| Fichiers TypeScript | 290 |
-| Lignes de code | ~68 000 |
-| Routers tRPC | 49 |
-| Modeles Prisma | ~80 |
-| Serveurs MCP | 6 |
-| Portails | 3 + 1 widget |
+> Un brief client arrive en PDF. 48h plus tard, la marque est diagnostiquee, la strategie est ecrite, les missions sont en production, et les freelances livrent.
 
 ---
 
-## Architecture
+## Le probleme
+
+Aucune structure de classe mondiale ne sert correctement le marche creatif en Afrique francophone.
+
+Les groupes internationaux (Havas, Publicis, WPP) maintiennent des bureaux a Abidjan, Douala, Dakar — des boites aux lettres. Leurs methodologies restent a Paris ou Londres. Le client africain recoit un service de tier 3 au prix du tier 1.
+
+Les agences locales ont du talent, de l'intuition, de la debrouillardise. Mais rien de codifie, rien de reproductible, rien de mesurable. Chaque projet est un artisanat. C'est ce qui empeche le marche de scaler.
+
+Le freelance creatif recoit des briefs vagues, est paye au lance-pierres, n'a aucune visibilite sur sa prochaine mission. Le DA porte la vision creative de 8 clients sans methode formalisee. Le chef de marque jongle entre prestataires qui ne se parlent pas.
+
+## La solution
+
+La Fusee **industrialise** la chaine de valeur creative — du brief au livrable, du diagnostic au paiement :
+
+**Un brief entre** → le systeme le scanne, identifie la marque, diagnostique ses forces et faiblesses sur 8 piliers, genere la strategie, cree les missions par livrable, et les dispatche aux bons talents.
+
+**Un operateur supervise** → il ne produit plus, il pilote. L'IA propose, l'humain valide. Chaque decision est tracee, chaque livrable est score, chaque franc depense est justifie.
+
+**Les marques montent en puissance** → de CRITICAL a LEGENDARY, chaque marque a un score sur 200 qui evolue en temps reel. Le client voit son dashboard, comprend ou il en est, et sait exactement ce que son budget produit.
+
+**Les creatifs sont structures** → tier system, matching automatique, QC, paiement. Un freelance a Douala peut livrer un KV pour une marque a Abidjan sans qu'un humain ait fait le dispatch.
+
+---
+
+## Comment ca marche
+
+### 1. Le brief arrive
+
+Un client envoie un PDF. Le systeme extrait tout : marque, contexte, objectifs, cibles, livrables, budget. L'operateur review et confirme en un clic.
+
+### 2. La marque est diagnostiquee
+
+Le **NETERU** — trois intelligences artificielles qui travaillent ensemble — prend le relais :
+
+- **Mestor** decide quoi faire et dans quel ordre (le stratege)
+- **Artemis** execute les diagnostics et produit les livrables (le protocole)
+- **Seshat** observe le marche et enrichit la connaissance (la memoire)
+
+En 24 frameworks diagnostiques, la marque est radiographiee sur 8 piliers :
+
+| | Pilier | Ce qu'on mesure |
+|---|---|---|
+| **A** | Authenticite | L'ADN. Qui est cette marque, vraiment ? |
+| **D** | Distinction | Ce qui la rend unique face a la concurrence |
+| **V** | Valeur | Ce qu'elle apporte concretement au client |
+| **E** | Engagement | Sa capacite a creer des fans, pas juste des clients |
+| **R** | Risque | Ses vulnerabilites et comment les couvrir |
+| **T** | Track | La realite du marche — chiffres, pas opinions |
+| **I** | Innovation | Son potentiel inexploite |
+| **S** | Strategie | Le plan pour passer de ou elle est a ou elle veut aller |
+
+Score total sur 200. De CRITICAL (< 50) a LEGENDARY (170+).
+
+### 3. La strategie s'ecrit toute seule
+
+91 outils AI specialises — les **Glory Tools** — produisent les livrables : manifeste de marque, brandbook, offre, plan media, direction artistique, scripts TV/radio, KV affichage, plan annuel...
+
+Organises en 31 sequences avec un **skill tree** : les fondations doivent etre posees avant de lancer la production. Pas de KV sans brandbook. Pas de campagne 360 sans strategie.
+
+### 4. Les missions partent en production
+
+Chaque livrable du brief devient une **mission** sur le wall. Les freelances et agences voient les missions disponibles, triees par match avec leur profil. Ils claim, ils livrent, c'est QC, c'est paye.
+
+### 5. Tout est mesure
+
+Chaque franc, chaque heure, chaque livrable, chaque score — tout est trace. Le client voit son cockpit. L'operateur voit sa console. Le createur voit sa progression.
+
+---
+
+## Qui utilise quoi
+
+| Portail | Pour qui | Ce qu'il fait |
+|---|---|---|
+| **Console** | L'operateur (fixer) | Pilote toute l'industrie — clients, diagnostics, campagnes, missions, talents, revenus |
+| **Cockpit** | Le client (marque) | Voit son score, ses piliers, ses livrables, sa strategie. Pas de jargon, que du concret |
+| **Creator** | Le freelance/talent | Voit les missions dispo, claim, livre, est evalue, monte en tier |
+| **Agency** | L'agence partenaire | Gere ses clients, missions, revenus, contrats via le systeme |
+| **Intake** | Le prospect | Remplit un formulaire. L'IA fait le reste |
+
+---
+
+## Ce qui tourne sous le capot
+
+### Architecture NETERU
 
 ```
-LaFusee OS
-├── Portail Console (Fixer)     — 49 pages, 9 divisions, admin complet
-├── Portail Cockpit (Client)    — dashboard marque, missions, insights
-├── Portail Creator (Talent)    — missions, QC, gains, progression
-├── Widget Intake               — formulaire public d'onboarding
-├── 6 Serveurs MCP              — Intelligence, Operations, Creative, Pulse, Guild, Seshat
-├── 49 Routers tRPC             — API type-safe backend complet
-├── Prisma + PostgreSQL          — ~80 modeles, 2400+ lignes de schema
-└── Anthropic Claude API         — AI pour diagnostic, scoring, generation, Glory tools
+                    ┌─────────────────────────────┐
+                    │      MESTOR (Decision)       │
+                    │  Hyperviseur + Commandant    │
+                    │  Plans, RTIS, Scenarios      │
+                    └──────────────┬──────────────┘
+                                   │
+              ┌────────────────────┼────────────────────┐
+              ▼                    ▼                    ▼
+    ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
+    │    ARTEMIS      │  │    SESHAT       │  │ PILLAR GATEWAY │
+    │  24 Frameworks  │  │  Knowledge     │  │   (LOI 1)      │
+    │  91 Glory Tools │  │  Tarsis        │  │  Seul point    │
+    │  31 Sequences   │  │  References    │  │  d'ecriture    │
+    └────────────────┘  └────────────────┘  └────────────────┘
 ```
+
+- **Mestor** lit l'etat de chaque pilier, construit un plan d'orchestration (deterministe, pas de LLM), et l'execute step-by-step. Le Commandant est le seul a faire des recommandations strategiques via LLM.
+- **Artemis** execute. 24 frameworks diagnostiques avec dependances topologiques. 91 outils creatifs organises en 31 sequences. Skill tree avec prerequis.
+- **Seshat** observe. Knowledge graph, signaux faibles (Tarsis), enrichissement de references par secteur et marche.
+- **Pillar Gateway** — LOI 1 du systeme : toute ecriture sur un pilier passe par ce gateway. Versioning immutable, audit trail, confidence tracking.
+
+### Les 9 divisions de la Console
+
+| Division | Couleur | Ce qu'elle gere |
+|---|---|---|
+| **L'Oracle** | Or | Clients, diagnostics, ingestion de briefs, boot sequence |
+| **Mestor** | Violet profond | Plans d'orchestration, recommandations, insights |
+| **Artemis** | Emeraude | Missions, campagnes, Glory tools, Skill Tree, Vault |
+| **Seshat** | Bleu | Intelligence marche, signaux, knowledge, Tarsis |
+| **L'Arene** | Orange | Guilde de creatifs, matching, organisations |
+| **Le Socle** | Vert | Revenus, commissions, contrats, facturation |
+| **L'Academie** | Jaune | Formations, certifications, boutique |
+| **Config** | Gris | Parametres systeme, bible des variables |
+| **Ecosysteme** | — | Operateurs, metriques globales |
 
 ### Stack technique
 
-- **Framework** : Next.js 15 (App Router, Turbopack)
-- **Language** : TypeScript 5.8 (strict)
-- **API** : tRPC v11 + React Query
-- **Base de donnees** : PostgreSQL via Prisma 6
-- **Auth** : NextAuth v5 (RBAC : FIXER, ASSOCIE, CLIENT, CREATOR)
-- **AI** : Anthropic Claude API (@anthropic-ai/sdk + AI SDK)
-- **MCP** : Model Context Protocol (@modelcontextprotocol/sdk)
-- **UI** : Tailwind CSS 4, Lucide Icons, Recharts
-- **Tests** : Vitest (unit) + Playwright (e2e)
-- **Deploy** : Vercel (crons integres)
-
----
-
-## Methodologie ADVE-RTIS
-
-Le coeur de LaFusee. Chaque marque est evaluee sur 8 piliers, score /25 chacun, total /200 :
-
-| Pilier | Nom | Description |
-|---|---|---|
-| **A** | Authenticite | ADN de marque, valeurs, mission, histoire |
-| **D** | Distinction | Positionnement, differenciation, avantage competitif |
-| **V** | Valeur | Proposition de valeur, pricing, perception marche |
-| **E** | Engagement | Communaute, touchpoints, fidelisation |
-| **R** | Risk | Risques identifies, vulnerabilites, plan de mitigation |
-| **T** | Track | KPIs, metriques de suivi, objectifs chiffres |
-| **I** | Implementation | Plan d'action, phases, ressources, timeline |
-| **S** | Strategie | Vision long terme, roadmap, pivots strategiques |
-
-### Classification AdvertisVector
-
-| Score /200 | Classification |
+| Composant | Technologie |
 |---|---|
-| 170+ | LEGENDARY |
-| 140-169 | ICONIC |
-| 110-139 | ESTABLISHED |
-| 80-109 | EMERGING |
-| 50-79 | FRAGILE |
-| < 50 | CRITICAL |
+| Framework | Next.js 15, App Router, Turbopack |
+| Language | TypeScript 5.8 strict |
+| API | tRPC v11 + React Query v5 |
+| Database | PostgreSQL via Prisma 6 (2600 lignes de schema) |
+| Auth | NextAuth v5 (RBAC : FIXER, ASSOCIE, CLIENT, CREATOR, AGENCY) |
+| AI | Anthropic Claude API — LLM Gateway central |
+| Agents | Model Context Protocol (6 serveurs MCP) |
+| UI | Tailwind CSS 4, Lucide Icons, Recharts |
+| Tests | Vitest (unit) + Playwright (e2e) |
+| Deploy | Vercel (crons integres) |
 
----
+### Services principaux
 
-## Les 7 Divisions
+| Service | Ce qu'il fait |
+|---|---|
+| **Brief Ingest** | PDF → ParsedBrief → pipeline NETERU complet |
+| **Ingestion Pipeline** | Documents marque → remplissage ADVE par IA |
+| **RTIS Protocols** | Cascade Risk → Track → Innovation → Strategy |
+| **Campaign Manager 360** | State machine campagne, gates, budget, AARRR |
+| **Matching Engine** | Score talent ↔ mission, suggestion top 3 |
+| **Sequence Vault** | Staging → review operateur → promotion en asset marque |
+| **AdvertisVector Scorer** | Score /200, snapshots, historique, classification |
+| **LLM Gateway** | Retry, cost tracking, caller tags — chaque appel IA est trace |
+| **Financial Engine** | Unit economics, budget allocator, P&L |
 
-| Division | Couleur | Role |
-|---|---|---|
-| **L'Oracle** | Violet | Diagnostic, ingestion, boot sequence, intake pipeline |
-| **Le Signal** | Bleu | Intelligence marche, signaux, knowledge graph, attribution |
-| **L'Arene** | Orange | Guilde de creatifs, matching, organisations, evenements |
-| **La Fusee** | Rouge | Missions, campagnes, drivers, glory tools, social, PR, media |
-| **Le Socle** | Vert | Revenus, commissions, pipeline, contrats, escrow, factures |
-| **L'Academie** | Jaune | Formations, certifications, boutique, contenu editorial |
-| **L'Ecosysteme** | — | Operateurs, metriques globales, scoring plateforme |
+### Chiffres
 
----
-
-## 6 Serveurs MCP
-
-Chaque serveur expose des **tools** (actions) et des **resources** (donnees) via le protocole MCP :
-
-| Serveur | Tools | Resources | Role |
-|---|---|---|---|
-| **Intelligence** | 6 | 7 | Analyse marche, signaux, drift detection |
-| **Operations** | 8 | 5 | Missions, campagnes, SLA, scheduling |
-| **Creative** | 23 | 7 | Brand guardian, glory tools, generation creative |
-| **Pulse** | 5 | 4 | Social metrics, engagement, tendances |
-| **Guild** | 6 | 5 | Talent matching, QC, promotions |
-| **Seshat** | 4 | 3 | Knowledge persistence, memoire organisationnelle |
-
----
-
-## Glory Tools
-
-39 outils AI specialises repartis en 4 couches :
-
-| Couche | Outils | Role |
-|---|---|---|
-| **CR** (Creative) | 10 | Generation visuelle, copy, scripts |
-| **DC** (Data-Creative) | 8 | Analyse data → creative briefs |
-| **HYBRID** | 11 | Mix strategie + execution |
-| **BRAND** | 10 | ADN de marque, guidelines, voice |
-
-Chaque Glory tool recoit automatiquement le contexte ADVE de la marque (advertis_vector, sector, market, positioning).
+| Metrique | Valeur |
+|---|---|
+| Pages/routes | 160 |
+| Fichiers TypeScript | 490 |
+| Routers tRPC | 66 |
+| Modeles Prisma | ~80 |
+| Serveurs MCP | 6 |
+| Glory Tools | 91 |
+| Sequences | 31 |
+| Frameworks diagnostiques | 24 |
 
 ---
 
 ## Demarrage rapide
 
+```bash
+git clone https://github.com/xtincell/ADVE-project.git
+cd ADVE-project
+npm install
+cp .env.example .env   # Remplir DATABASE_URL, ANTHROPIC_API_KEY, NEXTAUTH_SECRET
+npx prisma migrate dev
+npm run dev             # → http://localhost:3000
+```
+
 ### Prerequisites
 
 - Node.js 20+
 - PostgreSQL 15+
-- Cle API Anthropic (`ANTHROPIC_API_KEY`)
+- Cle API Anthropic
 
-### Installation
-
-```bash
-# Clone
-git clone https://github.com/xtincell/ADVE-project.git
-cd ADVE-project
-
-# Dependances
-npm install
-
-# Variables d'environnement
-cp .env.example .env
-# Remplir : DATABASE_URL, ANTHROPIC_API_KEY, NEXTAUTH_SECRET
-
-# Base de donnees
-npx prisma migrate dev
-npx prisma db seed        # seed de base
-npx prisma db seed:demo   # seed de demo (optionnel)
-
-# Lancer
-npm run dev
-```
-
-L'app tourne sur `http://localhost:3000`.
-
-### Scripts disponibles
+### Scripts
 
 | Script | Description |
 |---|---|
 | `npm run dev` | Dev server (Turbopack) |
 | `npm run build` | Build production |
-| `npm run start` | Start production |
-| `npm run lint` | ESLint |
 | `npm run test` | Tests unitaires (Vitest) |
 | `npm run test:e2e` | Tests E2E (Playwright) |
-| `npm run db:generate` | Regenerer le client Prisma |
-| `npm run db:push` | Push schema sans migration |
+| `npm run db:push` | Push schema Prisma |
 | `npm run db:migrate` | Migration dev |
-| `npm run db:seed` | Seed de base |
-| `npm run db:seed:demo` | Seed de demo |
 
 ---
 
@@ -182,134 +206,48 @@ L'app tourne sur `http://localhost:3000`.
 ```
 src/
 ├── app/
-│   ├── (auth)/              # Pages d'auth (login, register)
-│   ├── (cockpit)/           # Portail Client (Cockpit)
-│   ├── (console)/           # Portail Admin (Console Fixer) — 49 pages
-│   ├── (creator)/           # Portail Creatif (Creator)
-│   ├── (intake)/            # Widget d'intake public
-│   └── api/
-│       ├── auth/            # NextAuth endpoints
-│       ├── chat/            # AI chat endpoints
-│       ├── cron/            # Crons Vercel (scheduler, feedback-loop)
-│       ├── export/          # Export PDF/HTML
-│       ├── mcp/             # MCP server endpoints
-│       ├── trpc/            # tRPC handler
-│       ├── webhooks/        # Webhooks entrants
-│       └── widget/          # Widget API
-├── components/
-│   ├── navigation/          # AppShell, sidebar, portal configs
-│   ├── shared/              # PageHeader, StatCard, StatusBadge, EmptyState, etc.
-│   └── ui/                  # Composants UI de base
-├── lib/
-│   ├── schemas/             # Schemas Zod (pillar-schemas, etc.)
-│   ├── trpc/                # Client tRPC
-│   └── types/               # Types partages (advertis-vector, etc.)
+│   ├── (console)/           # Console operateur — 60+ pages, 9 divisions
+│   ├── (cockpit)/           # Cockpit client — dashboard marque
+│   ├── (creator)/           # Portail createur — missions, QC, gains
+│   ├── (agency)/            # Portail agence — clients, revenus
+│   ├── (intake)/            # Widget intake public (4 methodes)
+│   ├── (auth)/              # Login, register, reset
+│   └── api/                 # tRPC, MCP, crons, export, webhooks
+├── components/              # 35+ composants partages
+├── lib/                     # Types, schemas Zod, client tRPC
 └── server/
-    ├── mcp/                 # 6 serveurs MCP (intelligence, operations, creative, pulse, guild, seshat)
-    ├── services/            # Services metier (advertis-scorer, ingestion-pipeline, etc.)
-    └── trpc/
-        ├── routers/         # 49 routers tRPC
-        └── router.ts        # Router principal
-prisma/
-├── schema.prisma            # ~2400 lignes, ~80 modeles
-├── seed.ts                  # Seed de base
-└── seed-demo.ts             # Seed de demo
-Documentation/               # Cahier de charges, annexes A-H
+    ├── services/            # 40+ services (mestor, artemis, seshat, brief-ingest, ...)
+    ├── mcp/                 # 6 serveurs MCP
+    └── trpc/                # 66 routers
 ```
-
----
-
-## Portails et roles
-
-| Portail | Route | Role RBAC | Acces |
-|---|---|---|---|
-| Console | `/console` | FIXER | Admin complet — toutes les divisions |
-| Console | `/console` | ASSOCIE | Lecture seule (a venir) |
-| Cockpit | `/cockpit` | CLIENT | Dashboard marque, missions, insights |
-| Creator | `/creator` | CREATOR | Missions, QC, gains, progression |
-| Intake | `/intake` | Public | Formulaire d'onboarding |
-
----
-
-## Crons
-
-Configures dans `vercel.json` :
-
-| Cron | Frequence | Role |
-|---|---|---|
-| `/api/cron/scheduler` | Toutes les 5 min | Dispatch de missions, SLA checks |
-| `/api/cron/feedback-loop` | Tous les jours 8h | Boucle de feedback, alertes drift |
-
----
-
-## Modules (42)
-
-Le projet est organise en 42 modules traces dans `.claude/module-registry.json`. Chaque module a :
-- Un **score /100** de fidelite au cahier de charges
-- Un **statut** (NOT_STARTED → COMPLETE)
-- Une **priorite** (P0 bloquant → P5 futur)
-- Des **dependances cross-module** trackees
-
-### Modules principaux
-
-| ID | Module | Score | Statut |
-|---|---|---|---|
-| M01 | ADVE-RTIS Methodology | 85 | FUNCTIONAL |
-| M02 | AdvertisVector & Scorer | 70 | FUNCTIONAL |
-| M03 | Glory Tools | 75 | FUNCTIONAL |
-| M04 | Campaign Manager 360 | 65 | NEEDS_FIX |
-| M16 | Quick Intake Engine | 90 | FUNCTIONAL |
-| M28 | MCP Creative | 95 | FUNCTIONAL |
-| M34 | Console Portal | 90 | FUNCTIONAL |
-| M35 | Quick Intake Portal | 92 | FUNCTIONAL |
-| M40 | CRM Pipeline | 82 | FUNCTIONAL |
-
-> Score global actuel : **74/100** — en progression continue.
 
 ---
 
 ## Documentation
 
-Le dossier `Documentation/` contient le cahier de charges complet :
-
 | Document | Contenu |
 |---|---|
-| `ANNEXE-A-METHODOLOGIE-ADVE.md` | Methodologie ADVE-RTIS complete |
-| `ANNEXE-B-GLORY-TOOLS.md` | 39 Glory tools, specs detaillees |
-| `ANNEXE-C-CAMPAIGN-MANAGER-360.md` | Campaign Manager, missions, SLA |
-| `ANNEXE-D-SYSTEMES-EXISTANTS.md` | Systemes existants a integrer |
-| `ANNEXE-E-AUDIT-COMPLETUDE.md` | Audit de completude des modules |
-| `LAFUSEE-OS-PART-1-VISION-DATA.md` | Vision, data model, architecture |
-| `LAFUSEE-OS-PART-2-API-UI-SYSTEMES.md` | API, UI, systemes |
-| `LAFUSEE-OS-PART-3-BUILD-ACCEPTATION.md` | Build, tests, acceptation |
+| [CHANGELOG.md](./CHANGELOG.md) | Historique des versions (v1.0 → v3.3) |
+| `Documentation/ANNEXE-A-METHODOLOGIE-ADVE.md` | Methodologie ADVE-RTIS |
+| `Documentation/ANNEXE-B-GLORY-TOOLS.md` | 91 Glory Tools |
+| `Documentation/ANNEXE-C-CAMPAIGN-MANAGER-360.md` | Campaign Manager, missions, SLA |
+| `Documentation/CDC-V5.md` | Cahier de charges v5 — architecture NETERU |
 
 ---
 
-## Variables d'environnement
+## Versionnage
 
-```env
-# Base de donnees
-DATABASE_URL="postgresql://user:pass@localhost:5432/lafusee"
+Format : **`MAJEURE.PHASE.ITERATION`** — voir [CHANGELOG.md](./CHANGELOG.md)
 
-# Auth
-NEXTAUTH_SECRET="your-secret"
-NEXTAUTH_URL="http://localhost:3000"
-
-# AI
-ANTHROPIC_API_KEY="sk-ant-..."
-
-# Optionnel
-VERCEL_URL=""
-```
-
----
-
-## Contribution
-
-1. Chaque module a un **spec embarque** dans son fichier principal (header commentaire)
-2. Les **dependances cross-module** sont documentees dans chaque module + dans `.claude/module-registry.json`
-3. Toute modification d'un module doit verifier que les modules dependants restent fonctionnels (`npx tsc --noEmit`)
-4. Les scores et statuts sont mis a jour dans le registry apres chaque fix
+| Version | Date | Jalon |
+|---|---|---|
+| **v3.3.0** | 2026-04-10 | Brief Ingest Pipeline NETERU-governed |
+| v3.2.0 | 2026-04-08 | Artemis Context System + Vault |
+| v3.1.0 | 2026-04-04 | Architecture NETERU |
+| v3.0.0 | 2026-03-31 | Bible ADVERTIS 134 variables |
+| v2.5.0 | 2026-03-25 | Glory 91 tools, 31 sequences |
+| v2.0.0 | 2026-02-20 | 3 portails operationnels |
+| v1.0.0 | 2026-01-25 | Foundation |
 
 ---
 
