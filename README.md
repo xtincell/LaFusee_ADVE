@@ -1,26 +1,54 @@
 # LaFusee OS `v3.3.0`
 
-**Le systeme d'exploitation de l'industrie publicitaire.**
+**L'Industry OS du marche creatif africain.** Propulse par l'agence **UPgraders**.
 
 > Un brief client arrive en PDF. 48h plus tard, la marque est diagnostiquee, la strategie est ecrite, les missions sont en production, et les freelances livrent.
 
 ---
 
+## UPgraders — l'ecosysteme
+
+UPgraders est un ecosysteme a 5 divisions qui forme un flywheel pour l'industrie creative en Afrique :
+
+```
+L'ORACLE (strategie) → LE SIGNAL (intelligence) → L'ARENE (communaute)
+       ↑                                                    ↓
+L'ACADEMIE (transmission) ←←←←←← LA FUSEE (ingenierie) ←←←←
+```
+
+| Division | Metier | Motto |
+|---|---|---|
+| **L'Oracle** | Architecture et strategie de marque | "Voir ce que les autres ne voient pas" |
+| **Le Signal** | Intelligence marche et production editoriale | "Rendre visible ce que personne ne mesure" |
+| **L'Arene** | Communaute et evenements | "Creer l'appartenance" |
+| **La Fusee** | Technologie, outils, infrastructure | "Construire le moteur" |
+| **L'Academie** | Transmission, formation, certification | "Rendre chaque professionnel capable" |
+
+**LaFusee OS** est le produit technologique de **La Fusee** — le systeme d'exploitation qui fait tourner tout l'ecosysteme.
+
+---
+
 ## Le probleme
 
-L'industrie pub fonctionne encore comme en 2005 : des briefs qui circulent en Word, des allers-retours de mails, des strategies faites au doigt mouille, des freelances trouves au bouche-a-oreille, et zero tracabilite entre le brief initial et le livrable final.
+Aucune structure de classe mondiale ne sert correctement le marche creatif en Afrique francophone.
 
-Resultat : des marques sous-exploitees, des campagnes mediocres, des budgets gaspilles — et une industrie qui ne sait pas mesurer la valeur qu'elle cree.
+Les groupes internationaux (Havas, Publicis, WPP) maintiennent des bureaux a Abidjan, Douala, Dakar — des boites aux lettres. Leurs methodologies restent a Paris ou Londres. Le client africain recoit un service de tier 3 au prix du tier 1.
+
+Les agences locales ont du talent, de l'intuition, de la debrouillardise. Mais rien de codifie, rien de reproductible, rien de mesurable. Chaque projet est un artisanat. C'est ce qui empeche le marche de scaler.
+
+Le freelance creatif recoit des briefs vagues, est paye au lance-pierres, n'a aucune visibilite sur sa prochaine mission. Le DA porte la vision creative de 8 clients sans methode formalisee. Le chef de marque jongle entre prestataires qui ne se parlent pas.
 
 ## La solution
 
-LaFusee OS est une plateforme qui **industrialise** la chaine de valeur pub :
+LaFusee OS **industrialise** la chaine de valeur creative — du brief au livrable, du diagnostic au paiement :
 
 **Un brief entre** → le systeme le scanne, identifie la marque, diagnostique ses forces et faiblesses sur 8 piliers, genere la strategie, cree les missions par livrable, et les dispatche aux bons talents.
 
 **Un operateur supervise** → il ne produit plus, il pilote. L'IA propose, l'humain valide. Chaque decision est tracee, chaque livrable est score, chaque franc depense est justifie.
 
-**Les marques montent en puissance** → de ZOMBIE a ICONE, chaque marque a un score sur 200 qui evolue en temps reel. Le client voit son dashboard, comprend ou il en est, et sait exactement ce que son budget produit.
+**Les marques montent en puissance** → de CRITICAL a LEGENDARY, chaque marque a un score sur 200 qui evolue en temps reel. Le client voit son dashboard, comprend ou il en est, et sait exactement ce que son budget produit.
+
+**Les creatifs sont structures** → tier system, matching automatique, QC, paiement. Un freelance a Douala peut livrer un KV pour une marque a Abidjan sans qu'un humain ait fait le dispatch.
 
 ---
 
