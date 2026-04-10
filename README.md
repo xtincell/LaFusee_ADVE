@@ -1,6 +1,6 @@
-# LaFusee OS `v3.3.0`
+# La Fusee `v3.3.0`
 
-**L'Industry OS du marche creatif africain.** Propulse par l'agence **UPgraders**.
+**L'Industry OS du marche creatif africain.** Construit par l'agence **UPgraders**.
 
 > Un brief client arrive en PDF. 48h plus tard, la marque est diagnostiquee, la strategie est ecrite, les missions sont en production, et les freelances livrent.
 
@@ -18,7 +18,7 @@ Le freelance creatif recoit des briefs vagues, est paye au lance-pierres, n'a au
 
 ## La solution
 
-LaFusee OS **industrialise** la chaine de valeur creative — du brief au livrable, du diagnostic au paiement :
+La Fusee **industrialise** la chaine de valeur creative — du brief au livrable, du diagnostic au paiement :
 
 **Un brief entre** → le systeme le scanne, identifie la marque, diagnostique ses forces et faiblesses sur 8 piliers, genere la strategie, cree les missions par livrable, et les dispatche aux bons talents.
 

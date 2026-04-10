@@ -1,4 +1,4 @@
-# CAHIER DE CHARGES — LaFusée Industry OS
+# CAHIER DE CHARGES — La Fusée (Industry OS)
 # PARTIE 1/3 — VISION & DATA MODEL (Sections 1-2)
 
 **Version** : 2.1 (standalone)
@@ -35,15 +35,15 @@ Les agences locales n'ont pas de méthode propriétaire. Elles ont du talent, de
 
 Le freelance créatif reçoit des briefs vagues, est payé au lance-pierres, n'a aucune visibilité sur sa prochaine mission, et n'a aucun pouvoir de négociation. Le DA dans une agence sous-dimensionnée porte la vision créative de 8 clients en même temps sans méthode formalisée, sans outil pour mesurer si un livrable est "on-brand", sans moyen de transférer son savoir à un junior. Le chef de marque jongle entre prestataires qui ne se parlent pas, reçoit des livrables incohérents, et ne peut pas prouver la valeur de son budget com auprès de sa direction.
 
-LaFusée OS est la réponse : un **Industry OS pour le marché créatif africain**, propulsé par l'agence **UPgraders** — la colonne vertébrale technologique qui structure, mesure et accélère toute la chaîne de valeur.
+La Fusée est la réponse : un **Industry OS pour le marché créatif africain**, propulsé par l'agence **UPgraders** — la colonne vertébrale technologique qui structure, mesure et accélère toute la chaîne de valeur.
 
 ### 1.2 UPgraders — l'agence
 
-**UPgraders** est l'agence qui a construit et propulse LaFusée OS. Elle apporte la méthodologie ADVE-RTIS, l'expertise terrain, et la vision produit.
+**UPgraders** est l'agence qui a construit et propulse La Fusée. Elle apporte la méthodologie ADVE-RTIS, l'expertise terrain, et la vision produit.
 
 ### 1.3 Les divisions de l'OS
 
-LaFusée OS est organisé en divisions qui forment un flywheel :
+La Fusée est organisé en divisions qui forment un flywheel :
 
 ```
 L'ORACLE (stratégie) → LE SIGNAL (intelligence) → L'ARÈNE (communauté)

@@ -1,4 +1,4 @@
-# Changelog — LaFusee OS
+# Changelog — La Fusee
 
 Systeme de versionnage : **`MAJEURE.PHASE.ITERATION`**
 
