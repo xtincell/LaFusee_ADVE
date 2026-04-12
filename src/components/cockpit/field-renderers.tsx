@@ -891,13 +891,31 @@ export function HerosJourneyCard({ acts }: { acts: Array<Record<string, unknown>
 
 // ── 8. Valeurs — Schwartz values with rank ──────────────────────────
 
-export function ValeursCard({ valeurs, onFocus }: { valeurs: Array<Record<string, unknown>>; onFocus?: (item: Record<string, unknown>) => void }) {
-  const sorted = [...valeurs].sort((a, b) => (Number(a.rank) || 99) - (Number(b.rank) || 99));
+export function ValeursCard({ valeurs, onFocus }: { valeurs: Array<Record<string, unknown>> | unknown; onFocus?: (item: Record<string, unknown>) => void }) {
+  // Defensive: some enrichment flows can write malformed data (string/object).
+  // Avoid throwing by validating the shape before iterating.
+  if (!Array.isArray(valeurs)) {
+    return (
+      <Card span={2}>
+        <div className="flex items-center gap-2 mb-3">
+          <Star className="h-4 w-4 text-violet-400" />
+          <Label>Valeurs (format inattendu)</Label>
+        </div>
+        <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+          <p className="text-sm text-amber-300">Le champ <strong>valeurs</strong> n'est pas au format attendu (tableau).</p>
+          <pre className="mt-2 max-h-40 overflow-auto text-xs bg-white/5 p-2 rounded text-white/80">{JSON.stringify(valeurs, null, 2)}</pre>
+        </div>
+      </Card>
+    );
+  }
+
+  const list = valeurs as Array<Record<string, unknown>>;
+  const sorted = [...list].sort((a, b) => (Number(a.rank) || 99) - (Number(b.rank) || 99));
   return (
     <Card span={2}>
       <div className="flex items-center gap-2 mb-3">
         <Star className="h-4 w-4 text-violet-400" />
-        <Label>Valeurs ({valeurs.length})</Label>
+        <Label>Valeurs ({list.length})</Label>
       </div>
       <div className="space-y-1.5">
         {sorted.map((v, i) => (
@@ -1025,14 +1043,15 @@ export function DirectionArtistiqueCard({ da, onFocus }: { da: Record<string, un
 // ── 11. EquipeDirigeante — team member cards ────────────────────────
 
 export function EquipeDirigenteCard({ equipe, onFocus }: { equipe: Array<Record<string, unknown>>; onFocus?: (item: Record<string, unknown>) => void }) {
+  const items = Array.isArray(equipe) ? equipe : (typeof equipe === "object" && equipe !== null ? [equipe as Record<string, unknown>] : []);
   return (
     <Card span={2}>
       <div className="flex items-center gap-2 mb-3">
         <Users className="h-4 w-4 text-violet-400" />
-        <Label>Equipe dirigeante ({equipe.length})</Label>
+        <Label>Equipe dirigeante ({items.length})</Label>
       </div>
       <div className="grid gap-2 md:grid-cols-2">
-        {equipe.map((m, i) => (
+        {items.map((m, i) => (
           <div key={i}
             onClick={onFocus ? () => onFocus(m) : undefined}
             className={`rounded-lg border border-white/5 bg-white/[0.02] p-3 ${onFocus ? "cursor-pointer hover:bg-white/[0.05] transition-colors" : ""}`}>

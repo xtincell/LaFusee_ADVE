@@ -392,12 +392,50 @@ RESPECTE LE FORMAT DE LA BIBLE pour chaque proposedValue.`,
       }
     }
 
-    // Store as pendingRecos on the pillar (type-validated)
+    // Store as Notoria Recommendation entities (not legacy pendingRecos JSON)
     if (recos.length > 0) {
-      await db.pillar.update({
-        where: { strategyId_key: { strategyId, key: pillarKey } },
-        data: { pendingRecos: recos as unknown as Prisma.InputJsonValue },
+      // Create a batch for this vault enrichment
+      const batch = await db.recommendationBatch.create({
+        data: {
+          strategyId,
+          missionType: "ADVE_UPDATE",
+          sourcePillars: ["VAULT"],
+          targetPillars: [pillarKey.toUpperCase()],
+          totalRecos: recos.length,
+          pendingCount: recos.length,
+          agent: "VAULT",
+        },
       });
+
+      // Persist each reco as a Recommendation entity
+      for (const reco of recos) {
+        await db.recommendation.create({
+          data: {
+            strategyId,
+            targetPillarKey: pillarKey,
+            targetField: reco.field,
+            operation: reco.operation ?? "SET",
+            currentSnapshot: reco.currentSummary ?? null,
+            proposedValue: reco.proposedValue != null ? (reco.proposedValue as Prisma.InputJsonValue) : null,
+            targetMatch: reco.targetMatch ? (reco.targetMatch as unknown as Prisma.InputJsonValue) : null,
+            agent: "VAULT",
+            source: "VAULT",
+            confidence: 0.65,
+            explain: reco.justification ?? `Vault enrichment: ${reco.verdict}`,
+            advantages: reco.verdict === "ADD" ? ["Nouvelle donnee depuis les sources"] : reco.verdict === "CONFIRM" ? ["Confirme par les sources"] : [],
+            disadvantages: reco.verdict === "INFIRM" ? ["Contredit la valeur actuelle"] : reco.verdict === "CHALLENGE" ? ["Alternative suggeree"] : [],
+            urgency: reco.verdict === "INFIRM" ? "NOW" : "SOON",
+            impact: reco.impact ?? "MEDIUM",
+            destructive: false,
+            applyPolicy: "suggest",
+            validationWarning: (reco as unknown as Record<string, unknown>).validationWarning as string ?? null,
+            sectionGroup: null,
+            status: "PENDING",
+            batchId: batch.id,
+            missionType: "ADVE_UPDATE",
+          },
+        });
+      }
     }
 
     return { pillarKey, recommendations: recos, vaultSize: sourceCount };

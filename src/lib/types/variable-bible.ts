@@ -133,9 +133,9 @@ export const BIBLE_A: Record<string, VariableSpec> = {
     minLength: 50,
   },
   valeurs: {
-    description: "Les 3-7 valeurs fondamentales de la marque (modèle Schwartz)",
-    format: "Array d'objets { value (enum Schwartz), customName, rank, justification (50+ chars), costOfHolding }",
-    rules: ["3 minimum, 7 maximum", "Chaque valeur doit avoir une justification spécifique, pas générique", "Le costOfHolding = ce que ça coûte de maintenir cette valeur"],
+    description: "Les 1-3 valeurs fondamentales de la marque (modèle Schwartz — roue de 10 valeurs, la marque en choisit 3 MAXIMUM)",
+    format: "Array d'objets { value (enum Schwartz parmi les 10: POUVOIR, ACCOMPLISSEMENT, HEDONISME, STIMULATION, AUTONOMIE, UNIVERSALISME, BIENVEILLANCE, TRADITION, CONFORMITE, SECURITE), customName, rank, justification (50+ chars), costOfHolding }",
+    rules: ["3 maximum (une marque forte se concentre)", "Minimum 1 valeur", "Chaque valeur doit avoir une justification spécifique, pas générique", "Le costOfHolding = ce que ça coûte de maintenir cette valeur", "Les tensions entre valeurs (tensionWith) enrichissent l'identité"],
   },
   enemy: {
     description: "L'ennemi déclaré de la marque — ce contre quoi elle se bat",

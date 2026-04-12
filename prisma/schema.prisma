@@ -558,6 +558,10 @@ model Strategy {
   scoreSnapshots    ScoreSnapshot[]
   dataSources       BrandDataSource[]
   orchestrationPlans OrchestrationPlan[]
+  recommendations    Recommendation[]
+  recoBatches        RecommendationBatch[]
+  notoriaPipeline    Json?                        // { currentStage, stages[], startedAt }
+  jehutyCurations    JehutyCuration[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -773,8 +777,9 @@ model Pillar {
   validationStatus String    @default("DRAFT") // DRAFT, AI_PROPOSED, VALIDATED, LOCKED
   staleAt          DateTime?                   // Set when pillar is marked stale; cleared on content update
   sources          Json?                       // [{ sourceId, sourceType, field, confidence }]
-  pendingRecos     Json?                       // [{ field, currentValue, proposedValue, justification, source: "R"|"T"|"R+T", accepted?: boolean }]
+  pendingRecos     Json?                       // DEPRECATED — migrated to Recommendation table. Kept for backward compat.
   commentary       Json?                       // { fieldName: "operator commentary text", ... } — qualitative justification per field
+  completionLevel  String?                     // INCOMPLET|COMPLET|FULL — cached, updated after each applyRecos
 
   currentVersion Int       @default(1)
 
@@ -2616,4 +2621,118 @@ model OrchestrationStep {
 
   @@index([planId])
   @@index([status])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NOTORIA — Recommendation Engine
+// ═══════════════════════════════════════════════════════════════════
+
+model Recommendation {
+  id              String   @id @default(cuid())
+  strategyId      String
+
+  // ── Target ──
+  targetPillarKey String                          // a|d|v|e|r|t|i|s
+  targetField     String                          // field name in pillar Zod schema
+
+  // ── Operation ──
+  operation       String   @default("SET")        // SET|ADD|MODIFY|REMOVE|EXTEND
+  currentSnapshot Json?                           // snapshot of field at generation time
+  proposedValue   Json?                           // proposed replacement/addition
+  targetMatch     Json?                           // {key,value} for MODIFY/REMOVE on arrays
+
+  // ── Provenance (GOVERNANCE-NETERU) ──
+  agent           String                          // MESTOR|ARTEMIS|GLORY_TOOL|VAULT|HUMAN
+  source          String                          // R|T|R+T|VAULT|INTAKE|CROSS_PILLAR|SESHAT
+  modelVersion    String?
+  inputSnapshotId String?                         // ref to stored input state
+  confidence      Float                           // 0.0 - 1.0
+
+  // ── Editorial (Mestor writes for all sources) ──
+  explain         String                          // 1-3 line summary
+  advantages      Json?                           // string[] — why to apply
+  disadvantages   Json?                           // string[] — risks if applied
+  urgency         String   @default("SOON")       // NOW|SOON|LATER
+
+  // ── Qualification ──
+  impact          String                          // LOW|MEDIUM|HIGH
+  destructive     Boolean  @default(false)
+  applyPolicy     String   @default("suggest")    // auto|suggest|requires_review
+  validationWarning String?                       // Zod mismatch warning
+  sectionGroup    String?                         // visual grouping (e.g. "catalogueParCanal.DIGITAL")
+
+  // ── Lifecycle ──
+  status          String   @default("PENDING")    // PENDING|ACCEPTED|REJECTED|APPLIED|REVERTED|EXPIRED
+  reviewedBy      String?                         // userId
+  reviewedAt      DateTime?
+  appliedAt       DateTime?
+  revertedAt      DateTime?
+  revertReason    String?
+
+  // ── Grouping ──
+  batchId         String?
+  missionType     String                          // ADVE_INTAKE|ADVE_UPDATE|I_GENERATION|S_SYNTHESIS|SESHAT_OBSERVATION
+  publishedAt     DateTime?                       // when published to Jehuty
+
+  // ── Relations ──
+  strategy        Strategy              @relation(fields: [strategyId], references: [id])
+  batch           RecommendationBatch?  @relation(fields: [batchId], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([strategyId, targetPillarKey, status])
+  @@index([strategyId, status])
+  @@index([batchId])
+  @@index([strategyId, publishedAt])
+  @@index([strategyId, missionType, status])
+}
+
+model RecommendationBatch {
+  id              String   @id @default(cuid())
+  strategyId      String
+
+  missionType     String                          // ADVE_INTAKE|ADVE_UPDATE|I_GENERATION|S_SYNTHESIS|SESHAT_OBSERVATION
+  sourcePillars   Json                            // ["R","T"] — pillars read
+  targetPillars   Json                            // ["A","D","V","E"] — pillars targeted
+
+  totalRecos      Int
+  pendingCount    Int
+  acceptedCount   Int      @default(0)
+  rejectedCount   Int      @default(0)
+  appliedCount    Int      @default(0)
+
+  agent           String                          // MESTOR|ARTEMIS
+  modelVersion    String?
+  pipelineStage   Int?                            // position in pipeline (1=ADVE, 2=I, 3=S)
+
+  // ── Relations ──
+  strategy        Strategy          @relation(fields: [strategyId], references: [id])
+  recommendations Recommendation[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([strategyId, missionType])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// JEHUTY — Strategic Intelligence Feed (Seshat's Press Organ)
+// ═══════════════════════════════════════════════════════════════════
+
+model JehutyCuration {
+  id         String   @id @default(cuid())
+  strategyId String
+  itemType   String                              // SIGNAL|RECOMMENDATION|DIAGNOSTIC
+  itemId     String                              // FK to source record
+  action     String                              // PINNED|DISMISSED|NOTORIA_TRIGGERED
+  userId     String
+  note       String?
+
+  strategy   Strategy @relation(fields: [strategyId], references: [id])
+
+  createdAt  DateTime @default(now())
+
+  @@unique([strategyId, itemType, itemId])
+  @@index([strategyId, action])
 }

@@ -57,6 +57,7 @@ import {
   Plug,
   UsersRound,
   Lightbulb,
+  Sparkles,
 } from "lucide-react";
 import type { NavGroup } from "./types";
 
@@ -88,6 +89,8 @@ export const cockpitNavGroups: NavGroup[] = [
   {
     title: "Marque — Strategie",
     items: [
+      { href: "/cockpit/brand/jehuty", label: "Jehuty", icon: Newspaper },                  // Intelligence Feed
+      { href: "/cockpit/brand/notoria", label: "Notoria", icon: Sparkles },                 // Recommendation Engine
       { href: "/cockpit/brand/diagnostic", label: "Diagnostic", icon: Shield },            // R
       { href: "/cockpit/brand/market", label: "Realite Marche", icon: TrendingUp },        // T
       { href: "/cockpit/brand/potential", label: "Potentiel", icon: Rocket },               // I
@@ -291,6 +294,7 @@ export const consoleNavGroups: NavGroup[] = [
     title: "Seshat",
     divisionColor: "var(--color-division-seshat)",
     items: [
+      { href: "/console/seshat/jehuty", label: "Jehuty", icon: Newspaper },
       { href: "/console/seshat/intelligence", label: "Intelligence", icon: Brain },
       { href: "/console/seshat/signals", label: "Signaux", icon: Radio },
       { href: "/console/seshat/knowledge", label: "Knowledge Graph", icon: Network },

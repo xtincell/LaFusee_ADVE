@@ -550,27 +550,46 @@ export const pillarRouter = createTRPCRouter({
       return runRTISCascade(input.strategyId, { updateADVE: input.updateADVE, skipT: input.skipT });
     }),
 
-  // ── ADVE Recommendation Review (R+T → proposals) ─────────────────────
+  // ── ADVE Recommendation Review ────────────────────────────────────────
+  // DEPRECATED: Use notoria.* endpoints directly. These stubs delegate to Notoria.
 
-  /** Generate per-field recommendations for an ADVE pillar from R+T insights */
+  /** @deprecated Use notoria.generateBatch instead */
   generateRecos: protectedProcedure
     .input(z.object({ strategyId: z.string(), key: adveKeyEnum }))
     .mutation(async ({ input }) => {
       return generateADVERecommendations(input.strategyId, input.key);
     }),
 
-  /** Get pending recommendations for an ADVE pillar */
+  /** @deprecated Use notoria.getRecosByPillar instead */
   getRecos: protectedProcedure
     .input(z.object({ strategyId: z.string(), key: adveKeyEnum }))
     .query(async ({ ctx, input }) => {
-      const pillar = await ctx.db.pillar.findUnique({
-        where: { strategyId_key: { strategyId: input.strategyId, key: input.key.toLowerCase() } },
-        select: { pendingRecos: true },
+      // Delegate to Notoria Recommendation table
+      const recos = await ctx.db.recommendation.findMany({
+        where: {
+          strategyId: input.strategyId,
+          targetPillarKey: input.key.toLowerCase(),
+          status: { in: ["PENDING", "ACCEPTED"] },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
       });
-      return (pillar?.pendingRecos ?? []) as unknown as FieldRecommendation[];
+      // Map to legacy FieldRecommendation shape
+      return recos.map((r) => ({
+        field: r.targetField,
+        operation: r.operation,
+        currentSummary: typeof r.currentSnapshot === "string" ? r.currentSnapshot : "",
+        proposedValue: r.proposedValue,
+        targetMatch: r.targetMatch,
+        justification: r.explain,
+        source: r.source,
+        impact: r.impact,
+        accepted: r.status === "APPLIED",
+        id: r.id,
+      }));
     }),
 
-  /** Accept selected recommendations — by index (granular) or by field name (legacy) */
+  /** @deprecated Use notoria.acceptRecos + notoria.applyRecos instead */
   acceptRecos: operatorProcedure
     .input(z.object({
       strategyId: z.string(),
@@ -587,7 +606,7 @@ export const pillarRouter = createTRPCRouter({
       );
     }),
 
-  /** Reject all remaining recommendations for a pillar */
+  /** @deprecated Use notoria.rejectRecos instead */
   rejectRecos: operatorProcedure
     .input(z.object({ strategyId: z.string(), key: adveKeyEnum }))
     .mutation(async ({ input }) => {

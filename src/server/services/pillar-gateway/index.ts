@@ -41,7 +41,8 @@ type PillarWriteOperation =
   | { type: "REPLACE_FULL"; content: Record<string, unknown> }
   | { type: "MERGE_DEEP"; patch: Record<string, unknown> }
   | { type: "SET_FIELDS"; fields: Array<{ path: string; value: unknown }> }
-  | { type: "APPLY_RECOS"; recoIndices: number[] };
+  | { type: "APPLY_RECOS"; recoIndices: number[] }
+  | { type: "APPLY_RECOS_RESOLVED"; operations: Array<{ field: string; operation: string; proposedValue: unknown; targetMatch?: { key: string; value: string }; recoId: string }> };
 
 interface PillarWriteOptions {
   skipValidation?: boolean;
@@ -291,6 +292,102 @@ export async function writePillar(request: PillarWriteRequest): Promise<PillarWr
             where: { id: pillar.id },
             data: { pendingRecos: pendingRecos as unknown as Prisma.InputJsonValue },
           });
+          break;
+        }
+        case "APPLY_RECOS_RESOLVED": {
+          // Notoria sends pre-resolved operations — no pendingRecos lookup needed
+          const ops = operation.operations;
+          newContent = { ...previousContent };
+
+          // Sort operations: EXTEND → MODIFY → ADD → REMOVE → SET (prevent index shift)
+          const opOrder: Record<string, number> = { EXTEND: 0, MODIFY: 1, ADD: 2, REMOVE: 3, SET: 4 };
+          const sorted = [...ops].sort(
+            (a, b) => (opOrder[a.operation] ?? 5) - (opOrder[b.operation] ?? 5),
+          );
+
+          let appliedCount = 0;
+          for (const op of sorted) {
+            const existing = newContent[op.field];
+
+            switch (op.operation) {
+              case "SET":
+                newContent[op.field] = coerceValue(existing, op.proposedValue);
+                appliedCount++;
+                break;
+
+              case "ADD":
+                if (Array.isArray(existing)) {
+                  existing.push(coerceValue(undefined, op.proposedValue));
+                  appliedCount++;
+                } else if (existing == null) {
+                  newContent[op.field] = [coerceValue(undefined, op.proposedValue)];
+                  appliedCount++;
+                } else {
+                  warnings.push(`ADD: field "${op.field}" is not an array (type=${typeof existing}) — skipped (reco ${op.recoId})`);
+                }
+                break;
+
+              case "MODIFY": {
+                if (!Array.isArray(existing)) {
+                  warnings.push(`MODIFY: field "${op.field}" is not an array — skipped (reco ${op.recoId})`);
+                  break;
+                }
+                let idx = -1;
+                if (op.targetMatch) {
+                  idx = existing.findIndex(
+                    (item) =>
+                      typeof item === "object" &&
+                      item !== null &&
+                      (item as Record<string, unknown>)[op.targetMatch!.key] === op.targetMatch!.value,
+                  );
+                }
+                if (idx < 0) {
+                  warnings.push(`MODIFY: target not found for "${op.field}" match=${JSON.stringify(op.targetMatch)} — skipped (reco ${op.recoId})`);
+                } else {
+                  existing[idx] = coerceValue(existing[idx], op.proposedValue);
+                  appliedCount++;
+                }
+                break;
+              }
+
+              case "REMOVE": {
+                if (!Array.isArray(existing)) {
+                  warnings.push(`REMOVE: field "${op.field}" is not an array — skipped (reco ${op.recoId})`);
+                  break;
+                }
+                let ridx = -1;
+                if (op.targetMatch) {
+                  ridx = existing.findIndex(
+                    (item) =>
+                      typeof item === "object" &&
+                      item !== null &&
+                      (item as Record<string, unknown>)[op.targetMatch!.key] === op.targetMatch!.value,
+                  );
+                }
+                if (ridx < 0) {
+                  warnings.push(`REMOVE: target not found for "${op.field}" match=${JSON.stringify(op.targetMatch)} — skipped (reco ${op.recoId})`);
+                } else {
+                  existing.splice(ridx, 1);
+                  appliedCount++;
+                }
+                break;
+              }
+
+              case "EXTEND": {
+                if (typeof existing === "object" && existing !== null && !Array.isArray(existing)) {
+                  newContent[op.field] = { ...(existing as Record<string, unknown>), ...(op.proposedValue as Record<string, unknown>) };
+                  appliedCount++;
+                } else if (existing == null) {
+                  newContent[op.field] = op.proposedValue;
+                  appliedCount++;
+                } else {
+                  warnings.push(`EXTEND: field "${op.field}" is not an object — skipped (reco ${op.recoId})`);
+                }
+                break;
+              }
+            }
+          }
+          if (appliedCount === 0) warnings.push("APPLY_RECOS_RESOLVED: aucune operation appliquee");
           break;
         }
       }
