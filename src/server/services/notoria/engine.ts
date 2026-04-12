@@ -10,6 +10,7 @@ import { callLLM } from "@/server/services/llm-gateway";
 import { extractJSON as _extractJSON } from "@/server/services/utils/llm";
 import { PILLAR_SCHEMAS } from "@/lib/types/pillar-schemas";
 import type { PillarKey } from "@/lib/types/advertis-vector";
+import { getFormatInstructions } from "@/lib/types/variable-bible";
 import { Prisma } from "@prisma/client";
 import { applyQualityGates, validateFinancialReco } from "./gates";
 import type {
@@ -174,18 +175,43 @@ async function generateRecosForPillar(
           ? "ADVE+R+T+I"
           : "R+T";
 
+  // ── Detect empty/missing fields (PRIORITY for recos) ──
+  const allSchemaKeys = Object.keys(
+    (PILLAR_SCHEMAS[targetKey.toUpperCase() as keyof typeof PILLAR_SCHEMAS] as { shape?: Record<string, unknown> })?.shape ?? {},
+  );
+  const emptyFields = allSchemaKeys.filter((k) => {
+    const v = currentContent[k];
+    return v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
+  });
+  const filledFields = allSchemaKeys.filter((k) => !emptyFields.includes(k));
+
+  // ── Inject Bible format rules for all fields ──
+  const bibleInstructions = getFormatInstructions(targetKey, allSchemaKeys);
+
+  const emptyFieldsSection = emptyFields.length > 0
+    ? `\n⚠️ CHAMPS VIDES A REMPLIR EN PRIORITE (${emptyFields.length} champs):\n${emptyFields.map(f => `  - ${f}`).join("\n")}\n\nCes champs DOIVENT etre remplis via des operations SET. C'est la PRIORITE #1.`
+    : "\nTous les champs sont remplis. Concentre-toi sur l'enrichissement et la correction.";
+
   const prompt = `SCHEMA du pilier ${targetKey.toUpperCase()} (types attendus):
 ${schemaDesc}
 
-Pilier ${targetKey.toUpperCase()} actuel:
+BIBLE DE FORMAT (regles de fond pour chaque champ):
+${bibleInstructions}
+
+Pilier ${targetKey.toUpperCase()} actuel (${filledFields.length}/${allSchemaKeys.length} champs remplis):
 ${JSON.stringify(currentContent, null, 2)}
+${emptyFieldsSection}
 
 Contexte source (${sourceLabel}):
 ${sourceContext}
 ${extraContext ? `\nContexte supplementaire:\n${extraContext}` : ""}
 
 Produis les recommandations d'enrichissement GRANULAIRES pour le pilier ${targetKey.toUpperCase()}.
-IMPORTANT: chaque proposedValue DOIT respecter le type et la structure du schema.`;
+IMPORTANT:
+1. PRIORITE #1 : remplir les champs VIDES (operation SET) — chaque champ vide = une reco obligatoire
+2. PRIORITE #2 : enrichir/corriger les champs existants (ADD/MODIFY/EXTEND)
+3. Chaque proposedValue DOIT respecter le format defini dans la BIBLE DE FORMAT
+4. Respecter les regles min/max de la bible (ex: valeurs max 3, pas 7)`;
 
   const system =
     missionType === "SESHAT_OBSERVATION" ? SESHAT_SYSTEM : RECO_SYSTEM;
