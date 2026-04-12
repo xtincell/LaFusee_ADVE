@@ -542,6 +542,113 @@ export function getVariableSpec(pillarKey: string, fieldKey: string): VariableSp
   return VARIABLE_BIBLE[pillarKey.toLowerCase()]?.[fieldKey];
 }
 
+// ── Bible Validation Engine ────────────────────────────────────────────
+
+export interface BibleViolation {
+  field: string;
+  rule: string;
+  severity: "WARN" | "BLOCK";
+  message: string;
+}
+
+/**
+ * Validate a pillar content object against the Variable Bible rules.
+ * Returns violations (warnings + blocks). Called by Pillar Gateway on every write.
+ *
+ * Checks:
+ *   - minLength / maxLength on strings
+ *   - Array min/max item counts (from rules like "3 maximum")
+ *   - Empty required fields
+ */
+export function validateAgainstBible(
+  pillarKey: string,
+  content: Record<string, unknown>,
+): BibleViolation[] {
+  const bible = VARIABLE_BIBLE[pillarKey.toLowerCase()];
+  if (!bible) return [];
+
+  const violations: BibleViolation[] = [];
+
+  for (const [field, spec] of Object.entries(bible)) {
+    const value = content[field];
+
+    // Skip null/undefined — those are caught by Zod required/optional
+    if (value === null || value === undefined) continue;
+
+    // ── String length checks ──
+    if (typeof value === "string") {
+      if (spec.minLength && value.length < spec.minLength) {
+        violations.push({
+          field,
+          rule: `minLength:${spec.minLength}`,
+          severity: "WARN",
+          message: `${field}: ${value.length} chars, minimum ${spec.minLength} requis`,
+        });
+      }
+      if (spec.maxLength && value.length > spec.maxLength) {
+        violations.push({
+          field,
+          rule: `maxLength:${spec.maxLength}`,
+          severity: "WARN",
+          message: `${field}: ${value.length} chars, maximum ${spec.maxLength} autorise`,
+        });
+      }
+    }
+
+    // ── Array item count checks (from rules) ──
+    if (Array.isArray(value) && spec.rules) {
+      for (const rule of spec.rules) {
+        // Parse "N maximum" rules
+        const maxMatch = rule.match(/(\d+)\s*maximum/i);
+        if (maxMatch) {
+          const max = parseInt(maxMatch[1]!, 10);
+          if (value.length > max) {
+            violations.push({
+              field,
+              rule: `max_items:${max}`,
+              severity: "BLOCK",
+              message: `${field}: ${value.length} elements, maximum ${max} autorise (regle Bible)`,
+            });
+          }
+        }
+        // Parse "N minimum" or "minimum N" rules
+        const minMatch = rule.match(/(?:minimum\s*(\d+)|(\d+)\s*minimum)/i);
+        if (minMatch) {
+          const min = parseInt(minMatch[1] ?? minMatch[2]!, 10);
+          if (value.length < min) {
+            violations.push({
+              field,
+              rule: `min_items:${min}`,
+              severity: "WARN",
+              message: `${field}: ${value.length} elements, minimum ${min} recommande`,
+            });
+          }
+        }
+      }
+    }
+
+    // ── Array items: check each item has required sub-fields (from format description) ──
+    if (Array.isArray(value) && spec.format) {
+      // Check for "justification" requirement
+      if (spec.format.includes("justification") && spec.rules?.some(r => r.includes("justification"))) {
+        for (let i = 0; i < value.length; i++) {
+          const item = value[i] as Record<string, unknown> | undefined;
+          if (item && typeof item === "object" && (!item.justification || (typeof item.justification === "string" && item.justification.length < 10))) {
+            violations.push({
+              field,
+              rule: "justification_required",
+              severity: "WARN",
+              message: `${field}[${i}]: justification manquante ou trop courte`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
 /**
  * Generate a format instruction block for a list of fields.
  * Used by the vault-enrichment prompt to tell the LLM the exact format expected.

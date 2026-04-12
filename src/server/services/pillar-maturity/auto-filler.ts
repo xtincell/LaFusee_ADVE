@@ -17,6 +17,7 @@ import type { Prisma } from "@prisma/client";
 import type { MaturityStage, AutoFillResult, FieldRequirement } from "@/lib/types/pillar-maturity";
 import { assessPillar } from "./assessor";
 import { getContract } from "./contracts-loader";
+import { getFormatInstructions } from "@/lib/types/variable-bible";
 
 // ─── Main API ───────────────────────────────────────────────────────────────
 
@@ -631,9 +632,10 @@ async function extractFromSources(
     if (allText.length > 50) {
       try {
         const { callLLMAndParse } = await import("@/server/services/utils/llm");
+        const bibleInstructions = getFormatInstructions(pillarKey, stillMissing);
         const aiExtracted = await callLLMAndParse({
-          system: `Tu es un extracteur de données. On te donne du texte brut sur une marque et une liste de champs à remplir. Extrais UNIQUEMENT les informations présentes dans le texte. Si une information n'est pas dans le texte, ne l'invente pas — omets-la. Retourne un JSON avec les champs trouvés.`,
-          prompt: `Texte source:\n${allText.slice(0, 8000)}\n\nChamps à extraire pour le pilier ${pillarKey.toUpperCase()}:\n${stillMissing.map(p => `- ${p}`).join("\n")}\n\nRetourne UNIQUEMENT les champs que tu TROUVES dans le texte.`,
+          system: `Tu es un extracteur de données. On te donne du texte brut sur une marque et une liste de champs à remplir. Extrais UNIQUEMENT les informations présentes dans le texte. Si une information n'est pas dans le texte, ne l'invente pas — omets-la. Retourne un JSON avec les champs trouvés. RESPECTE les formats de la Bible de Variables pour chaque champ.`,
+          prompt: `Texte source:\n${allText.slice(0, 8000)}\n\nChamps à extraire pour le pilier ${pillarKey.toUpperCase()}:\n${stillMissing.map(p => `- ${p}`).join("\n")}\n\nBIBLE DE FORMAT:\n${bibleInstructions}\n\nRetourne UNIQUEMENT les champs que tu TROUVES dans le texte. Respecte les regles de format de la Bible.`,
           maxTokens: 3000,
           strategyId,
           caller: `source-extraction:${pillarKey}`,

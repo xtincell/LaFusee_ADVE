@@ -20,6 +20,7 @@ import { scoreObject } from "@/server/services/advertis-scorer";
 import type { AdvertisVector } from "@/lib/types/advertis-vector";
 import { Prisma } from "@prisma/client";
 import { runMarketIntelligence } from "@/server/services/market-intelligence";
+import { getFormatInstructions } from "@/lib/types/variable-bible";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -390,9 +391,11 @@ export async function actualizePillar(
       const context = ["A", "D", "V", "E", "R", "T"]
         .map((k) => serializePillar(k, pillars[k]))
         .join("\n\n");
+      const iBibleKeys = Object.keys((PILLAR_SCHEMAS.I as { shape?: Record<string, unknown> })?.shape ?? {});
+      const iBible = getFormatInstructions("i", iBibleKeys);
       const response = await callCascadeLLM(
         RTIS_PROMPTS.I,
-        `Voici les données ADVE + R + T actuelles:\n\n${context}\n\nProduis le pilier I (Implementation — catalogue exhaustif) en JSON.`,
+        `Voici les données ADVE + R + T actuelles:\n\n${context}\n\nBIBLE DE FORMAT pour le pilier I:\n${iBible}\n\nProduis le pilier I (Implementation — catalogue exhaustif) en JSON. Respecte les regles de la Bible.`,
         strategyId,
       );
       newContent = extractJSON(response);
@@ -404,9 +407,11 @@ export async function actualizePillar(
         .map((k) => serializePillar(k, pillars[k]))
         .join("\n\n");
 
+      const sBibleKeys = Object.keys((PILLAR_SCHEMAS.S as { shape?: Record<string, unknown> })?.shape ?? {});
+      const sBible = getFormatInstructions("s", sBibleKeys);
       const response = await callCascadeLLM(
         RTIS_PROMPTS.S,
-        `Voici les 7 piliers ADVE-RTI actuels:\n\n${context}\n\nProduis le pilier S (Synthèse) en JSON.`,
+        `Voici les 7 piliers ADVE-RTI actuels:\n\n${context}\n\nBIBLE DE FORMAT pour le pilier S:\n${sBible}\n\nProduis le pilier S (Synthèse) en JSON. Respecte les regles de la Bible.`,
         strategyId,
       );
       newContent = extractJSON(response);

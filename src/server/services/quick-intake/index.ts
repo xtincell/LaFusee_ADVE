@@ -30,7 +30,10 @@ import type { Prisma } from "@prisma/client";
 import { callLLM } from "@/server/services/llm-gateway";
 import * as mestor from "@/server/services/mestor";
 import { scoreObject } from "@/server/services/advertis-scorer";
+import { normalizePillarForIntake } from "@/server/services/pillar-normalizer";
 import { classifyBrand } from "@/lib/types/advertis-vector";
+import { getFormatInstructions } from "@/lib/types/variable-bible";
+import { PILLAR_SCHEMAS } from "@/lib/types/pillar-schemas";
 import { getAdaptiveQuestions, getBusinessContextQuestions } from "./question-bank";
 import * as auditTrail from "@/server/services/audit-trail";
 import type { BusinessContext, BusinessModelKey, BrandNatureKey, EconomicModelKey, PositioningArchetypeKey, SalesChannel, PremiumScope } from "@/lib/types/business-context";
@@ -235,12 +238,14 @@ export async function complete(token: string) {
     const content = structuredContent ?? rawResponses;
 
     if (content && typeof content === "object" && Object.keys(content).length > 0) {
+      // Normalize content conservatively to avoid type-shape mismatches (arrays vs objects)
+      const normalized = normalizePillarForIntake(pillar, content as Record<string, unknown>);
       // Persist via Gateway — full replace for initial intake conversion
       const { writePillar } = await import("@/server/services/pillar-gateway");
       await writePillar({
         strategyId: strategy.id,
         pillarKey: pillar as import("@/lib/types/advertis-vector").PillarKey,
-        operation: { type: "REPLACE_FULL", content: content as Record<string, unknown> },
+        operation: { type: "REPLACE_FULL", content: normalized as Record<string, unknown> },
         author: { system: "INGESTION", reason: `Quick intake conversion: pillar ${pillar}` },
         options: { confidenceDelta: 0.05 },
       });
@@ -353,6 +358,15 @@ async function extractStructuredPillarContent(
       : "Non fourni";
 
     try {
+      // Build Bible format instructions for all ADVE pillars
+      const bibleContext = ["a", "d", "v", "e"].map((k) => {
+        const upperK = k.toUpperCase() as keyof typeof PILLAR_SCHEMAS;
+        const schema = PILLAR_SCHEMAS[upperK];
+        const fieldKeys = schema ? Object.keys((schema as { shape?: Record<string, unknown> }).shape ?? {}) : [];
+        const instructions = getFormatInstructions(k, fieldKeys);
+        return instructions ? `[BIBLE PILIER ${k.toUpperCase()}]\n${instructions}` : "";
+      }).filter(Boolean).join("\n\n");
+
       const system = mestor.getSystemPrompt("intake");
       const prompt = `A partir des reponses brutes d'un diagnostic rapide, extrais du contenu structure pour chaque pilier ADVE.
 
@@ -360,10 +374,14 @@ MARQUE: ${companyName}
 SECTEUR: ${sector ?? "Non precis"}
 CONTEXTE BUSINESS: ${bizContext}
 
+BIBLE DE FORMAT (regles obligatoires pour chaque champ):
+${bibleContext}
+
 REPONSES BRUTES:
 ${responseSummary}
 
-Pour chaque pilier, reponds par un objet JSON clef->objet (a,d,v,e,r,t,i,s) contenant champs structures.`;
+Pour chaque pilier, reponds par un objet JSON clef->objet (a,d,v,e,r,t,i,s) contenant champs structures.
+IMPORTANT: Respecte les regles de la BIBLE DE FORMAT pour chaque champ (min/max items, longueurs, formats).`;
 
       const { text: out } = await callLLM({
         system,

@@ -22,6 +22,7 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { type PillarKey, getPillarDependents } from "@/lib/types/advertis-vector";
 import { validatePillarPartial } from "@/lib/types/pillar-schemas";
+import { validateAgainstBible } from "@/lib/types/variable-bible";
 import { createVersion } from "@/server/services/pillar-versioning";
 import * as auditTrail from "@/server/services/audit-trail";
 
@@ -392,7 +393,7 @@ export async function writePillar(request: PillarWriteRequest): Promise<PillarWr
         }
       }
 
-      // ── VALIDATE: schema check ───────────────────────────────────
+      // ── VALIDATE: schema check (Zod types) ──────────────────────
       if (!options?.skipValidation) {
         const validation = validatePillarPartial(pillarKey.toUpperCase() as "A" | "D" | "V" | "E" | "R" | "T" | "I" | "S", newContent);
         if (!validation.success && validation.errors) {
@@ -400,6 +401,23 @@ export async function writePillar(request: PillarWriteRequest): Promise<PillarWr
             warnings.push(`Validation: ${err.path} — ${err.message}`);
           }
           // Don't block — partial validation allows incomplete data
+        }
+      }
+
+      // ── VALIDATE: Bible rules (format de fond) ──────────────────
+      const bibleViolations = validateAgainstBible(pillarKey, newContent);
+      for (const v of bibleViolations) {
+        warnings.push(`Bible[${v.severity}]: ${v.message}`);
+      }
+      // BLOCK-level violations prevent write for AI systems (not operators)
+      const bibleBlocks = bibleViolations.filter((v) => v.severity === "BLOCK");
+      if (bibleBlocks.length > 0 && author.system !== "OPERATOR") {
+        // Reject the violating fields by reverting them to previous values
+        for (const block of bibleBlocks) {
+          if (previousContent[block.field] !== undefined) {
+            newContent[block.field] = previousContent[block.field];
+            warnings.push(`Bible: champ "${block.field}" reverte (violation BLOCK: ${block.rule})`);
+          }
         }
       }
 
