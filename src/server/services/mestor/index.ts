@@ -22,6 +22,7 @@
 
 import type { BusinessContext } from "@/lib/types/business-context";
 import { BUSINESS_MODELS, ECONOMIC_MODELS, POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
+import { db } from "@/lib/db";
 
 export type MestorContext = "cockpit" | "creator" | "console" | "intake";
 
@@ -124,6 +125,49 @@ function buildBusinessContextBlock(ctx: BusinessContext): string {
 
   lines.push("--- FIN CONTEXTE BUSINESS ---");
   lines.push("Adapte ton vocabulaire, tes exemples, et tes recommandations a ce contexte. Ne parle pas de 'retention' a une marque one-shot. Ne parle pas de 'feature gates' a une marque de luxe physique.");
+
+  return lines.join("\n");
+}
+
+/**
+ * v4 — Builds a context block from recent validated feedback entries.
+ * Injected into Mestor system prompt so AI learns from past diagnostic drift.
+ */
+export async function buildFeedbackContext(strategyId: string): Promise<string> {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const feedbackEntries = await db.knowledgeEntry.findMany({
+    where: {
+      entryType: "FEEDBACK_VALIDATED",
+      createdAt: { gte: thirtyDaysAgo },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
+
+  // Filter to entries relevant to this strategy
+  const relevant = feedbackEntries.filter((e) => {
+    const data = e.data as Record<string, unknown>;
+    return data.strategyId === strategyId || !data.strategyId;
+  });
+
+  if (relevant.length === 0) return "";
+
+  const lines = [
+    "",
+    "--- APPRENTISSAGES VALIDES (feedback loop) ---",
+  ];
+  for (const entry of relevant) {
+    const data = entry.data as Record<string, unknown>;
+    const pillar = (data.pillarFocus ?? entry.pillarFocus ?? "?") as string;
+    const severity = (data.severity ?? "medium") as string;
+    const diagnostic = (data.diagnostic ?? "N/A") as string;
+    const driftPct = (data.driftPercent ?? 0) as number;
+    lines.push(`- Pilier ${pillar.toUpperCase()} : drift ${driftPct}% (${severity}). Diagnostic : ${diagnostic.slice(0, 200)}`);
+  }
+  lines.push("Integre ces apprentissages dans tes recommandations. Ne repete pas les erreurs passees.");
+  lines.push("--- FIN APPRENTISSAGES ---");
 
   return lines.join("\n");
 }

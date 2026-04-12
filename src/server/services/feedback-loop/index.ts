@@ -110,6 +110,23 @@ export async function processSignal(signalId: string): Promise<FeedbackAlert[]> 
           drift.severity
         );
 
+        // v4 — Store validated feedback for RAG injection into Mestor/Glory prompts
+        await captureEvent("FEEDBACK_VALIDATED", {
+          pillarFocus: pillar,
+          data: {
+            type: "drift_feedback",
+            signalId,
+            strategyId: signal.strategyId,
+            diagnostic,
+            prescriptionId,
+            driftPercent: Math.round(driftPercent),
+            severity: drift.severity,
+            previousScore: previous,
+            currentScore: current,
+          },
+          sourceId: signal.strategyId,
+        });
+
         // ── NOTORIA auto-trigger: generate corrective recos on severe drift ──
         if (drift.severity === "critical" || drift.severity === "high") {
           try {

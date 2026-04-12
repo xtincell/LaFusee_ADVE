@@ -1,6 +1,6 @@
 {
   "name": "lafusee",
-  "version": "0.1.0",
+  "version": "4.0.0-alpha.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -13,7 +13,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:demo": "tsx prisma/seed-demo.ts",
     "db:seed:spawt": "tsx scripts/seed-spawt-complete.ts",
-    "db:seed:all": "tsx prisma/seed.ts && tsx prisma/seed-demo.ts && tsx scripts/seed-spawt-complete.ts",
+    "db:seed:wakanda": "tsx scripts/seed-wakanda/index.ts",
+    "db:purge:wakanda": "tsx scripts/seed-wakanda/purge.ts",
+    "db:seed:all": "tsx prisma/seed.ts && tsx prisma/seed-demo.ts && tsx scripts/seed-spawt-complete.ts && tsx scripts/seed-wakanda/index.ts",
     "test": "vitest",
     "test:e2e": "playwright test"
   },

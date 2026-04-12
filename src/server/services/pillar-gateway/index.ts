@@ -30,7 +30,7 @@ import * as auditTrail from "@/server/services/audit-trail";
 
 type ValidationStatus = "DRAFT" | "AI_PROPOSED" | "VALIDATED" | "LOCKED";
 
-type AuthorSystem = "OPERATOR" | "MESTOR" | "ARTEMIS" | "GLORY" | "AUTO_FILLER" | "INGESTION" | "BRIEF_INGEST" | "PROTOCOLE_R" | "PROTOCOLE_T" | "PROTOCOLE_I" | "PROTOCOLE_S";
+type AuthorSystem = "OPERATOR" | "MESTOR" | "ARTEMIS" | "GLORY" | "AUTO_FILLER" | "INGESTION" | "BRIEF_INGEST" | "PROTOCOLE_R" | "PROTOCOLE_T" | "PROTOCOLE_I" | "PROTOCOLE_S" | "EXTERNAL_SAAS";
 
 interface PillarWriteAuthor {
   system: AuthorSystem;
@@ -446,6 +446,36 @@ export async function writePillar(request: PillarWriteRequest): Promise<PillarWr
       let newConfidence = pillar.confidence ?? 0;
       if (options?.confidenceDelta) {
         newConfidence = Math.min(0.95, Math.max(0, newConfidence + options.confidenceDelta));
+      }
+
+      // ── v4 AUTO-APPROVAL: auto-promote AI_PROPOSED → VALIDATED ──
+      // Conditions: RTIS protocol author + high confidence + low impact
+      if (
+        targetStatus === "AI_PROPOSED" &&
+        author.system.startsWith("PROTOCOLE_") &&
+        newConfidence > 0.9 &&
+        warnings.length === 0
+      ) {
+        // Assess impact: low impact = less than 30% new keys added
+        const prevKeys = Object.keys(previousContent);
+        const newKeys = Object.keys(newContent);
+        const addedKeys = newKeys.filter(k => !prevKeys.includes(k));
+        const isLowImpact = prevKeys.length === 0 || addedKeys.length / Math.max(prevKeys.length, 1) < 0.3;
+
+        if (isLowImpact) {
+          targetStatus = "VALIDATED";
+          warnings.push("Auto-approved: confidence > 0.9, low impact, author RTIS protocol. Rollback available for 24h.");
+          // Store rollback metadata in commentary
+          const commentary = (pillar.commentary as Record<string, unknown>) ?? {};
+          commentary._autoApproval = {
+            approvedAt: new Date().toISOString(),
+            rollbackDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            previousStatus: "AI_PROPOSED",
+            author: author.system,
+            confidence: newConfidence,
+          };
+          newContent._commentary = commentary;
+        }
       }
 
       // ── PERSIST ──────────────────────────────────────────────────
