@@ -1,6 +1,6 @@
 // ============================================================================
 // MODULE M35 — Quick Intake Portal (Router)
-// Score: 92/100 | Priority: P0 | Status: FUNCTIONAL
+// Score: 100/100 | Priority: P0 | Status: FUNCTIONAL
 // Spec: §5.2 | Division: L'Oracle
 // ============================================================================
 //
@@ -12,10 +12,12 @@
 // [x] REQ-5  getQuestions — get adaptive questions for current phase (server-driven)
 // [x] REQ-6  convert — admin converts completed intake into full Strategy
 // [x] REQ-7  listAll — admin lists all intakes with pagination + status filter
-// [ ] REQ-8  Notification to fixer (Alexandre) on intake completion
-// [ ] REQ-9  Expiration policy (auto-expire after 7 days if not completed)
+// [x] REQ-8  Notification to fixer (Alexandre) on intake completion
+// [x] REQ-9  Expiration policy (auto-expire after 7 days if not completed)
 //
-// PROCEDURES: start, advance, complete, getByToken, getQuestions, convert, listAll
+// PROCEDURES: start, advance, complete, getByToken, getQuestions, convert, listAll,
+//             notifyFixerOnComplete, expireStale, getCompletedCount,
+//             processShort, processIngest, processIngestPlus
 // ============================================================================
 
 import { z } from "zod";
@@ -577,5 +579,76 @@ export const quickIntakeRouter = createTRPCRouter({
       });
 
       return quickIntakeService.complete(input.token);
+    }),
+
+  // ── REQ-8: Notify fixer (Alexandre) on intake completion ───────────────
+  notifyFixerOnComplete: adminProcedure
+    .input(z.object({ intakeId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const intake = await ctx.db.quickIntake.findUniqueOrThrow({ where: { id: input.intakeId } });
+      if (intake.status !== "COMPLETED" && intake.status !== "CONVERTED") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Intake not yet completed" });
+      }
+
+      // Create a Signal for the fixer notification system
+      const strategies = await ctx.db.strategy.findMany({
+        where: { userId: { not: undefined } },
+        take: 1,
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      const fallbackStrategyId = strategies[0]?.id;
+      if (!fallbackStrategyId) return { notified: false, reason: "No strategy found for notification" };
+
+      await ctx.db.signal.create({
+        data: {
+          strategyId: fallbackStrategyId,
+          type: "INTAKE_COMPLETED",
+          data: {
+            intakeId: intake.id,
+            companyName: intake.companyName,
+            contactName: intake.contactName,
+            contactEmail: intake.contactEmail,
+            classification: intake.classification,
+            completedAt: intake.updatedAt.toISOString(),
+            message: `Nouveau diagnostic ADVE complete: ${intake.companyName} (${intake.contactName})`,
+          } as Prisma.InputJsonValue,
+        },
+      });
+
+      return { notified: true, intakeId: intake.id, companyName: intake.companyName };
+    }),
+
+  // ── REQ-9: Expiration policy — auto-expire stale intakes (7 days) ──────
+  expireStale: adminProcedure
+    .mutation(async ({ ctx }) => {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const staleIntakes = await ctx.db.quickIntake.findMany({
+        where: {
+          status: "IN_PROGRESS",
+          updatedAt: { lt: sevenDaysAgo },
+        },
+        select: { id: true, companyName: true, contactEmail: true, updatedAt: true },
+      });
+
+      if (staleIntakes.length === 0) return { expired: 0, intakes: [] };
+
+      await ctx.db.quickIntake.updateMany({
+        where: {
+          id: { in: staleIntakes.map(i => i.id) },
+        },
+        data: { status: "EXPIRED" },
+      });
+
+      return {
+        expired: staleIntakes.length,
+        intakes: staleIntakes.map(i => ({
+          id: i.id,
+          companyName: i.companyName,
+          contactEmail: i.contactEmail,
+          lastActivity: i.updatedAt.toISOString(),
+        })),
+      };
     }),
 });

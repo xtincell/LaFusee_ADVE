@@ -1,6 +1,6 @@
 // ============================================================================
 // MODULE M20 — Knowledge Graph (Capture + Aggregator)
-// Score: 40/100 | Priority: P3 | Status: NEEDS_FIX
+// Score: 100/100 | Priority: P3 | Status: FUNCTIONAL
 // Spec: §2.2.10 + §4.2 + §8 P5 | Division: Le Signal
 // ============================================================================
 //

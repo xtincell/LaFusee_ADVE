@@ -1,6 +1,6 @@
 // ============================================================================
 // MODULE M01 — ADVE-RTIS Methodology (8 Pillars)
-// Score: 85/100 | Priority: P0 | Status: FUNCTIONAL
+// Score: 100/100 | Priority: P0 | Status: FUNCTIONAL
 // Spec: Annexe A + §6.1 | Division: L'Oracle
 // ============================================================================
 //
@@ -14,10 +14,10 @@
 // [x] REQ-7  RBAC: opérateur ne modifie que ses propres stratégies
 // [x] REQ-8  Cycle de génération cascade complet (ADVE→RTIS auto: chaque pilier consomme les précédents)
 // [x] REQ-9  Pipeline orchestrator side-effects post-génération (phase advance, score recalc, variable extraction)
-// [ ] REQ-10 Phases: fiche → audit → implementation → cockpit → complete (machine 5 états)
+// [x] REQ-10 Phases: fiche → audit → implementation → cockpit → complete (machine 5 états)
 //
 // PROCEDURES: get, update, generate, batchGenerate, validate, getHistory,
-//             getSchema, listByStrategy, reorder
+//             getSchema, listByStrategy, reorder, transitionPhase, getPhase
 // ============================================================================
 
 /**
@@ -715,6 +715,97 @@ export const pillarRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const { enrichAllFromVault } = await import("@/server/services/vault-enrichment");
       return enrichAllFromVault(input.strategyId);
+    }),
+
+  // ── REQ-10: Strategy phase state machine ───────────────────────────────
+  // Phases: FICHE → AUDIT → IMPLEMENTATION → COCKPIT → COMPLETE
+
+  getPhase: protectedProcedure
+    .input(z.object({ strategyId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const strategy = await ctx.db.strategy.findUniqueOrThrow({
+        where: { id: input.strategyId },
+        select: { status: true, advertis_vector: true },
+      });
+      // Derive current phase from strategy status
+      const phaseOrder = ["FICHE", "AUDIT", "IMPLEMENTATION", "COCKPIT", "COMPLETE"] as const;
+      const statusToPhase: Record<string, (typeof phaseOrder)[number]> = {
+        DRAFT: "FICHE", ACTIVE: "AUDIT", IN_PROGRESS: "IMPLEMENTATION",
+        COCKPIT: "COCKPIT", COMPLETE: "COMPLETE", COMPLETED: "COMPLETE",
+      };
+      const currentPhase = statusToPhase[strategy.status] ?? "FICHE";
+      const phaseIndex = phaseOrder.indexOf(currentPhase);
+
+      return {
+        strategyId: input.strategyId,
+        currentPhase,
+        phaseIndex,
+        totalPhases: phaseOrder.length,
+        allPhases: phaseOrder,
+        progressPct: Math.round(((phaseIndex + 1) / phaseOrder.length) * 100),
+      };
+    }),
+
+  transitionPhase: operatorProcedure
+    .input(z.object({
+      strategyId: z.string(),
+      targetPhase: z.enum(["FICHE", "AUDIT", "IMPLEMENTATION", "COCKPIT", "COMPLETE"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const phaseOrder = ["FICHE", "AUDIT", "IMPLEMENTATION", "COCKPIT", "COMPLETE"] as const;
+      const phaseToStatus: Record<string, string> = {
+        FICHE: "DRAFT", AUDIT: "ACTIVE", IMPLEMENTATION: "IN_PROGRESS",
+        COCKPIT: "COCKPIT", COMPLETE: "COMPLETED",
+      };
+
+      const strategy = await ctx.db.strategy.findUniqueOrThrow({
+        where: { id: input.strategyId },
+        select: { status: true },
+      });
+
+      // Determine current phase
+      const statusToPhase: Record<string, string> = {
+        DRAFT: "FICHE", ACTIVE: "AUDIT", IN_PROGRESS: "IMPLEMENTATION",
+        COCKPIT: "COCKPIT", COMPLETE: "COMPLETE", COMPLETED: "COMPLETE",
+      };
+      const currentPhase = statusToPhase[strategy.status] ?? "FICHE";
+      const currentIdx = phaseOrder.indexOf(currentPhase as (typeof phaseOrder)[number]);
+      const targetIdx = phaseOrder.indexOf(input.targetPhase);
+
+      // Only allow forward transitions or one step back
+      if (targetIdx < currentIdx - 1) {
+        return { success: false, error: `Cannot jump back from ${currentPhase} to ${input.targetPhase}. Max 1 step back.` };
+      }
+
+      // Gate: AUDIT requires all ADVE pillars to have content
+      if (input.targetPhase === "AUDIT") {
+        const pillars = await ctx.db.pillar.findMany({
+          where: { strategyId: input.strategyId, key: { in: ["a", "d", "v", "e"] } },
+        });
+        const filled = pillars.filter(p => p.content && typeof p.content === "object" && Object.keys(p.content as object).length > 0);
+        if (filled.length < 4) {
+          return { success: false, error: `AUDIT requires all 4 ADVE pillars to have content (${filled.length}/4 filled)` };
+        }
+      }
+
+      // Gate: COMPLETE requires all 8 pillars validated
+      if (input.targetPhase === "COMPLETE") {
+        const pillars = await ctx.db.pillar.findMany({
+          where: { strategyId: input.strategyId },
+        });
+        const validated = pillars.filter(p => p.validationStatus === "VALIDATED" || p.validationStatus === "LOCKED");
+        if (validated.length < 8) {
+          return { success: false, error: `COMPLETE requires all 8 pillars validated (${validated.length}/8)` };
+        }
+      }
+
+      const newStatus = phaseToStatus[input.targetPhase] ?? "DRAFT";
+      await ctx.db.strategy.update({
+        where: { id: input.strategyId },
+        data: { status: newStatus },
+      });
+
+      return { success: true, previousPhase: currentPhase, newPhase: input.targetPhase, newStatus };
     }),
 });
 
