@@ -133,7 +133,19 @@ function IntakeLandingContent() {
         router.push(`/intake/${data.token}/ingest-plus`);
       }
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => {
+      // Translate common Zod/tRPC errors to French
+      const msg = err.message;
+      if (msg.includes("email") || msg.includes("pattern")) {
+        setError("Adresse email invalide. Verifiez et reessayez.");
+        setStep("contact");
+      } else if (msg.includes("String must contain")) {
+        setError("Veuillez remplir tous les champs obligatoires.");
+        setStep("contact");
+      } else {
+        setError(msg);
+      }
+    },
   });
 
   const handleContactSubmit = (e: React.FormEvent) => {
@@ -144,10 +156,28 @@ function IntakeLandingContent() {
 
   const handleStart = () => {
     setError("");
+
+    // Client-side validation before hitting the server
+    if (!form.contactName.trim()) {
+      setError("Le nom est requis.");
+      setStep("contact");
+      return;
+    }
+    if (!form.contactEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) {
+      setError("Veuillez entrer une adresse email valide.");
+      setStep("contact");
+      return;
+    }
+    if (!form.companyName.trim()) {
+      setError("Le nom de la marque est requis.");
+      setStep("contact");
+      return;
+    }
+
     startMutation.mutate({
-      contactName: form.contactName,
-      contactEmail: form.contactEmail,
-      companyName: form.companyName,
+      contactName: form.contactName.trim(),
+      contactEmail: form.contactEmail.trim(),
+      companyName: form.companyName.trim(),
       sector: form.sector || undefined,
       country: form.country || undefined,
       businessModel: form.businessModel || undefined,

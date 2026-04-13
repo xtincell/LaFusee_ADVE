@@ -63,7 +63,11 @@ export function AdvertisRadar({
   const getPoint = (index: number, value: number) => {
     const angle = angleStep * index - Math.PI / 2;
     const r = (value / maxScore) * radius;
-    return { x: center + r * Math.cos(angle), y: center + r * Math.sin(angle) };
+    // Round to 2 decimals to avoid SSR/client hydration mismatch from float precision
+    return {
+      x: Math.round((center + r * Math.cos(angle)) * 100) / 100,
+      y: Math.round((center + r * Math.sin(angle)) * 100) / 100,
+    };
   };
 
   const dataPoints = useMemo(
@@ -213,8 +217,8 @@ export function AdvertisRadar({
           PILLAR_ORDER.map((key, i) => {
             const angle = angleStep * i - Math.PI / 2;
             const labelRadius = radius + (numericSize > 200 ? 28 : 20);
-            const x = center + labelRadius * Math.cos(angle);
-            const y = center + labelRadius * Math.sin(angle);
+            const x = Math.round((center + labelRadius * Math.cos(angle)) * 100) / 100;
+            const y = Math.round((center + labelRadius * Math.sin(angle)) * 100) / 100;
             const isHovered = hoveredPillar === key;
             const score = scores[key] ?? 0;
 
