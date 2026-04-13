@@ -33,9 +33,11 @@ interface AdvertisRadarProps {
   onPillarClick?: (pillar: PillarKey) => void;
   className?: string;
   animated?: boolean;
+  /** Override which pillars to show (default: all 8 ADVE-RTIS) */
+  pillarKeys?: PillarKey[];
 }
 
-const PILLAR_ORDER: PillarKey[] = [...PILLAR_KEYS];
+const DEFAULT_PILLAR_ORDER: PillarKey[] = [...PILLAR_KEYS];
 
 export function AdvertisRadar({
   scores,
@@ -49,7 +51,9 @@ export function AdvertisRadar({
   onPillarClick,
   className,
   animated = true,
+  pillarKeys,
 }: AdvertisRadarProps) {
+  const PILLAR_ORDER = pillarKeys ?? DEFAULT_PILLAR_ORDER;
   const router = useRouter();
   const [hoveredPillar, setHoveredPillar] = useState<PillarKey | null>(null);
 
@@ -58,7 +62,7 @@ export function AdvertisRadar({
 
   const center = numericSize / 2;
   const radius = (numericSize / 2) * (isMini ? 0.85 : 0.65);
-  const angleStep = (2 * Math.PI) / 8;
+  const angleStep = (2 * Math.PI) / PILLAR_ORDER.length;
 
   const getPoint = (index: number, value: number) => {
     const angle = angleStep * index - Math.PI / 2;

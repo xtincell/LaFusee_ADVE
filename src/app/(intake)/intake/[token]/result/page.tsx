@@ -201,12 +201,13 @@ export default function IntakeResult({ params }: { params: Promise<{ token: stri
   }
 
   const vector = intake.advertis_vector as Record<string, number>;
-  // ADVE-only scores for intake result
+  // ADVE-only scores for intake result — capped at 25 per pillar
+  const cap = (v: number) => Math.round(Math.min(v, 25) * 10) / 10;
   const scores: Partial<Record<PillarKey, number>> = {
-    a: vector.a ?? 0, d: vector.d ?? 0, v: vector.v ?? 0, e: vector.e ?? 0,
+    a: cap(vector.a ?? 0), d: cap(vector.d ?? 0), v: cap(vector.v ?? 0), e: cap(vector.e ?? 0),
   };
-  // Composite /100 = sum of ADVE pillars (each /25)
-  const composite = (vector.a ?? 0) + (vector.d ?? 0) + (vector.v ?? 0) + (vector.e ?? 0);
+  // Composite /100 = sum of capped ADVE pillars
+  const composite = Math.round(((scores.a ?? 0) + (scores.d ?? 0) + (scores.v ?? 0) + (scores.e ?? 0)) * 10) / 10;
   const confidence = vector.confidence ?? 0;
 
   const diagnostic = intake.diagnostic as Diagnostic | null;
@@ -267,7 +268,7 @@ export default function IntakeResult({ params }: { params: Promise<{ token: stri
             Radar 4 piliers ADVE
           </h3>
           <div className="flex justify-center">
-            <AdvertisRadar scores={scores} maxScore={25} size="md" interactive={false} animated />
+            <AdvertisRadar scores={scores} maxScore={25} size="md" interactive={false} animated pillarKeys={["a", "d", "v", "e"]} />
           </div>
         </div>
 
