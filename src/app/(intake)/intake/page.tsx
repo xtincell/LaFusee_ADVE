@@ -188,7 +188,7 @@ function IntakeLandingContent() {
         </h1>
 
         <p className="mt-4 max-w-md text-center text-base leading-relaxed text-foreground-secondary sm:text-lg">
-          Le protocole ADVE-RTIS analyse 8 dimensions et vous donne un score sur 200.
+          Le protocole ADVE analyse 4 dimensions fondamentales et vous donne un score sur 100.
         </p>
 
         {/* Trust badges */}
