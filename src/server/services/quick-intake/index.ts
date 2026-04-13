@@ -671,7 +671,7 @@ function analyzePillarResponses(
   responses?: Record<string, string>
 ): { pillar: string; key: string; score: number; diagnostic: string; actions: string[] } {
   const answers = responses
-    ? Object.values(responses).filter((v) => v?.trim())
+    ? Object.values(responses).map((v) => String(v ?? "")).filter((v) => v.trim())
     : [];
   const totalContent = answers.join(" ").toLowerCase();
   const hasSubstance = totalContent.length > 50;
