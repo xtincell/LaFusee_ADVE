@@ -448,11 +448,13 @@ export const quickIntakeRouter = createTRPCRouter({
   processIngest: publicProcedure
     .input(z.object({
       token: z.string(),
+      rawText: z.string().optional(),
+      websiteUrl: z.string().url().optional(),
       files: z.array(z.object({
         name: z.string(),
         content: z.string(), // base64
         type: z.string(),
-      })).min(1).max(5),
+      })).max(5).default([]),
     }))
     .mutation(async ({ ctx, input }) => {
       const intake = await ctx.db.quickIntake.findUnique({
@@ -461,27 +463,50 @@ export const quickIntakeRouter = createTRPCRouter({
       if (!intake) throw new Error("Intake not found");
       if (intake.status !== "IN_PROGRESS") throw new Error("Intake already completed");
 
-      // Decode base64 files to text (simplified: treat as text extraction)
-      const allText = input.files.map((f) => {
+      // Collect all text sources
+      const textParts: string[] = [];
+
+      // 1. Raw text input
+      if (input.rawText) {
+        textParts.push(`[TEXTE FOURNI]\n${input.rawText}`);
+      }
+
+      // 2. Website URL (stored for future crawling — not crawled yet)
+      if (input.websiteUrl) {
+        textParts.push(`[SITE WEB] ${input.websiteUrl}`);
+      }
+
+      // 3. Decode base64 files to text
+      for (const f of input.files) {
         try {
-          // For text-based files, decode directly
           if (f.type === "text/plain") {
-            return Buffer.from(f.content, "base64").toString("utf-8");
+            textParts.push(`[DOCUMENT: ${f.name}]\n${Buffer.from(f.content, "base64").toString("utf-8")}`);
+          } else {
+            const decoded = Buffer.from(f.content, "base64").toString("utf-8");
+            const cleaned = decoded.replace(/[^\x20-\x7E\xC0-\xFF\n\r\t]/g, " ").replace(/\s{3,}/g, " ").trim();
+            if (cleaned.length > 50) textParts.push(`[DOCUMENT: ${f.name}]\n${cleaned}`);
           }
-          // For binary files (PDF/Word/PPT), we extract what we can from base64
-          // In production, use a proper parser (pdf-parse, mammoth, etc.)
-          // For now, decode and pass to AI which handles mixed content
-          const decoded = Buffer.from(f.content, "base64").toString("utf-8");
-          // Filter to printable characters
-          return decoded.replace(/[^\x20-\x7E\xC0-\xFF\n\r\t]/g, " ").replace(/\s{3,}/g, " ").trim();
         } catch {
-          return `[Fichier: ${f.name}]`;
+          textParts.push(`[Fichier non lisible: ${f.name}]`);
         }
-      }).join("\n\n---\n\n");
+      }
+
+      const allText = textParts.join("\n\n---\n\n");
+
+      // Update intake with source info
+      const sourceNames = [
+        input.rawText ? "texte" : null,
+        input.websiteUrl ? input.websiteUrl : null,
+        ...input.files.map((f) => f.name),
+      ].filter(Boolean);
 
       await ctx.db.quickIntake.update({
         where: { id: intake.id },
-        data: { documentUrl: input.files.map((f) => f.name).join(", ") },
+        data: {
+          rawText: input.rawText ?? null,
+          websiteUrl: input.websiteUrl ?? null,
+          documentUrl: sourceNames.join(", "),
+        },
       });
 
       const responses = await extractFromText(allText, intake.companyName, intake.sector);

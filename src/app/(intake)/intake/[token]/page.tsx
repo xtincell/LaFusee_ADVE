@@ -115,6 +115,8 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
   const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [responses, setResponses] = useState<Record<string, unknown>>({});
+  // Local cache of all phase responses — survives forward/back navigation
+  const phaseResponsesRef = useRef<Record<string, Record<string, unknown>>>({});
   const [questions, setQuestions] = useState<IntakeQuestion[]>([]);
   const [error, setError] = useState("");
   const [initialized, setInitialized] = useState(false);
@@ -253,6 +255,9 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
   const saveAndAdvance = async (nextPhaseIndex: number) => {
     setError("");
     try {
+      // Cache current phase responses locally before saving
+      phaseResponsesRef.current[currentPhase] = { ...responses };
+
       await advanceMutation.mutateAsync({
         token,
         responses: { [currentPhase]: responses },
@@ -263,7 +268,8 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
         setLoadingQuestions(true);
         setCurrentPhaseIndex(nextPhaseIndex);
         setCurrentQuestionIndex(0);
-        setResponses(savedResponses[nextPhase] ?? {});
+        // Prefer local cache > server snapshot (server snapshot is stale until re-fetch)
+        setResponses(phaseResponsesRef.current[nextPhase] ?? savedResponses[nextPhase] ?? {});
         utils.quickIntake.getQuestions.invalidate({ token, pillar: nextPhase });
       }
     } catch (err) {
@@ -318,8 +324,10 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     } else if (currentPhaseIndex > 0) {
+      // Cache current responses before going back
+      phaseResponsesRef.current[currentPhase] = { ...responses };
       const prevPhase = PHASE_ORDER[currentPhaseIndex - 1]!;
-      setResponses(savedResponses[prevPhase] ?? {});
+      setResponses(phaseResponsesRef.current[prevPhase] ?? savedResponses[prevPhase] ?? {});
       setCurrentPhaseIndex(currentPhaseIndex - 1);
       setCurrentQuestionIndex(0);
       utils.quickIntake.getQuestions.invalidate({ token, pillar: prevPhase });
@@ -337,8 +345,10 @@ export default function IntakeQuestionnaire({ params }: { params: Promise<{ toke
 
   const handleDesktopPrev = () => {
     if (currentPhaseIndex > 0) {
+      // Cache current responses before going back
+      phaseResponsesRef.current[currentPhase] = { ...responses };
       const prevPhase = PHASE_ORDER[currentPhaseIndex - 1]!;
-      setResponses(savedResponses[prevPhase] ?? {});
+      setResponses(phaseResponsesRef.current[prevPhase] ?? savedResponses[prevPhase] ?? {});
       setCurrentPhaseIndex(currentPhaseIndex - 1);
       setCurrentQuestionIndex(0);
       utils.quickIntake.getQuestions.invalidate({ token, pillar: prevPhase });
