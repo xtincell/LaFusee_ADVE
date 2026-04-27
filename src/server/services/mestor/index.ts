@@ -1,9 +1,15 @@
+import { db } from "@/lib/db";
 import type { BusinessContext } from "@/lib/types/business-context";
 import { BUSINESS_MODELS, ECONOMIC_MODELS, POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
 import { PILLAR_NAMES, type PillarKey } from "@/lib/types/advertis-vector";
 import { LEVEL_LABEL, type ValidationLevel } from "@/lib/utils/pillar-validation";
 
 export type MestorContext = "cockpit" | "creator" | "console" | "intake";
+
+export interface MestorMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
 
 /**
  * Etat ARTEMIS optionnel — passe a Mestor pour qu'il sache ou en est la marque
@@ -86,34 +92,6 @@ export function getSystemPrompt(
   return prompt;
 }
 
-/**
- * Construit un bloc decrivant l'etat ARTEMIS pour que Mestor sache quel pilier
- * est en cours de travail et adapte ses suggestions.
- */
-function buildArtemisStateBlock(state: MestorArtemisState): string {
-  const lines = [
-    "--- ETAT ARTEMIS DE LA MARQUE ---",
-    `Calibrage : ${state.validatedCount}/8 piliers validés, ${state.startedCount} en cours, ${state.pendingCount} restants.`,
-  ];
-
-  if (state.recommendedNextPillar) {
-    lines.push(
-      `Pilier recommandé maintenant : ${PILLAR_NAMES[state.recommendedNextPillar]} (${state.recommendedNextPillar.toUpperCase()}).`
-    );
-    if (state.recommendedReason) lines.push(`Raison : ${state.recommendedReason}`);
-  }
-
-  const pillarLines = (Object.entries(state.pillarLevels) as Array<[PillarKey, ValidationLevel]>)
-    .map(([k, lvl]) => `  ${k.toUpperCase()} ${PILLAR_NAMES[k]} : ${LEVEL_LABEL[lvl]}`)
-    .join("\n");
-  lines.push("Niveau par pilier :\n" + pillarLines);
-
-  lines.push("--- FIN ETAT ARTEMIS ---");
-  lines.push("Tes recommandations doivent prioriser le pilier recommandé. Si l'utilisateur demande conseil sur un pilier verrouillé, explique d'abord les prérequis manquants.");
-
-  return lines.join("\n");
-}
-
 export function getContextLabel(context: MestorContext): string {
   const labels: Record<MestorContext, string> = {
     cockpit: "Assistant Brand OS",
@@ -125,7 +103,116 @@ export function getContextLabel(context: MestorContext): string {
 }
 
 /**
- * Builds a context block describing the brand's business model for injection into Mestor prompts.
+ * Chat with Mestor using Claude API if available, fallback to local rule-based response.
+ * Optionally enrich the system prompt with BusinessContext + ARTEMIS state when provided.
+ */
+export async function chat(
+  context: MestorContext,
+  messages: MestorMessage[],
+  strategyId?: string,
+  enrichments?: { bizContext?: BusinessContext | null; artemisState?: MestorArtemisState | null }
+): Promise<string> {
+  const contextData = await buildContextData(context, strategyId);
+  const systemPrompt = buildFullPrompt(context, contextData, enrichments);
+
+  if (process.env.ANTHROPIC_API_KEY) {
+    return chatWithClaude(systemPrompt, messages);
+  }
+
+  return localFallback(context, messages, contextData);
+}
+
+async function chatWithClaude(systemPrompt: string, messages: MestorMessage[]): Promise<string> {
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY!,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: messages.map((m) => ({
+          role: m.role === "system" ? "user" : m.role,
+          content: m.content,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("Claude API error:", error);
+      return "Je rencontre un problème technique. Réessayez dans un instant.";
+    }
+
+    const data = await response.json();
+    return data.content?.[0]?.text ?? "Je n'ai pas pu générer de réponse.";
+  } catch (error) {
+    console.error("Mestor Claude API error:", error);
+    return "Mestor est temporairement indisponible. Réessayez dans un instant.";
+  }
+}
+
+async function buildContextData(
+  context: MestorContext,
+  strategyId?: string
+): Promise<string> {
+  const parts: string[] = [];
+
+  if (strategyId && (context === "cockpit" || context === "console")) {
+    const strategy = await db.strategy.findUnique({
+      where: { id: strategyId },
+      include: { pillars: true, drivers: { where: { deletedAt: null } } },
+    });
+
+    if (strategy) {
+      const vector = strategy.advertis_vector as Record<string, number> | null;
+      parts.push(`Marque: ${strategy.name}`);
+      if (vector) {
+        parts.push(`Score ADVE: ${vector.composite ?? 0}/200 (confidence: ${vector.confidence ?? 0})`);
+        parts.push(`Piliers: A=${vector.a ?? 0}, D=${vector.d ?? 0}, V=${vector.v ?? 0}, E=${vector.e ?? 0}, R=${vector.r ?? 0}, T=${vector.t ?? 0}, I=${vector.i ?? 0}, S=${vector.s ?? 0}`);
+      }
+      parts.push(`Drivers actifs: ${strategy.drivers.map((d) => d.name).join(", ") || "aucun"}`);
+    }
+  }
+
+  if (context === "console") {
+    const [strategyCount, missionCount, talentCount] = await Promise.all([
+      db.strategy.count({ where: { status: "ACTIVE" } }),
+      db.mission.count({ where: { status: { in: ["DRAFT", "IN_PROGRESS"] } } }),
+      db.talentProfile.count(),
+    ]);
+    parts.push(`Écosystème: ${strategyCount} clients actifs, ${missionCount} missions en cours, ${talentCount} créatifs`);
+  }
+
+  return parts.join("\n");
+}
+
+function buildFullPrompt(
+  context: MestorContext,
+  contextData: string,
+  enrichments?: { bizContext?: BusinessContext | null; artemisState?: MestorArtemisState | null }
+): string {
+  let prompt = SYSTEM_PROMPTS[context];
+
+  if (enrichments?.bizContext) {
+    prompt += "\n\n" + buildBusinessContextBlock(enrichments.bizContext);
+  }
+  if (enrichments?.artemisState) {
+    prompt += "\n\n" + buildArtemisStateBlock(enrichments.artemisState);
+  }
+  if (contextData) {
+    prompt += `\n\nContexte actuel:\n${contextData}`;
+  }
+
+  return prompt;
+}
+
+/**
+ * Construit un bloc decrivant le contexte business pour adapter le ton et les exemples.
  */
 function buildBusinessContextBlock(ctx: BusinessContext): string {
   const bmLabel = BUSINESS_MODELS[ctx.businessModel]?.label ?? ctx.businessModel;
@@ -156,4 +243,82 @@ function buildBusinessContextBlock(ctx: BusinessContext): string {
   lines.push("Adapte ton vocabulaire, tes exemples, et tes recommandations a ce contexte. Ne parle pas de 'retention' a une marque one-shot. Ne parle pas de 'feature gates' a une marque de luxe physique.");
 
   return lines.join("\n");
+}
+
+/**
+ * Construit un bloc decrivant l'etat ARTEMIS pour que Mestor sache quel pilier
+ * est en cours de travail et adapte ses suggestions.
+ */
+function buildArtemisStateBlock(state: MestorArtemisState): string {
+  const lines = [
+    "--- ETAT ARTEMIS DE LA MARQUE ---",
+    `Calibrage : ${state.validatedCount}/8 piliers validés, ${state.startedCount} en cours, ${state.pendingCount} restants.`,
+  ];
+
+  if (state.recommendedNextPillar) {
+    lines.push(
+      `Pilier recommandé maintenant : ${PILLAR_NAMES[state.recommendedNextPillar]} (${state.recommendedNextPillar.toUpperCase()}).`
+    );
+    if (state.recommendedReason) lines.push(`Raison : ${state.recommendedReason}`);
+  }
+
+  const pillarLines = (Object.entries(state.pillarLevels) as Array<[PillarKey, ValidationLevel]>)
+    .map(([k, lvl]) => `  ${k.toUpperCase()} ${PILLAR_NAMES[k]} : ${LEVEL_LABEL[lvl]}`)
+    .join("\n");
+  lines.push("Niveau par pilier :\n" + pillarLines);
+
+  lines.push("--- FIN ETAT ARTEMIS ---");
+  lines.push("Tes recommandations doivent prioriser le pilier recommandé. Si l'utilisateur demande conseil sur un pilier verrouillé, explique d'abord les prérequis manquants.");
+
+  return lines.join("\n");
+}
+
+/**
+ * Fallback rule-based quand pas de cle Claude API.
+ */
+function localFallback(
+  context: MestorContext,
+  messages: MestorMessage[],
+  contextData: string
+): string {
+  const lastMessage = messages[messages.length - 1]?.content.toLowerCase() ?? "";
+
+  if (lastMessage.includes("score") || lastMessage.includes("adve")) {
+    if (contextData.includes("Score ADVE")) {
+      const match = contextData.match(/Score ADVE: (\d+)\/200/);
+      return `Votre score ADVE-RTIS actuel est de ${match?.[1] ?? "—"}/200. Ce score reflète la force globale de votre marque sur les 8 piliers du protocole. Souhaitez-vous que je détaille un pilier en particulier ?`;
+    }
+    return "Le score ADVE-RTIS mesure la force de votre marque sur 8 dimensions : Authenticité, Distinction, Valeur, Engagement, Risk, Track, Implementation et Stratégie. Chaque pilier vaut /25, pour un total de /200. Souhaitez-vous en savoir plus sur un pilier spécifique ?";
+  }
+
+  if (lastMessage.includes("pilier") || lastMessage.includes("pillar")) {
+    return "Les 8 piliers ADVE-RTIS sont :\n- **A** (Authenticité) : Votre identité, vision, mission\n- **D** (Distinction) : Ce qui vous différencie\n- **V** (Valeur) : Votre promesse au monde\n- **E** (Engagement) : La dévotion de votre audience\n- **R** (Risk) : Vos angles morts\n- **T** (Track) : Comment vous mesurez le succès\n- **I** (Implementation) : De la stratégie à l'action\n- **S** (Stratégie) : La cohérence d'ensemble\n\nQuel pilier souhaitez-vous explorer ?";
+  }
+
+  if (lastMessage.includes("devotion") || lastMessage.includes("ladder")) {
+    return "La Devotion Ladder mesure l'attachement de votre audience en 6 niveaux : Spectateur → Intéressé → Participant → Engagé → Ambassadeur → Évangéliste. L'objectif est de faire monter vos audiences dans l'échelle. Voulez-vous voir la distribution actuelle ?";
+  }
+
+  if (lastMessage.includes("brief") || lastMessage.includes("mission")) {
+    return "Pour créer un brief efficace, je recommande de commencer par identifier les 2-3 piliers ADVE prioritaires pour cette mission. Le Driver assigné détermine les specs techniques et les critères QC. Souhaitez-vous que je vous aide à rédiger un brief ?";
+  }
+
+  if (lastMessage.includes("bonjour") || lastMessage.includes("salut") || lastMessage.includes("hello")) {
+    const greetings: Record<MestorContext, string> = {
+      cockpit: "Bonjour ! Je suis Mestor, votre assistant Brand OS. Comment puis-je vous aider avec votre marque aujourd'hui ?",
+      creator: "Salut ! Je suis Mestor, ton assistant dans la Guilde. Besoin d'aide avec une mission ou un brief ?",
+      console: "Bonjour Alexandre. Mestor à votre service. Que voulez-vous regarder dans l'écosystème ?",
+      intake: "Bienvenue ! Je suis Mestor, votre guide pour le diagnostic de marque. Prêt à commencer ?",
+    };
+    return greetings[context];
+  }
+
+  const defaults: Record<MestorContext, string> = {
+    cockpit: "Je suis là pour vous aider à comprendre et renforcer votre marque. Vous pouvez me poser des questions sur votre score ADVE, vos piliers, votre Devotion Ladder, ou demander des recommandations. Que souhaitez-vous explorer ?",
+    creator: "Je peux t'aider avec tes missions, t'expliquer les guidelines d'un Driver, ou te guider dans le processus QC. Qu'est-ce que tu as besoin ?",
+    console: "Je peux analyser l'écosystème, comparer les clients, détecter des opportunités d'upsell, ou vous alerter sur des drifts. Que voulez-vous voir ?",
+    intake: "Je suis là pour évaluer la force de votre marque. Commençons par une question simple : quelle est l'histoire de votre marque ?",
+  };
+
+  return defaults[context];
 }

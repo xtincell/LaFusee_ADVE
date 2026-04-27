@@ -1,5 +1,6 @@
 import "@/lib/auth/types";
 import { initTRPC, TRPCError } from "@trpc/server";
+import { checkRateLimit, RATE_LIMITS } from "./middleware/rate-limit";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import type { Context } from "./context";
@@ -37,5 +38,10 @@ export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.session.user.role !== "ADMIN") {
     throw new TRPCError({ code: "FORBIDDEN" });
   }
+  return next({ ctx });
+});
+
+export const aiProcedure = protectedProcedure.use(({ ctx, next }) => {
+  checkRateLimit(`ai:${ctx.session.user.id}`, RATE_LIMITS.ai);
   return next({ ctx });
 });

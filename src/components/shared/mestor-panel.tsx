@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { trpc } from "@/lib/trpc/client";
 
 interface MestorPanelProps {
   context: "cockpit" | "creator" | "console" | "intake";
@@ -11,25 +12,34 @@ interface MestorPanelProps {
 export function MestorPanel({ context, strategyId, className }: MestorPanelProps) {
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const chatMutation = trpc.mestor.chat.useMutation({
+    onSuccess: (data) => {
+      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+    },
+    onError: () => {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Désolé, je rencontre un problème. Réessayez dans un instant." },
+      ]);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || chatMutation.isPending) return;
 
     const userMessage = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setIsLoading(true);
 
-    // TODO: Wire to Mestor AI service with context-appropriate system prompt
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Mestor AI est en cours d'intégration. Cette fonctionnalité sera disponible prochainement." },
-      ]);
-      setIsLoading(false);
-    }, 500);
+    const newMessages = [...messages, { role: "user" as const, content: userMessage }];
+    setMessages(newMessages);
+
+    chatMutation.mutate({
+      context,
+      messages: newMessages,
+      strategyId,
+    });
   };
 
   return (
@@ -51,7 +61,7 @@ export function MestorPanel({ context, strategyId, className }: MestorPanelProps
         {messages.map((msg, i) => (
           <div key={i} className={`text-sm ${msg.role === "user" ? "text-right" : ""}`}>
             <span
-              className={`inline-block rounded-lg px-3 py-2 ${
+              className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-left whitespace-pre-wrap ${
                 msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
               }`}
             >
@@ -59,9 +69,9 @@ export function MestorPanel({ context, strategyId, className }: MestorPanelProps
             </span>
           </div>
         ))}
-        {isLoading && (
+        {chatMutation.isPending && (
           <div className="text-sm">
-            <span className="inline-block rounded-lg bg-muted px-3 py-2 animate-pulse">...</span>
+            <span className="inline-block rounded-lg bg-muted px-3 py-2 animate-pulse">Mestor réfléchit...</span>
           </div>
         )}
       </div>
@@ -74,7 +84,11 @@ export function MestorPanel({ context, strategyId, className }: MestorPanelProps
           placeholder="Demandez à Mestor..."
           className="flex-1 rounded-md border px-3 py-2 text-sm"
         />
-        <button type="submit" disabled={isLoading} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
+        <button
+          type="submit"
+          disabled={chatMutation.isPending}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
           Envoyer
         </button>
       </form>
