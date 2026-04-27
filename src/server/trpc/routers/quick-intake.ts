@@ -45,6 +45,12 @@ export const quickIntakeRouter = createTRPCRouter({
       });
     }),
 
+  getState: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      return quickIntakeService.getState(input.token);
+    }),
+
   convert: adminProcedure
     .input(z.object({ intakeId: z.string(), userId: z.string() }))
     .mutation(async ({ ctx, input }) => {

@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { scoreObject } from "@/server/services/advertis-scorer";
 import { classifyBrand } from "@/lib/types/advertis-vector";
-import { getAdaptiveQuestions, getBusinessContextQuestions } from "./question-bank";
+import { getAdaptiveQuestions, getBusinessContextQuestions, type IntakeQuestion } from "./question-bank";
 import type { BusinessContext, BusinessModelKey, EconomicModelKey, PositioningArchetypeKey, SalesChannel, PremiumScope } from "@/lib/types/business-context";
 import { POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
 
@@ -25,6 +25,12 @@ export interface QuickIntakeAdvanceInput {
 }
 
 export async function start(input: QuickIntakeStartInput) {
+  // Pre-populate biz responses from landing page fields so biz step is skipped
+  const prePopulated: Record<string, unknown> = {};
+  if (input.businessModel) prePopulated.biz_model = input.businessModel;
+  if (input.economicModel) prePopulated.biz_revenue = input.economicModel;
+  if (input.positioning) prePopulated.biz_positioning = input.positioning;
+
   const intake = await db.quickIntake.create({
     data: {
       contactName: input.contactName,
@@ -37,20 +43,47 @@ export async function start(input: QuickIntakeStartInput) {
       economicModel: input.economicModel,
       positioning: input.positioning,
       source: input.source,
-      responses: {} as Prisma.InputJsonValue,
+      responses: (Object.keys(prePopulated).length > 0 ? prePopulated : {}) as Prisma.InputJsonValue,
       status: "IN_PROGRESS",
     },
   });
 
-  // Start with business context questions, then move to ADVE pillars
-  const firstQuestions = getBusinessContextQuestions();
+  const state = deriveState(intake);
 
   return {
     token: intake.shareToken,
-    questions: firstQuestions,
-    currentPillar: "biz",
-    progress: 0,
+    questions: state.questions,
+    currentPillar: state.currentPillar,
+    progress: state.progress,
   };
+}
+
+export async function getState(token: string) {
+  const intake = await db.quickIntake.findUnique({
+    where: { shareToken: token },
+  });
+  if (!intake) throw new Error("Intake not found");
+  if (intake.status !== "IN_PROGRESS") {
+    return { currentPillar: null, questions: [] as IntakeQuestion[], progress: 1, readyToComplete: false, completed: true };
+  }
+  return deriveState(intake);
+}
+
+function deriveState(intake: { responses: unknown }) {
+  const responses = (intake.responses as Record<string, unknown>) ?? {};
+  const allSteps = ["biz", "a", "d", "v", "e", "r", "t", "i", "s"];
+  const answeredSteps = new Set(
+    Object.keys(responses).map((key) => key.split("_")[0])
+  );
+  const nextPillar = allSteps.find((p) => !answeredSteps.has(p)) ?? null;
+  const progress = answeredSteps.size / allSteps.length;
+
+  if (!nextPillar) {
+    return { currentPillar: null, questions: [] as IntakeQuestion[], progress: 1, readyToComplete: true, completed: false };
+  }
+
+  const questions = getAdaptiveQuestions(nextPillar, responses);
+  return { currentPillar: nextPillar, questions, progress, readyToComplete: false, completed: false };
 }
 
 export async function advance(input: QuickIntakeAdvanceInput) {
