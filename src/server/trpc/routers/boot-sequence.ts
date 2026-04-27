@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, adminProcedure } from "../init";
 import * as bootService from "@/server/services/boot-sequence";
 import { getQuestionPack } from "@/server/services/boot-sequence/question-packs";
+import { canComplete } from "@/server/services/artemis-sequencer";
 import { PILLAR_KEYS, type PillarKey } from "@/lib/types/advertis-vector";
 
 const pillarKey = z.enum(PILLAR_KEYS as unknown as [PillarKey, ...PillarKey[]]);
@@ -40,6 +41,12 @@ export const bootSequenceRouter = createTRPCRouter({
     .input(z.object({ strategyId: z.string(), pillar: pillarKey }))
     .mutation(async ({ input }) => {
       return bootService.skipPillar(input.strategyId, input.pillar);
+    }),
+
+  canComplete: adminProcedure
+    .input(z.object({ strategyId: z.string() }))
+    .query(async ({ input }) => {
+      return canComplete(input.strategyId);
     }),
 
   complete: adminProcedure

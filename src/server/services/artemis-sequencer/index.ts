@@ -7,6 +7,7 @@ import {
   type PillarValidation,
   type ValidationLevel,
 } from "@/lib/utils/pillar-validation";
+import { captureEvent } from "@/server/services/knowledge-capture";
 
 // ============================================================================
 // ARTEMIS Conditional Sequencer
@@ -114,16 +115,26 @@ function computePriority(
 }
 
 /**
- * Profondeur d'un pilier dans le graphe de prerequis.
+ * Profondeur d'un pilier dans le graphe de prerequis. Detecte les cycles.
  */
-function getDepth(pillar: PillarKey, memo: Map<PillarKey, number> = new Map()): number {
+function getDepth(
+  pillar: PillarKey,
+  memo: Map<PillarKey, number> = new Map(),
+  stack: Set<PillarKey> = new Set()
+): number {
   if (memo.has(pillar)) return memo.get(pillar)!;
+  if (stack.has(pillar)) {
+    // Cycle detecte : couper a 0 pour eviter la recursion infinie
+    return 0;
+  }
   const prereqs = PREREQUISITES[pillar];
   if (prereqs.length === 0) {
     memo.set(pillar, 0);
     return 0;
   }
-  const max = Math.max(...prereqs.map((p) => getDepth(p, memo)));
+  stack.add(pillar);
+  const max = Math.max(...prereqs.map((p) => getDepth(p, memo, stack)));
+  stack.delete(pillar);
   const d = max + 1;
   memo.set(pillar, d);
   return d;
@@ -307,27 +318,109 @@ export async function openPillarForEdit(
 
 /**
  * Met a jour le contenu d'un pilier (merge avec l'existant) et recalcule la validation.
+ *
+ * Utilise une transaction Prisma serialisee pour eliminer la race condition :
+ * deux advance() concurrents sur le meme pilier ne peuvent plus s'ecraser
+ * mutuellement.
  */
 export async function updatePillarContent(
   strategyId: string,
   pillar: PillarKey,
   patch: Record<string, unknown>,
   confidence?: number
-): Promise<{ step: PillarStep; plan: SequencePlan }> {
-  const existing = await db.pillar.findUnique({
-    where: { strategyId_key: { strategyId, key: pillar } },
-  });
+): Promise<{ step: PillarStep; plan: SequencePlan; previousLevel: ValidationLevel; newLevel: ValidationLevel }> {
+  // Read-modify-write encapsule dans une transaction
+  const { previousLevel, newLevel } = await db.$transaction(async (tx) => {
+    const existing = await tx.pillar.findUnique({
+      where: { strategyId_key: { strategyId, key: pillar } },
+    });
 
-  const merged = { ...((existing?.content as Record<string, unknown>) ?? {}), ...patch };
-  const newConfidence = confidence ?? existing?.confidence ?? 0.5;
+    const previousContent = sanitizeIncomingContent(existing?.content);
+    const previousValidation = validatePillar(pillar, previousContent, existing?.confidence ?? 0);
+    const previousLevel = previousValidation.level;
 
-  await db.pillar.upsert({
-    where: { strategyId_key: { strategyId, key: pillar } },
-    update: { content: merged as object, confidence: newConfidence },
-    create: { strategyId, key: pillar, content: merged as object, confidence: newConfidence },
+    // Merge en respectant les valeurs existantes : un patch vide ne doit pas effacer
+    const merged: Record<string, unknown> = { ...previousContent };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || v === undefined) continue;
+      if (typeof v === "string" && v.trim().length === 0) continue;
+      merged[k] = v;
+    }
+
+    const newConfidence = confidence ?? existing?.confidence ?? 0.5;
+    const newValidation = validatePillar(pillar, merged, newConfidence);
+    const newLevel = newValidation.level;
+
+    await tx.pillar.upsert({
+      where: { strategyId_key: { strategyId, key: pillar } },
+      update: { content: merged as object, confidence: newConfidence },
+      create: { strategyId, key: pillar, content: merged as object, confidence: newConfidence },
+    });
+
+    return { previousLevel, newLevel };
   });
 
   const plan = await planSequence(strategyId);
   const step = plan.steps.find((s) => s.pillar === pillar)!;
-  return { step, plan };
+
+  // Capture knowledge si transition d'etat
+  if (previousLevel !== newLevel) {
+    await captureEvent("DIAGNOSTIC_RESULT", {
+      pillarFocus: pillar,
+      data: {
+        type: "artemis_pillar_transition",
+        strategyId,
+        pillar,
+        from: previousLevel,
+        to: newLevel,
+        projectedScore: step.validation.projectedScore,
+        keyAtomsRatio: step.validation.keyAtomsRatio,
+      },
+      sourceId: `${strategyId}-${pillar}-${Date.now()}`,
+    });
+  }
+
+  return { step, plan, previousLevel, newLevel };
+}
+
+/**
+ * Lit Pillar.content de maniere defensive, retourne toujours un objet plat.
+ */
+function sanitizeIncomingContent(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as Record<string, unknown>;
+}
+
+/**
+ * Verifie si le scoring final (complete) est legitime.
+ * Refuse si moins de 3 piliers atteignent au moins le niveau STARTED.
+ */
+export interface CompletionGuard {
+  allowed: boolean;
+  reason: string;
+  startedOrAbove: number;
+  validatedCount: number;
+}
+
+export async function canComplete(strategyId: string): Promise<CompletionGuard> {
+  const plan = await planSequence(strategyId);
+  const startedOrAbove = plan.steps.filter(
+    (s) => s.validation.level !== "EMPTY"
+  ).length;
+
+  if (startedOrAbove < 3) {
+    return {
+      allowed: false,
+      reason: `Au moins 3 piliers doivent être démarrés avant de scorer (${startedOrAbove}/8 actuellement). Sinon le score ADVE-RTIS sera proche de zéro et non-significatif.`,
+      startedOrAbove,
+      validatedCount: plan.validatedCount,
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: `Scoring autorisé — ${startedOrAbove}/8 piliers démarrés, ${plan.validatedCount}/8 validés.`,
+    startedOrAbove,
+    validatedCount: plan.validatedCount,
+  };
 }

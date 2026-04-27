@@ -6,9 +6,11 @@ import {
   planSequence,
   updatePillarContent,
   openPillarForEdit,
+  canComplete,
   type SequencePlan,
   type PillarStep,
 } from "@/server/services/artemis-sequencer";
+import { captureEvent } from "@/server/services/knowledge-capture";
 
 /**
  * Boot Sequence — la session ARTEMIS d'onboarding strategique.
@@ -77,12 +79,18 @@ export async function advance(
 
 /**
  * Termine la session — declenche le scoring final et passe la strategy en ACTIVE.
+ * Refuse si trop peu de piliers ont ete demarres (eviter un score zero non-significatif).
  */
 export async function complete(strategyId: string): Promise<{
   vector: Record<string, number>;
   classification: string;
   plan: SequencePlan;
 }> {
+  const guard = await canComplete(strategyId);
+  if (!guard.allowed) {
+    throw new Error(guard.reason);
+  }
+
   const vector = await scoreObject("strategy", strategyId);
   const classification = classifyBrand(vector.composite);
   const plan = await planSequence(strategyId);
@@ -92,31 +100,59 @@ export async function complete(strategyId: string): Promise<{
     data: { status: "ACTIVE" },
   });
 
+  // Capture knowledge : completion ARTEMIS
+  await captureEvent("DIAGNOSTIC_RESULT", {
+    data: {
+      type: "artemis_boot_completed",
+      strategyId,
+      composite: vector.composite,
+      classification,
+      validatedCount: plan.validatedCount,
+      startedCount: plan.startedCount,
+      pendingCount: plan.pendingCount,
+    },
+    successScore: vector.composite / 200,
+    sourceId: `${strategyId}-boot-complete`,
+  });
+
   return { vector, classification, plan };
 }
 
 /**
  * Marque explicitement un pilier comme "skip" (l'utilisateur veut passer).
- * On stocke un atome _skipped: true pour qu'il sorte du EMPTY mais reste en STARTED.
+ * Le flag _skipped est une cle meta — il n'est PAS compte comme un atome valide.
+ * Le pilier reste donc EMPTY (s'il l'etait) mais le flag est expose pour l'UI.
  */
 export async function skipPillar(
   strategyId: string,
   pillar: PillarKey
 ): Promise<BootState> {
-  const existing = await db.pillar.findUnique({
-    where: { strategyId_key: { strategyId, key: pillar } },
+  await db.$transaction(async (tx) => {
+    const existing = await tx.pillar.findUnique({
+      where: { strategyId_key: { strategyId, key: pillar } },
+    });
+
+    const previousContent = (existing?.content && typeof existing.content === "object" && !Array.isArray(existing.content))
+      ? (existing.content as Record<string, unknown>)
+      : {};
+
+    const content = {
+      ...previousContent,
+      _skipped: true,
+      _skipped_at: new Date().toISOString(),
+    };
+
+    await tx.pillar.upsert({
+      where: { strategyId_key: { strategyId, key: pillar } },
+      update: { content: content as Prisma.InputJsonValue, confidence: existing?.confidence ?? 0.2 },
+      create: { strategyId, key: pillar, content: content as Prisma.InputJsonValue, confidence: 0.2 },
+    });
   });
 
-  const content = {
-    ...((existing?.content as Record<string, unknown>) ?? {}),
-    _skipped: true,
-    _skipped_at: new Date().toISOString(),
-  };
-
-  await db.pillar.upsert({
-    where: { strategyId_key: { strategyId, key: pillar } },
-    update: { content: content as Prisma.InputJsonValue, confidence: existing?.confidence ?? 0.2 },
-    create: { strategyId, key: pillar, content: content as Prisma.InputJsonValue, confidence: 0.2 },
+  await captureEvent("DIAGNOSTIC_RESULT", {
+    pillarFocus: pillar,
+    data: { type: "artemis_pillar_skipped", strategyId, pillar },
+    sourceId: `${strategyId}-${pillar}-skip`,
   });
 
   return getState(strategyId);

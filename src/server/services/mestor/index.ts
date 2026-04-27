@@ -1,7 +1,22 @@
 import type { BusinessContext } from "@/lib/types/business-context";
 import { BUSINESS_MODELS, ECONOMIC_MODELS, POSITIONING_ARCHETYPES } from "@/lib/types/business-context";
+import { PILLAR_NAMES, type PillarKey } from "@/lib/types/advertis-vector";
+import { LEVEL_LABEL, type ValidationLevel } from "@/lib/utils/pillar-validation";
 
 export type MestorContext = "cockpit" | "creator" | "console" | "intake";
+
+/**
+ * Etat ARTEMIS optionnel — passe a Mestor pour qu'il sache ou en est la marque
+ * dans son cycle de calibrage.
+ */
+export interface MestorArtemisState {
+  validatedCount: number;
+  startedCount: number;
+  pendingCount: number;
+  recommendedNextPillar: PillarKey | null;
+  recommendedReason?: string;
+  pillarLevels: Record<PillarKey, ValidationLevel>;
+}
 
 const SYSTEM_PROMPTS: Record<MestorContext, string> = {
   cockpit: `Tu es Mestor, l'assistant IA du Brand OS de LaFusee. Tu aides le client a comprendre sa marque via le protocole ADVE-RTIS.
@@ -50,16 +65,53 @@ Regles :
 };
 
 /**
- * Returns the base system prompt, optionally enriched with business context.
+ * Returns the base system prompt, optionally enriched with business context
+ * and the current ARTEMIS calibration state.
  */
-export function getSystemPrompt(context: MestorContext, bizContext?: BusinessContext | null): string {
+export function getSystemPrompt(
+  context: MestorContext,
+  bizContext?: BusinessContext | null,
+  artemisState?: MestorArtemisState | null
+): string {
   let prompt = SYSTEM_PROMPTS[context];
 
   if (bizContext) {
     prompt += "\n\n" + buildBusinessContextBlock(bizContext);
   }
 
+  if (artemisState) {
+    prompt += "\n\n" + buildArtemisStateBlock(artemisState);
+  }
+
   return prompt;
+}
+
+/**
+ * Construit un bloc decrivant l'etat ARTEMIS pour que Mestor sache quel pilier
+ * est en cours de travail et adapte ses suggestions.
+ */
+function buildArtemisStateBlock(state: MestorArtemisState): string {
+  const lines = [
+    "--- ETAT ARTEMIS DE LA MARQUE ---",
+    `Calibrage : ${state.validatedCount}/8 piliers validés, ${state.startedCount} en cours, ${state.pendingCount} restants.`,
+  ];
+
+  if (state.recommendedNextPillar) {
+    lines.push(
+      `Pilier recommandé maintenant : ${PILLAR_NAMES[state.recommendedNextPillar]} (${state.recommendedNextPillar.toUpperCase()}).`
+    );
+    if (state.recommendedReason) lines.push(`Raison : ${state.recommendedReason}`);
+  }
+
+  const pillarLines = (Object.entries(state.pillarLevels) as Array<[PillarKey, ValidationLevel]>)
+    .map(([k, lvl]) => `  ${k.toUpperCase()} ${PILLAR_NAMES[k]} : ${LEVEL_LABEL[lvl]}`)
+    .join("\n");
+  lines.push("Niveau par pilier :\n" + pillarLines);
+
+  lines.push("--- FIN ETAT ARTEMIS ---");
+  lines.push("Tes recommandations doivent prioriser le pilier recommandé. Si l'utilisateur demande conseil sur un pilier verrouillé, explique d'abord les prérequis manquants.");
+
+  return lines.join("\n");
 }
 
 export function getContextLabel(context: MestorContext): string {

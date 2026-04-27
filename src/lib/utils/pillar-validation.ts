@@ -17,6 +17,7 @@ export interface PillarValidation {
   level: ValidationLevel;
   // Pourcentages 0-1
   atomsRatio: number;
+  keyAtomsRatio: number;
   collectionsRatio: number;
   crossRefsRatio: number;
   confidence: number;
@@ -27,6 +28,10 @@ export interface PillarValidation {
   // Atomes manquants (pour audit)
   atomsFilled: number;
   atomsRequired: number;
+  keyAtomsFilled: number;
+  keyAtomsRequired: number;
+  // Flag UI : utilisateur a explicitement passe ce pilier
+  skipped: boolean;
 }
 
 export interface PillarRequirements {
@@ -93,30 +98,74 @@ export const PILLAR_REQUIREMENTS: Record<PillarKey, PillarRequirements> = {
 };
 
 /**
- * Compte les atomes valides dans un objet de contenu.
- * Un atome est valide si la valeur n'est pas vide (null, "", undefined, [], {}).
+ * Cles meta exclues du compte d'atomes (etat interne, pas du contenu de marque).
+ * Toute cle commencant par "_" est consideree meta.
  */
-export function countAtoms(content: Record<string, unknown> | null | undefined): number {
-  if (!content) return 0;
-  return Object.values(content).filter(isFilledValue).length;
+function isMetaKey(key: string): boolean {
+  return key.startsWith("_");
+}
+
+/**
+ * Garde defensif : retourne un objet sain, vide si l'input est corrompu
+ * (string, array, primitive). Filtre aussi les cles meta.
+ */
+function sanitizeContent(content: unknown): Record<string, unknown> {
+  if (!content || typeof content !== "object" || Array.isArray(content)) return {};
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(content as Record<string, unknown>)) {
+    if (!isMetaKey(k)) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * Compte les atomes valides dans un objet de contenu.
+ * Un atome est valide si la valeur n'est pas vide (null, "", undefined, [], {})
+ * et si sa cle n'est pas une cle meta (prefixee par "_").
+ */
+export function countAtoms(content: unknown): number {
+  const safe = sanitizeContent(content);
+  return Object.values(safe).filter(isFilledValue).length;
+}
+
+/**
+ * Compte les atomes "key" — les cles attendues dans la registry du pilier.
+ * Ces atomes pesent plus pour determiner le niveau de validation.
+ */
+export function countKeyAtoms(content: unknown, pillar: PillarKey): number {
+  const safe = sanitizeContent(content);
+  const expected = new Set(PILLAR_REQUIREMENTS[pillar].keyAtoms);
+  let count = 0;
+  for (const [k, v] of Object.entries(safe)) {
+    if (expected.has(k) && isFilledValue(v)) count++;
+  }
+  return count;
 }
 
 /**
  * Compte les collections "complètes" (tableaux >= 2 elements).
  */
-export function countCollections(content: Record<string, unknown> | null | undefined): number {
-  if (!content) return 0;
-  return Object.values(content).filter((v) => Array.isArray(v) && v.length >= 2).length;
+export function countCollections(content: unknown): number {
+  const safe = sanitizeContent(content);
+  return Object.values(safe).filter((v) => Array.isArray(v) && v.length >= 2).length;
 }
 
 /**
  * Compte les cross-references (chaines pointant vers autres entites).
  */
-export function countCrossRefs(content: Record<string, unknown> | null | undefined): number {
-  if (!content) return 0;
-  return Object.values(content).filter(
+export function countCrossRefs(content: unknown): number {
+  const safe = sanitizeContent(content);
+  return Object.values(safe).filter(
     (v) => typeof v === "string" && /^(strategy_|driver_|campaign_|mission_|asset_|signal_)/.test(v)
   ).length;
+}
+
+/**
+ * Indique si le pilier a ete explicitement passe par l'utilisateur.
+ */
+export function isPillarSkipped(content: unknown): boolean {
+  if (!content || typeof content !== "object" || Array.isArray(content)) return false;
+  return (content as Record<string, unknown>)._skipped === true;
 }
 
 function isFilledValue(v: unknown): boolean {
@@ -129,40 +178,66 @@ function isFilledValue(v: unknown): boolean {
 
 /**
  * Calcule le niveau de validation d'un pilier a partir de son contenu.
+ *
+ * Le niveau prend en compte :
+ *  - le ratio d'atomes-cles remplis (registry, prioritaire)
+ *  - le ratio total d'atomes (incluant atomes libres)
+ *  - les collections et cross-refs
+ *  - la confidence qualitative
+ *  - le flag _skipped (sort le pilier de EMPTY mais ne le promeut pas)
  */
 export function validatePillar(
   pillar: PillarKey,
-  content: Record<string, unknown> | null | undefined,
+  content: unknown,
   confidence: number = 0
 ): PillarValidation {
   const req = PILLAR_REQUIREMENTS[pillar];
   const atoms = countAtoms(content);
+  const keyAtoms = countKeyAtoms(content, pillar);
   const collections = countCollections(content);
   const crossRefs = countCrossRefs(content);
+  const skipped = isPillarSkipped(content);
 
+  const keyAtomsRequired = req.keyAtoms.length;
+  const keyAtomsRatio = keyAtomsRequired > 0 ? keyAtoms / keyAtomsRequired : 0;
   const atomsRatio = req.atomsRequired > 0 ? atoms / req.atomsRequired : 0;
   const collectionsRatio = req.collectionsRequired > 0 ? collections / req.collectionsRequired : 0;
   const crossRefsRatio = req.crossRefsRequired > 0 ? crossRefs / req.crossRefsRequired : 0;
 
+  // Ratio composite pour la projection : pondere keyAtoms (60%) et atomes libres (40%)
+  const compositeAtomRatio = keyAtomsRatio * 0.6 + atomsRatio * 0.4;
+
   // Score projete (formule Annexe G, max 25)
   const projectedScore = Math.min(
     25,
-    Math.min(1, atomsRatio) * 15 + Math.min(1, collectionsRatio) * 7 + Math.min(1, crossRefsRatio) * 3
+    Math.min(1, compositeAtomRatio) * 15 + Math.min(1, collectionsRatio) * 7 + Math.min(1, crossRefsRatio) * 3
   );
 
-  // Determination du niveau
+  // Determination du niveau — pilote par les keyAtoms
   let level: ValidationLevel;
-  if (atoms === 0) level = "EMPTY";
-  else if (atomsRatio < 0.3) level = "STARTED";
-  else if (atomsRatio >= 0.6 && collectionsRatio >= 0.5 && crossRefsRatio >= 0.5 && confidence >= 0.6) level = "VALIDATED";
-  else if (atomsRatio >= 0.6 && collectionsRatio >= 0.5) level = "COHERENT";
-  else level = "PARTIAL";
+  if (atoms === 0 && !skipped) {
+    level = "EMPTY";
+  } else if (skipped && keyAtoms === 0) {
+    // Skipped explicitement et pas de contenu reel : reste STARTED pour signaler que c'etait un choix
+    level = "STARTED";
+  } else if (keyAtomsRatio < 0.3) {
+    level = "STARTED";
+  } else if (keyAtomsRatio >= 0.6 && collectionsRatio >= 0.5 && crossRefsRatio >= 0.5 && confidence >= 0.6) {
+    level = "VALIDATED";
+  } else if (keyAtomsRatio >= 0.6 && collectionsRatio >= 0.5) {
+    level = "COHERENT";
+  } else {
+    level = "PARTIAL";
+  }
 
   // Gaps lisibles
   const gaps: string[] = [];
-  if (atomsRatio < 0.6) {
-    const missing = Math.max(0, Math.ceil(req.atomsRequired * 0.6) - atoms);
-    gaps.push(`${missing} atomes-clés manquants pour atteindre la cohérence (${atoms}/${req.atomsRequired})`);
+  if (skipped) {
+    gaps.push("Pilier explicitement passé — peut être repris à tout moment");
+  }
+  if (keyAtomsRatio < 0.6) {
+    const missing = Math.max(0, Math.ceil(keyAtomsRequired * 0.6) - keyAtoms);
+    gaps.push(`${missing} atomes-clés manquants (${keyAtoms}/${keyAtomsRequired} de la registry)`);
   }
   if (collectionsRatio < 0.5) {
     gaps.push(`Collections incomplètes (${collections}/${req.collectionsRequired})`);
@@ -170,7 +245,7 @@ export function validatePillar(
   if (crossRefsRatio < 0.5) {
     gaps.push(`Liens vers autres entités manquants (${crossRefs}/${req.crossRefsRequired})`);
   }
-  if (confidence < 0.6 && atoms > 0) {
+  if (confidence < 0.6 && atoms > 0 && !skipped) {
     gaps.push(`Confiance qualitative basse (${(confidence * 100).toFixed(0)}%)`);
   }
 
@@ -178,6 +253,7 @@ export function validatePillar(
     pillar,
     level,
     atomsRatio: Math.round(atomsRatio * 100) / 100,
+    keyAtomsRatio: Math.round(keyAtomsRatio * 100) / 100,
     collectionsRatio: Math.round(collectionsRatio * 100) / 100,
     crossRefsRatio: Math.round(crossRefsRatio * 100) / 100,
     confidence,
@@ -185,6 +261,9 @@ export function validatePillar(
     gaps,
     atomsFilled: atoms,
     atomsRequired: req.atomsRequired,
+    keyAtomsFilled: keyAtoms,
+    keyAtomsRequired,
+    skipped,
   };
 }
 

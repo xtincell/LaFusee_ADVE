@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   validatePillar,
   countAtoms,
+  countKeyAtoms,
   countCollections,
   countCrossRefs,
+  isPillarSkipped,
   PILLAR_REQUIREMENTS,
 } from "@/lib/utils/pillar-validation";
 
@@ -51,7 +53,15 @@ describe("pillar-validation", () => {
     it("STARTED with very few atoms", () => {
       const result = validatePillar("a", { vision: "test" }, 0.5);
       expect(result.level).toBe("STARTED");
-      expect(result.atomsRatio).toBeLessThan(0.3);
+      expect(result.keyAtomsRatio).toBeLessThan(0.3);
+    });
+
+    it("STARTED only when explicitly skipped without content", () => {
+      const result = validatePillar("a", { _skipped: true, _skipped_at: "x" }, 0.2);
+      expect(result.level).toBe("STARTED");
+      expect(result.skipped).toBe(true);
+      // Le skip ne doit PAS gonfler le compte d'atomes
+      expect(result.atomsFilled).toBe(0);
     });
 
     it("PARTIAL with moderate atoms but no collections", () => {
@@ -96,6 +106,53 @@ describe("pillar-validation", () => {
       for (let i = 0; i < 100; i++) tons[`atom_${i}`] = ["a", "b"];
       const result = validatePillar("v", tons, 1);
       expect(result.projectedScore).toBeLessThanOrEqual(25);
+    });
+
+    it("garbage non-key atoms cannot push past STARTED alone", () => {
+      const garbage: Record<string, unknown> = {};
+      for (let i = 0; i < 50; i++) garbage[`random_${i}`] = "junk value";
+      const result = validatePillar("a", garbage, 0.9);
+      // Sans aucun keyAtom rempli, ne peut pas atteindre PARTIAL
+      expect(["STARTED", "PARTIAL"]).toContain(result.level);
+      expect(result.keyAtomsFilled).toBe(0);
+    });
+
+    it("survives corrupt non-object content (string, array)", () => {
+      const r1 = validatePillar("a", "garbage string" as unknown, 0);
+      const r2 = validatePillar("a", [1, 2, 3] as unknown, 0);
+      expect(r1.level).toBe("EMPTY");
+      expect(r2.level).toBe("EMPTY");
+      expect(r1.projectedScore).toBe(0);
+      expect(r2.projectedScore).toBe(0);
+    });
+
+    it("meta keys (_skipped, _meta) are not counted as atoms", () => {
+      const content = { _skipped: true, _meta_x: "y", _foo: "bar" };
+      expect(countAtoms(content)).toBe(0);
+      expect(countCollections(content)).toBe(0);
+    });
+  });
+
+  describe("countKeyAtoms", () => {
+    it("only counts registered keyAtoms", () => {
+      // pillar a registry: vision, mission, origin, values, archetype, ...
+      const content = { vision: "v", mission: "m", random_atom: "ra" };
+      expect(countKeyAtoms(content, "a")).toBe(2);
+    });
+
+    it("returns 0 for unrelated content", () => {
+      expect(countKeyAtoms({ random: "x" }, "a")).toBe(0);
+    });
+  });
+
+  describe("isPillarSkipped", () => {
+    it("returns true when _skipped flag set", () => {
+      expect(isPillarSkipped({ _skipped: true })).toBe(true);
+    });
+    it("returns false otherwise", () => {
+      expect(isPillarSkipped({ vision: "x" })).toBe(false);
+      expect(isPillarSkipped(null)).toBe(false);
+      expect(isPillarSkipped("string")).toBe(false);
     });
   });
 

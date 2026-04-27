@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init";
 import * as quickIntakeService from "@/server/services/quick-intake";
+import { planSequence } from "@/server/services/artemis-sequencer";
+import { captureEvent } from "@/server/services/knowledge-capture";
 
 export const quickIntakeRouter = createTRPCRouter({
   start: publicProcedure
@@ -99,6 +101,26 @@ export const quickIntakeRouter = createTRPCRouter({
           convertedToId: strategy.id,
         },
       });
+
+      // Genere le plan ARTEMIS initial pour la nouvelle strategy et capture l'event
+      try {
+        const initialPlan = await planSequence(strategy.id);
+        await captureEvent("DIAGNOSTIC_RESULT", {
+          businessModel: intake.businessModel ?? undefined,
+          sector: intake.sector ?? undefined,
+          data: {
+            type: "artemis_plan_generated",
+            strategyId: strategy.id,
+            recommendedNext: initialPlan.recommendedNextPillar,
+            validatedCount: initialPlan.validatedCount,
+            startedCount: initialPlan.startedCount,
+            pendingCount: initialPlan.pendingCount,
+          },
+          sourceId: `${strategy.id}-artemis-init`,
+        });
+      } catch {
+        // Le plan reste calculable a la demande — ne bloque pas la conversion
+      }
 
       // Capture knowledge event
       await ctx.db.knowledgeEntry.create({

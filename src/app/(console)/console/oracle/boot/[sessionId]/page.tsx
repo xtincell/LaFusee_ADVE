@@ -21,19 +21,25 @@ export default function BootSessionPage({ params }: { params: Promise<{ sessionI
     { pillar: activePillar! },
     { enabled: !!activePillar }
   );
+  const canCompleteQuery = trpc.bootSequence.canComplete.useQuery({ strategyId: sessionId });
   const advanceMutation = trpc.bootSequence.advance.useMutation({
     onSuccess: () => {
       void stateQuery.refetch();
+      void canCompleteQuery.refetch();
       setDraft({});
       setError(null);
     },
     onError: (e) => setError(e.message),
   });
   const skipMutation = trpc.bootSequence.skip.useMutation({
-    onSuccess: () => void stateQuery.refetch(),
+    onSuccess: () => {
+      void stateQuery.refetch();
+      void canCompleteQuery.refetch();
+    },
   });
   const completeMutation = trpc.bootSequence.complete.useMutation({
     onSuccess: () => void stateQuery.refetch(),
+    onError: (e) => setError(e.message),
   });
 
   // Auto-select recommended pillar on first load
@@ -117,26 +123,27 @@ export default function BootSessionPage({ params }: { params: Promise<{ sessionI
         />
       )}
 
-      {/* CTA TERMINER (visible quand >= 4 piliers cohérents) */}
-      {state.validatedCount + state.startedCount >= 4 && (
-        <div className="rounded-xl border bg-card p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h3 className="font-semibold">Prêt pour le scoring final ?</h3>
-              <p className="text-sm text-muted-foreground">
-                {state.validatedCount}/8 piliers validés. Le scoring ADVE-RTIS calculera le composite et la classification.
-              </p>
-            </div>
-            <button
-              onClick={handleComplete}
-              disabled={completeMutation.isPending}
-              className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              {completeMutation.isPending ? "Calcul..." : "Lancer le scoring final"}
-            </button>
+      {/* CTA TERMINER — gated par canComplete */}
+      <div className="rounded-xl border bg-card p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h3 className="font-semibold">
+              {canCompleteQuery.data?.allowed ? "Prêt pour le scoring final" : "Scoring final verrouillé"}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {canCompleteQuery.data?.reason ?? "Vérification des prérequis…"}
+            </p>
           </div>
+          <button
+            onClick={handleComplete}
+            disabled={completeMutation.isPending || !canCompleteQuery.data?.allowed}
+            className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            title={!canCompleteQuery.data?.allowed ? canCompleteQuery.data?.reason : undefined}
+          >
+            {completeMutation.isPending ? "Calcul..." : "Lancer le scoring final"}
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
