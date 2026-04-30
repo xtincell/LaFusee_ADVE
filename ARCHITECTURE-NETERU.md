@@ -1,7 +1,7 @@
 ARCHITECTURE NETERU — Gouvernance des Services
 ================================================
 
-Version: 1.0 — 2026-04-12
+Version: 1.1 — 2026-04-30 (ajout Ptah)
 
 Nomenclature
 ------------
@@ -16,11 +16,12 @@ CERVEAUX
 
 ### NETERU — Cerveau Strategique
 
-| Neter | Role | Fichiers racine |
-|-------|------|-----------------|
-| **Mestor** | Decision strategique | `services/mestor/` (hyperviseur, commandant, rtis-cascade, insights) |
-| **Artemis** | Orchestration & execution | `services/artemis/` (frameworks, tools/, sequences) |
-| **Seshat** | Observation & intelligence | `services/seshat/` (references, tarsis/) |
+| Neter | Verbe | Role | Fichiers racine |
+|-------|-------|------|-----------------|
+| **Mestor** | Decider | Decision strategique | `services/mestor/` (hyperviseur, commandant, rtis-cascade, insights) |
+| **Artemis** | Orchestrer | Orchestration & execution | `services/artemis/` (frameworks, tools/, sequences) |
+| **Seshat** | Observer | Observation & intelligence | `services/seshat/` (references, tarsis/) |
+| **Ptah** | Fabriquer | Production creative (assets image / video / audio / icones) | `services/ptah/` (gateway Magnific, foundries, refiner) — voir `PTAH-NETERU.md` |
 
 ### Thot — Cerveau Financier
 
@@ -104,6 +105,26 @@ ATTRIBUTION DES 65 SERVICES
 | staleness-propagator | `services/staleness-propagator/` | Cascade staleness piliers |
 | audit-trail | `services/audit-trail/` | Logs evenements |
 
+### Sous Ptah (Production creative — Magnific)
+
+Detail complet dans `PTAH-NETERU.md`.
+
+| Service | Fichier | Role |
+|---------|---------|------|
+| ptah | `services/ptah/` | Coordinateur Ptah, pipeline runner, quality gates |
+| magnific-gateway | `services/magnific-gateway/` | Abstraction REST Magnific (auth, retry, webhook, rate-limit) |
+| image-foundry | `services/image-foundry/` | Mystic, Flux, Imagen, Nano Banana Pro, Seedream |
+| video-foundry | `services/video-foundry/` | Kling, WAN, Veo, PixVerse, Seedance, LTX, Runway |
+| voice-foundry | `services/voice-foundry/` | TTS, voice cloning, sound effects, lip sync, audio isolation |
+| icon-foundry | `services/icon-foundry/` | Text-to-icon (PNG/SVG, 5 styles) |
+| asset-refiner | `services/asset-refiner/` | Upscale Creative + Precision, Relight, Style Transfer, Inpaint, Outpaint, Change Camera, Bg Removal |
+| prompt-foundry | `services/prompt-foundry/` | improve-prompt + image-to-prompt + Bible injection |
+| stock-discovery | `services/stock-discovery/` | Search 250M+ assets stock Magnific |
+| asset-cdn-bridge | `services/asset-cdn-bridge/` | Ingestion URL signee 12h vers CDN durable |
+| creative-cost-tracker | `services/creative-cost-tracker/` | Pre-flight estimate + post-execution reconcile |
+| creative-quality-gate | `services/creative-quality-gate/` | AI Classifier + brand fidelity + resolution check |
+| magnific-mcp-bridge | `services/magnific-mcp-bridge/` | Client MCP remote vers api.magnific.com/mcp |
+
 ### Sous Thot (Finances)
 
 | Service | Fichier | Role |
@@ -154,6 +175,15 @@ Vault → Notoria : cree des Recommendation rows (source=VAULT)
 Auto-filler → Thot : valide benchmarks financiers
 Scorer → Jehuty : signaux de drift
 Bible → Gateway : validateAgainstBible() a chaque ecriture
+
+# Connexions Ptah (nouvelles, v1.1)
+Artemis sequences → Ptah : invoke generate / refine via magnific-gateway
+Mestor briefs → Ptah : pipeline-orchestrator declenche pipeline creatif
+Ptah → Thot : creative-cost-tracker.estimate avant chaque generation
+Ptah → Seshat : signal CREATIVE_OUTPUT_READY → asset-tagger
+Ptah → Jehuty : NEW_KV_AVAILABLE + CREATIVE_BUDGET_THRESHOLD + COST_DEVIATION
+Bible → Ptah : prompt-foundry charge variables marque obligatoires
+Pillar Gateway ← Ptah : asset → pilier passe TOUJOURS par Gateway (LOI 1)
 ```
 
 ---
@@ -167,6 +197,9 @@ VERROUS DE SECURITE
 4. **Confidence gates** : confiance < 0.5 → requires_review
 5. **Thot (verrou financier)** : validateFinancials() bloque les incoherences budget
 6. **LOCKED status** : seul OPERATOR peut modifier un pilier LOCKED
+7. **Ptah Cost Gate** : creative-cost-tracker.estimate() avant tout call Magnific
+8. **Ptah Quality Gate** : creative-quality-gate (AI Classifier + brand fidelity + resolution) avant livraison
+9. **Webhook Signature Gate** : signature HMAC verifiee sur tout callback Magnific
 
 ---
 
@@ -181,12 +214,15 @@ Chaque cerveau a un fichier `governance.ts` qui importe et expose ses services :
 | `services/artemis/governance.ts` | 21 services |
 | `services/seshat/governance.ts` | 15 services |
 | `services/financial-brain/governance.ts` | 5 services |
-| `services/neteru-shared/governance-registry.ts` | Registre central (66 services mappes) |
+| `services/ptah/governance.ts` | 12 services (Magnific) |
+| `services/neteru-shared/governance-registry.ts` | Registre central (78 services mappes) |
 
 API du registre :
 - `getGovernor("campaign-manager")` → `"ARTEMIS"`
+- `getGovernor("magnific-gateway")` → `"PTAH"`
 - `getGovernedServices("SESHAT")` → `["knowledge-capture", ...]`
-- `auditGovernance()` → `{ assigned: 66, unassigned: [] }`
+- `getGovernedServices("PTAH")` → `["magnific-gateway", "image-foundry", ...]`
+- `auditGovernance()` → `{ assigned: 78, unassigned: [] }`
 
 ---
 

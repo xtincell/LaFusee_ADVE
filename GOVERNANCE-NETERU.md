@@ -1,24 +1,25 @@
 GOVERNANCE NETERU — Politique (draft)
 ===================================
 
-Version: 0.1 — 2026-04-11
+Version: 0.2 — 2026-04-30 (extension Ptah)
 
 Objectif
 --------
 Décrire une politique opérationnelle et technique pour gouverner les recommandations produites par
-NETERU (Mestor / Artemis / Seshat) : traçabilité, sécurité, qualité, contrôle humain et observabilité.
+NETERU (Mestor / Artemis / Seshat / **Ptah**) : traçabilité, sécurité, qualité, contrôle humain et observabilité.
 
 Portée
 ------
-S'applique à toutes les sorties automatisées étiquetées `recommendation`, `reco`, `rtis`, `oracle` ou
-produites par les sequences GLORY orchestrées par Artemis et/ou Mestor. Ne couvre pas les opérations
-bas niveau infra (deploy, infra-as-code) mais couvre les intégrations (campaign-manager, driver-engine,
-vault, feedback-loop).
+S'applique à toutes les sorties automatisées étiquetées `recommendation`, `reco`, `rtis`, `oracle`,
+`creative_output`, `asset` ou produites par les sequences GLORY orchestrées par Artemis et/ou Mestor,
+ainsi que par les pipelines Ptah branchés sur l'API Magnific. Ne couvre pas les opérations bas niveau
+infra (deploy, infra-as-code) mais couvre les intégrations (campaign-manager, driver-engine, vault,
+feedback-loop, magnific-gateway).
 
 Principes
 ---------
-- Séparation des rôles : `Mestor` (décision), `Artemis` (orchestration), `Seshat` (observation). La gouvernance
-  est une couche transverse (policy + humains).  
+- Séparation des rôles : `Mestor` (décision), `Artemis` (orchestration), `Seshat` (observation),
+  `Ptah` (production créative). La gouvernance est une couche transverse (policy + humains).  
 - Provenance obligatoire : toute reco porte sa source, sa confiance, et un snapshot d'entrée.  
 - Minimal Safe‑Action : bloquer automatiquement les actions destructrices sans approbation.  
 - Transparence & Explainability : résumé court (top‑3 raisons) attaché à chaque reco.  
@@ -115,6 +116,65 @@ Exemples de règles rapides
 --------------------------
 - Budget recommendation: call to `financial-brain.validateFinancials(...)` required.  
 - Persona SET on `d.personas`: `destructive=true` so 2 approvals required.  
+- Asset Magnific généré sur campagne `humanOnly=true` avec `classifierScore.ai > 0.5` → BLOCK.
+- Toute génération Ptah > 1 EUR estimée → cost gate Thot avec review humaine.
+
+Extension Ptah (production créative)
+-------------------------------------
+Politique spécifique aux sorties générées via Magnific (image, vidéo, audio, icônes). Détail complet
+dans `PTAH-NETERU.md`, résumé ici :
+
+### Métadonnées additionnelles obligatoires
+
+En plus du schéma minimal recommendation, tout `CreativeOutput` doit porter :
+
+- `taskId` (Magnific), `model`, `modelVersion`, `seed`
+- `prompt` (final, après improve-prompt) + `promptOriginal`
+- `inputs[]` : tableau de refs (URL ou base64 hash) avec type
+- `costEstimateEUR` + `costActualEUR`
+- `cdnUrl` (URL durable post asset-cdn-bridge) + `expiresAt` (T+12h Magnific)
+- `classifierScore` (AI vs not_ai) + `brandFidelityScore`
+- `rights` : `commercial` | `editorial` | `research`
+- `triggeredBy` : `{ agent, ref }`
+
+### Quality Gates additionnelles
+
+| Gate | Action si fail |
+|------|----------------|
+| G1 Cost gate (`creative-cost-tracker.estimate <= remaining(budgetLine)`) | BLOCK + alerte Thot |
+| G2 Bible gate (variables marque obligatoires injectées) | WARN + continue |
+| G3 Concurrency gate (rate-limit Magnific par modèle) | QUEUE |
+| G4 Resolution gate (output >= spec.minDimensions) | BLOCK avant livraison |
+| G5 IP safety gate (input utilisateur, AI Classifier) | WARN |
+| G6 Human-only gate (campagne flag, AI score > 0.5) | BLOCK + escalade |
+| G7 Brand fidelity gate (similarité avec BrandAsset references < 0.6) | BLOCK |
+| G8 Webhook integrity gate (signature HMAC + task_id connu) | DROP silencieux + log |
+
+### Apply Policy spécifique aux assets
+
+| Cas | Policy |
+|-----|--------|
+| Asset stock (Magnific 250M+) téléchargé via stock-discovery | `auto` (commercial license validée) |
+| Asset généré IA, campagne sans contrainte | `suggest` |
+| Asset généré IA, campagne `humanOnly=true` | `requires_review` |
+| Asset issu de Style Transfer / Relight d'un BrandAsset | `auto` si fidelity >= 0.8, sinon `suggest` |
+| Asset > 5 EUR de coût unitaire | `requires_review` (operator + budget owner) |
+
+### Audit trail créatif
+
+- Log immuable `logs/ptah-execution.jsonl` : un événement par appel Magnific
+  (CREATED, IN_PROGRESS, COMPLETED, FAILED, CDN_INGESTED, GATE_REJECTED)
+- Conservation 90 jours des inputs (URL ou hash base64) pour reproductibilité
+- Lien `CreativeOutput.id ↔ AICostLog.id ↔ KnowledgeEntry.id` pour traçabilité
+  bout-en-bout
+
+### Ownership Ptah
+
+- **Production Lead** (Ptah governor) : valide modèles utilisés, seuils coût,
+  policy par campagne
+- **Creative Director** : valide brand-fidelity threshold + références BrandAsset
+- **Cost Owner (Thot)** : valide cap par campagne + alertes seuils
+- **Operator** : revue manuelle des assets en `requires_review`
 
 Prochaine étape proposée
 -----------------------
